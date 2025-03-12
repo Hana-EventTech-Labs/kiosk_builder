@@ -2,6 +2,8 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 
+from config import config
+
 class CompleteScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
         super().__init__()
@@ -29,4 +31,4 @@ class CompleteScreen(QWidget):
     def showEvent(self, event):
         """화면이 표시될 때 2초 후 스플래시 화면으로 이동"""
         next_index = self.main_window.getNextScreenIndex()
-        QTimer.singleShot(2000, lambda: self.stack.setCurrentIndex(next_index))  # 2초 후 스플래시로 이동
+        QTimer.singleShot(config["complete_time"], lambda: self.stack.setCurrentIndex(next_index))  # 2초 후 스플래시로 이동

@@ -4,5 +4,7 @@
         "width": 1920,
         "height": 1080
     },
-    "screen_order": [0, 1, 2]
+    "screen_order": [0, 1, 2],
+    "process_time": 3000,
+    "complete_time": 2000
 }
