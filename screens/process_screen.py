@@ -29,8 +29,6 @@ class ProcessScreen(QWidget):
         background_label.resize(*self.screen_size)  # 전체 화면 크기로 설정
     
     def showEvent(self, event):
-        """화면이 표시될 때 3초 후 완료화면으로 이동"""
-        print("ProcessScreen에서 중앙 상태:", self.main_window.current_index)
         next_index = self.main_window.getNextScreenIndex()
         QTimer.singleShot(3000, lambda: self.stack.setCurrentIndex(next_index))
         
