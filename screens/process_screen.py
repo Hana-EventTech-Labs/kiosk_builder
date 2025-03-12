@@ -3,7 +3,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 
 from config import screen_order
-
+from printer_utils.printer_thread import PrinterThread
 class ProcessScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
         super().__init__()
@@ -11,6 +11,8 @@ class ProcessScreen(QWidget):
         self.screen_size = screen_size
         self.main_window = main_window
         self.setupUI()
+        self.printer_thread = PrinterThread()
+        self.printer_thread.start()
     
     def setupUI(self):
         self.setupBackground()
