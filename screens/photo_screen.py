@@ -5,7 +5,7 @@ from PySide6.QtGui import QPixmap
 from printer_utils.printer_thread import PrinterThread
 from config import config
 
-class ProcessScreen(QWidget):
+class PhotoScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
         super().__init__()
         self.stack = stack
@@ -20,7 +20,7 @@ class ProcessScreen(QWidget):
         self.setLayout(layout)
     
     def setupBackground(self):
-        pixmap = QPixmap("resources/process_bg.jpg")  # 이미지 로드
+        pixmap = QPixmap("resources/photo_bg.jpg")  # 이미지 로드
         background_label = QLabel(self)
         background_label.setPixmap(pixmap)
         background_label.setScaledContents(True)  # QLabel 크기에 맞게 이미지 조정

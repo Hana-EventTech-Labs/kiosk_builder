@@ -16,9 +16,6 @@ class CompleteScreen(QWidget):
         self.setupBackground()
         layout = QVBoxLayout()
 
-        self.complete_label = QLabel("발급이 완료되었습니다!")
-
-        layout.addWidget(self.complete_label)
         self.setLayout(layout)
 
     def setupBackground(self):
