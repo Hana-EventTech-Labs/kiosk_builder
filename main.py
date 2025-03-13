@@ -1,11 +1,11 @@
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QPushButton
+from PySide6.QtCore import Qt, QCoreApplication
 from screens.splash_screen import SplashScreen
 from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
-from config import config, screen_order
+from config import config
 
 class KioskApp(QMainWindow):
     def __init__(self):
@@ -42,15 +42,24 @@ class KioskApp(QMainWindow):
 
     def getNextScreenIndex(self):
         # 중앙 상태와 screen_order를 이용해 다음 스크린 인덱스를 결정하는 로직
-        if self.current_index + 1 < len(screen_order):
+        if self.current_index + 1 < len(config["screen_order"]):
             self.current_index += 1
         else:
             self.current_index = 0
-        return screen_order[self.current_index]
+        return config["screen_order"][self.current_index]
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
             self.close()
+    
+    def closeApplication(self):
+        """앱 종료 동작"""
+        QCoreApplication.instance().quit()  # 전체 애플리케이션 종료
+
+    def closeEvent(self, event):
+        """위젯이 닫힐 때 호출되는 이벤트 핸들러"""
+        self.closeApplication()  # close_application 호출
+        event.accept()
             
 if __name__ == "__main__":
     app = QApplication(sys.argv)
