@@ -1,8 +1,6 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGraphicsOpacityEffect
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGraphicsOpacityEffect, QPushButton
 from PySide6.QtGui import QPixmap
 from PySide6.QtCore import Qt, QPropertyAnimation, QSequentialAnimationGroup
-
-from config import screen_order
 
 class SplashScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
@@ -15,6 +13,7 @@ class SplashScreen(QWidget):
 
     def setupUI(self):
         self.setupBackground()
+        self.addCloseButton()
 
         layout = QVBoxLayout()
 
@@ -62,6 +61,26 @@ class SplashScreen(QWidget):
         self.animation_group.addAnimation(fade_out)
         self.animation_group.setLoopCount(-1)  # 무한 반복
         self.animation_group.start()
+
+    def addCloseButton(self):
+        """오른쪽 상단에 닫기 버튼 추가"""
+        self.close_button = QPushButton("X", self)
+        self.close_button.setFixedSize(100, 100)
+        self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 92, 92, 0);  /* 완전히 투명하게 설정 */
+                color: rgba(255, 255, 255, 0);  /* 텍스트도 완전히 투명하게 설정 (보이지 않음) */
+                font-weight: bold;
+                border: none;
+                border-radius: 20px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(224, 74, 74, 0);  /* 호버 시에도 완전히 투명하게 설정 */
+            }
+        """)
+        self.close_button.clicked.connect(self.main_window.closeApplication)
 
     def mousePressEvent(self, event):
         next_index = self.main_window.getNextScreenIndex()
