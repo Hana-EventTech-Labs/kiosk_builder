@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 
-class PhotoScreen(QWidget):
+class CameraScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
         super().__init__()
         self.stack = stack
