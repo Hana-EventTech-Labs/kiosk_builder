@@ -9,6 +9,24 @@
         "height": 1080
     },
     "screen_order": [0, 1, 2, 3],
+    "frame":{
+        "x": 0,
+        "y": 0,
+        "width": 1280,
+        "height": 720
+    },
+    "image":{
+        "x": 0,
+        "y": 0,
+        "width": 300,
+        "height": 300
+    },
+    "text":{
+        "x": 0,
+        "y": 0,
+        "width": 300,
+        "height": 300
+    },
     "process_time": 3000,
     "complete_time": 2000
 }
