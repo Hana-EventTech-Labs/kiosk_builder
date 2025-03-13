@@ -1,3 +1,4 @@
+from PIL import Image
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
@@ -18,6 +19,7 @@ class ProcessScreen(QWidget):
         self.setupBackground()
         layout = QVBoxLayout()
         self.setLayout(layout)
+        
     
     def setupBackground(self):
         pixmap = QPixmap("resources/process_bg.jpg")  # 이미지 로드
@@ -27,6 +29,13 @@ class ProcessScreen(QWidget):
         background_label.resize(*self.screen_size)  # 전체 화면 크기로 설정
     
     def showEvent(self, event):
+        # 지울 코드임 (카메라 해상도 보기 위한 코드)
+        # image_path = "resources/captured_image.jpg"
+
+        # 이미지 열기
+        # with Image.open(image_path) as img:
+        #     width, height = img.size
+        #     print(f"해상도: {width}x{height}")
         # PrinterThread가 이미 실행 중인지 확인
         if self.printer_thread is None or not self.printer_thread.isRunning():
             self.printer_thread = PrinterThread()  # 새로운 스레드 생성
@@ -36,3 +45,5 @@ class ProcessScreen(QWidget):
         
     # def mousePressEvent(self, event):
     #     self.stack.setCurrentIndex(4)
+
+    

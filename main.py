@@ -7,6 +7,7 @@ from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
 from screens.camera_screen import CameraScreen
 from config import config
+from webcam_utils.webcam_controller import release_camera
 
 class KioskApp(QMainWindow):
     def __init__(self):
@@ -19,7 +20,8 @@ class KioskApp(QMainWindow):
         if getattr(sys, 'frozen', False):
             # 실행파일로 실행한 경우,해당 파일을 보관한 디렉토리의 full path를 취득
             program_directory = os.path.dirname(os.path.abspath(sys.executable))
-            program_directory = os.path.join(program_directory, "_internal")
+            # _internal을 쓸 경우
+            # program_directory = os.path.join(program_directory, "_internal")
         else:
             # 파이썬 파일로 실행한 경우,해당 파일을 보관한 디렉토리의 full path를 취득
             program_directory = os.path.dirname(os.path.abspath(__file__))
@@ -61,6 +63,13 @@ class KioskApp(QMainWindow):
 
     def closeEvent(self, event):
         """위젯이 닫힐 때 호출되는 이벤트 핸들러"""
+        try:
+            # 카메라 자원 해제
+            if hasattr(self, 'photo_screen') and hasattr(self.photo_screen, 'webcam'):
+                if hasattr(self.photo_screen.webcam, 'camera'):
+                    release_camera(self.photo_screen.webcam.camera)
+        except Exception as e:
+            print(f"카메라 자원 해제 오류: {e}")
         self.closeApplication()  # close_application 호출
         event.accept()
             
