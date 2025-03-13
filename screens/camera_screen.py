@@ -9,7 +9,6 @@ class CameraScreen(QWidget):
         self.stack = stack
         self.screen_size = screen_size
         self.main_window = main_window
-        self.printer_thread = None
         self.setupUI()
     
     def setupUI(self):
@@ -31,7 +30,8 @@ class CameraScreen(QWidget):
         )
         self.webcam.setParent(self)
 
-        
+        self.webcam.photo_captured_signal.connect(self.onPhotoCaptured)
+
         layout = QVBoxLayout()
         self.setLayout(layout)
     
@@ -42,6 +42,6 @@ class CameraScreen(QWidget):
         background_label.setScaledContents(True)  # QLabel 크기에 맞게 이미지 조정
         background_label.resize(*self.screen_size)  # 전체 화면 크기로 설정
     
-    def mousePressEvent(self, event):
+    def onPhotoCaptured(self):
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
