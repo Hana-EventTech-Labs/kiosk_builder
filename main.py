@@ -1,10 +1,11 @@
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QPushButton
+from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PySide6.QtCore import Qt, QCoreApplication
 from screens.splash_screen import SplashScreen
 from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
+from screens.photo_screen import PhotoScreen
 from config import config
 
 class KioskApp(QMainWindow):
@@ -33,10 +34,12 @@ class KioskApp(QMainWindow):
     def setupStack(self):
         self.stack = QStackedWidget()
         self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
+        self.photo_screen = PhotoScreen(self.stack, self.screen_size, self)
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
 
         self.stack.addWidget(self.splash_screen)
+        self.stack.addWidget(self.photo_screen)
         self.stack.addWidget(self.process_screen)
         self.stack.addWidget(self.complete_screen)
 
