@@ -3,6 +3,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 
 from config import config
+import os
 
 class CompleteScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
@@ -19,13 +20,32 @@ class CompleteScreen(QWidget):
         self.setLayout(layout)
 
     def setupBackground(self):
-        pixmap = QPixmap("resources/complete_bg.jpg")  # 이미지 로드
+        # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
+        background_files = ["4.png", "4.jpg", "complete_bg.jpg"]
+        
+        pixmap = None
+        for filename in background_files:
+            file_path = f"resources/{filename}"
+            if os.path.exists(file_path):
+                pixmap = QPixmap(file_path)
+                break
+        
+        if pixmap is None or pixmap.isNull():
+            # 모든 파일이 없는 경우 빈 배경 사용
+            pixmap = QPixmap()
+        
         background_label = QLabel(self)
         background_label.setPixmap(pixmap)
-        background_label.setScaledContents(True)  # QLabel 크기에 맞게 이미지 조정
-        background_label.resize(*self.screen_size)  # 전체 화면 크기로 설정
-
+        background_label.setScaledContents(True)
+        background_label.resize(*self.screen_size)
+        
+    def getNextScreenIndex(self):
+        self.current_index = 0
+        return config["screen_order"][self.current_index]
+    
     def showEvent(self, event):
         """화면이 표시될 때 2초 후 스플래시 화면으로 이동"""
         next_index = self.main_window.getNextScreenIndex()
-        QTimer.singleShot(config["complete_time"], lambda: self.stack.setCurrentIndex(next_index))  # 2초 후 스플래시로 이동
+        print(f"완료 화면에서 다음 인덱스: {next_index}, 타이머: {config['complete_time']}ms")
+        QTimer.singleShot(config["complete_time"], 
+                        lambda: self.stack.setCurrentIndex(next_index))

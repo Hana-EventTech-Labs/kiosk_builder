@@ -8,6 +8,7 @@ from screens.complete_screen import CompleteScreen
 from screens.camera_screen import CameraScreen
 from config import config
 from webcam_utils.webcam_controller import release_camera
+from PySide6.QtWidgets import QWidget
 
 class KioskApp(QMainWindow):
     def __init__(self):
@@ -38,19 +39,21 @@ class KioskApp(QMainWindow):
         self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
         self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
+        
+        # 3번 화면 (텍스트 입력) - 더미 위젯으로 대체
+        self.text_input_screen = QWidget()
+        
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
 
-        self.stack.addWidget(self.splash_screen)
-        self.stack.addWidget(self.photo_screen)
-        self.stack.addWidget(self.process_screen)
-        self.stack.addWidget(self.complete_screen)
+        self.stack.addWidget(self.splash_screen)      # 인덱스 0
+        self.stack.addWidget(self.photo_screen)       # 인덱스 1
+        self.stack.addWidget(self.text_input_screen)  # 인덱스 2
+        self.stack.addWidget(self.process_screen)     # 인덱스 3
+        self.stack.addWidget(self.complete_screen)    # 인덱스 4
 
     def getNextScreenIndex(self):
-        # 중앙 상태와 screen_order를 이용해 다음 스크린 인덱스를 결정하는 로직
-        if self.current_index + 1 < len(config["screen_order"]):
-            self.current_index += 1
-        else:
-            self.current_index = 0
+        # screen_order의 다음 인덱스로 이동
+        self.current_index = (self.current_index + 1) % len(config["screen_order"])
         return config["screen_order"][self.current_index]
 
     def keyPressEvent(self, event):

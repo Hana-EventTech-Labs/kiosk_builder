@@ -8,7 +8,7 @@
         "width": 1920,
         "height": 1080
     },
-    "screen_order": [0, 1, 2, 3],
+    "screen_order": [0, 1,3,4],
     "frame":{
         "x": 0,
         "y": 0,
