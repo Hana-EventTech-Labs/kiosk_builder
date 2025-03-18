@@ -1,10 +1,10 @@
-from PIL import Image
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 
 from printer_utils.printer_thread import PrinterThread
 from config import config
+import os
 
 class ProcessScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
@@ -19,23 +19,28 @@ class ProcessScreen(QWidget):
         self.setupBackground()
         layout = QVBoxLayout()
         self.setLayout(layout)
-        
     
     def setupBackground(self):
-        pixmap = QPixmap("resources/process_bg.jpg")  # 이미지 로드
+        # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
+        background_files = ["3.png", "3.jpg", "process_bg.jpg"]
+        
+        pixmap = None
+        for filename in background_files:
+            file_path = f"resources/{filename}"
+            if os.path.exists(file_path):
+                pixmap = QPixmap(file_path)
+                break
+        
+        if pixmap is None or pixmap.isNull():
+            # 모든 파일이 없는 경우 빈 배경 사용
+            pixmap = QPixmap()
+        
         background_label = QLabel(self)
         background_label.setPixmap(pixmap)
-        background_label.setScaledContents(True)  # QLabel 크기에 맞게 이미지 조정
-        background_label.resize(*self.screen_size)  # 전체 화면 크기로 설정
-    
+        background_label.setScaledContents(True)
+        background_label.resize(*self.screen_size)
+        
     def showEvent(self, event):
-        # 지울 코드임 (카메라 해상도 보기 위한 코드)
-        # image_path = "resources/captured_image.jpg"
-
-        # 이미지 열기
-        # with Image.open(image_path) as img:
-        #     width, height = img.size
-        #     print(f"해상도: {width}x{height}")
         # PrinterThread가 이미 실행 중인지 확인
         if self.printer_thread is None or not self.printer_thread.isRunning():
             self.printer_thread = PrinterThread()  # 새로운 스레드 생성
@@ -45,5 +50,3 @@ class ProcessScreen(QWidget):
         
     # def mousePressEvent(self, event):
     #     self.stack.setCurrentIndex(4)
-
-    
