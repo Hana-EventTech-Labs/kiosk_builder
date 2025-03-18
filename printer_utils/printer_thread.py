@@ -3,6 +3,7 @@ from .device_functions import get_device_list, get_device_id, open_device, draw_
 from .image_utils import bitmapinfo_to_image
 from .cffi_defs import ffi, SMART_OPENDEVICE_BYID, PAGE_FRONT, PANELID_COLOR
 from config import config
+import os
 
 class PrinterThread(QThread):
     finished = Signal()
@@ -39,11 +40,22 @@ class PrinterThread(QThread):
                 if result != 0:
                     self.error.emit("이미지 그리기 실패")
                     return
+                    
                 # 폰트 로드
                 font_name = load_font("resources/LAB디지털.ttf")
                 if font_name is None:
                     self.error.emit("폰트 로드 실패")
                     return
+                    
+                # 사용자 입력 텍스트 가져오기
+                input_text = "TEST용 텍스트입니다"  # 기본값
+                if os.path.exists("resources/input_text.txt"):
+                    try:
+                        with open("resources/input_text.txt", "r", encoding="utf-8") as f:
+                            input_text = f.read().strip()
+                    except Exception as e:
+                        self.error.emit(f"텍스트 파일 읽기 실패: {str(e)}")
+                        
                 # 텍스트 그리기
                 result = draw_text2(device_handle,
                                     PAGE_FRONT, PANELID_COLOR,
@@ -51,7 +63,7 @@ class PrinterThread(QThread):
                                     width = config["text"]["width"], height = config["text"]["height"], 
                                     font_name = font_name, 
                                     font_height = 32, font_width = 0, font_style = 0x01, font_color = 0x000000, 
-                                    text = "TEST용 텍스트입니다", 
+                                    text = input_text, 
                                     rotate = 0, align = 0x01 | 0x10, option = 4)
                 if result != 0:
                     self.error.emit("텍스트 그리기 실패")

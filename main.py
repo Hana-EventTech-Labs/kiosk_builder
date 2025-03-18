@@ -6,6 +6,7 @@ from screens.splash_screen import SplashScreen
 from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
 from screens.camera_screen import CameraScreen
+from screens.text_input_screen import TextInputScreen  # 추가된 부분
 from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
@@ -38,11 +39,11 @@ class KioskApp(QMainWindow):
         self.stack = QStackedWidget()
         self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
         self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
+        
+        # 2번 화면 (텍스트 입력)
+        self.text_input_screen = TextInputScreen(self.stack, self.screen_size, self)
+        
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
-        
-        # 3번 화면 (텍스트 입력) - 더미 위젯으로 대체
-        self.text_input_screen = QWidget()
-        
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
 
         self.stack.addWidget(self.splash_screen)      # 인덱스 0
@@ -74,7 +75,8 @@ class KioskApp(QMainWindow):
 
                 #임시 이미지 파일 삭제
                 temp_files = [
-                    "resources/captured_image.jpg"
+                    "resources/captured_image.jpg",
+                    "resources/input_text.txt"  # 추가된 부분: 텍스트 파일도 삭제
                 ]
                 
                 for file_path in temp_files:
