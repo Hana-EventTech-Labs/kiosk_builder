@@ -66,5 +66,13 @@
         "font_size": 30
     },
     "process_time": 3000,
-    "complete_time": 2000
+    "complete_time": 2000,
+    "splash": {
+        "font": "LAB디지털.ttf",
+        "phrase": "스플래시 화면입니다. 클릭하면 넘어갑니다.",
+        "font_size": 32,
+        "font_color": "red",
+        "x": 0,
+        "y": 0
+    }
 }
