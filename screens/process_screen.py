@@ -22,7 +22,7 @@ class ProcessScreen(QWidget):
     
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
-        background_files = ["3.png", "3.jpg", "process_bg.jpg"]
+        background_files = ["background/4.png", "background/4.jpg", "background/process_bg.jpg"]
         
         pixmap = None
         for filename in background_files:

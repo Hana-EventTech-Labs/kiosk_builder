@@ -39,7 +39,7 @@ class CameraScreen(QWidget):
     
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
-        background_files = ["1.png", "1.jpg", "photo_bg.jpg"]
+        background_files = ["background/1.png", "background/1.jpg", "background/photo_bg.jpg"]
         
         pixmap = None
         for filename in background_files:

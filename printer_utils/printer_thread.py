@@ -42,7 +42,7 @@ class PrinterThread(QThread):
                     return
                     
                 # 폰트 로드
-                font_name = load_font("resources/LAB디지털.ttf")
+                font_name = load_font("resources/font/LAB디지털.ttf")
                 if font_name is None:
                     self.error.emit("폰트 로드 실패")
                     return
