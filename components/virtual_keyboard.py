@@ -201,6 +201,7 @@ class VirtualKeyboard(QWidget):
         if self.is_hangul:
             self.hangul_composer.reset()  # 현재 조합 상태만 초기화
         self.insert_text(' ')
+        self.bumper = True
         
     def check_length_limit(self, current_text):
         """
@@ -271,6 +272,8 @@ class VirtualKeyboard(QWidget):
         if parent and hasattr(parent, 'main_window'):
             next_index = parent.main_window.getNextScreenIndex()
             parent.main_window.stack.setCurrentIndex(next_index)
+        
+        self.hangul_composer.reset()
             
     def update_keyboard_labels(self):
         for row_buttons, row_keys in zip(self.button_widgets, self.keys):
