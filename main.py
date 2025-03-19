@@ -51,6 +51,7 @@ class KioskApp(QMainWindow):
         self.stack.addWidget(self.text_input_screen)  # 인덱스 2
         self.stack.addWidget(self.process_screen)     # 인덱스 3
         self.stack.addWidget(self.complete_screen)    # 인덱스 4
+        #TODO QR코드 화면 추가할 예정이라 process와 complete가 각각 4, 5로 변경될 것임
 
     def getNextScreenIndex(self):
         # screen_order의 다음 인덱스로 이동
