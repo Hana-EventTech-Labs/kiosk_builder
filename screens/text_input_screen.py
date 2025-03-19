@@ -68,7 +68,7 @@ class TextInputScreen(QWidget):
     
     def setupBackground(self):
         # First try index-based files (2.jpg, 2.png), then fallback to generic name
-        background_files = ["2.png", "2.jpg", "text_input_bg.jpg"]
+        background_files = ["background/2.png", "background/2.jpg", "background/text_input_bg.jpg"]
         
         pixmap = None
         for filename in background_files:

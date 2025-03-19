@@ -21,7 +21,7 @@ class CompleteScreen(QWidget):
 
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
-        background_files = ["4.png", "4.jpg", "complete_bg.jpg"]
+        background_files = ["background/5.png", "background/5.jpg", "background/complete_bg.jpg"]
         
         pixmap = None
         for filename in background_files:
