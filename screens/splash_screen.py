@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QGraphicsOpacityEffect, QPushButton
-from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QWidget, QLabel, QGraphicsOpacityEffect, QPushButton
+from PySide6.QtGui import QPixmap, QFont, QFontDatabase
 from PySide6.QtCore import Qt, QPropertyAnimation, QSequentialAnimationGroup
 import os
+from config import config
 
 class SplashScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
@@ -9,23 +10,28 @@ class SplashScreen(QWidget):
         self.stack = stack
         self.screen_size = screen_size
         self.main_window = main_window
+        self.loadCustomFont()
         self.setupUI()
         self.startAnimation()
+
+    def loadCustomFont(self):
+        """커스텀 폰트 로드"""
+        font_name = config["splash"]["font"]
+        font_path = os.path.join("resources", "font", font_name)
+        if os.path.exists(font_path):
+            font_id = QFontDatabase.addApplicationFont(font_path)
+            if font_id != -1:
+                self.font_family = QFontDatabase.applicationFontFamilies(font_id)[0]
+            else:
+                self.font_family = "맑은 고딕"  # 폰트 로드 실패 시 기본 폰트
+        else:
+            self.font_family = "맑은 고딕"  # 폰트 파일이 없을 때 기본 폰트
 
     def setupUI(self):
         self.setupBackground()
         self.addCloseButton()
-
-        layout = QVBoxLayout()
-
-        layout.addStretch(5)
-
         self.splash_label = self.createSplashLabel()
-        layout.addWidget(self.splash_label)
-
-        layout.addStretch(1)
-
-        self.setLayout(layout)
+        self.splash_label.setGeometry(config["splash"]["x"], config["splash"]["y"], self.splash_label.sizeHint().width(), self.splash_label.sizeHint().height())
     
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
@@ -48,8 +54,17 @@ class SplashScreen(QWidget):
         background_label.resize(*self.screen_size)
 
     def createSplashLabel(self):
-        splash_label = QLabel("스플래시 화면입니다. 클릭하면 넘어갑니다.")
-        splash_label.setStyleSheet("color: white; font-size: 32px;")
+        splash_label = QLabel(self)  # 부모 위젯을 self로 지정
+        splash_label.setText(config["splash"]["phrase"])
+        
+        # 커스텀 폰트 적용
+        custom_font = QFont(self.font_family)
+        custom_font.setPointSize(config["splash"]["font_size"])
+        splash_label.setFont(custom_font)
+        
+        # 스타일시트 수정 (폰트 패밀리 제거)
+        splash_label_style = f""" color: {config["splash"]["font_color"]};"""
+        splash_label.setStyleSheet(splash_label_style)
         splash_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.opacity_effect = QGraphicsOpacityEffect(splash_label)
         splash_label.setGraphicsEffect(self.opacity_effect)
