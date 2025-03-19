@@ -29,7 +29,7 @@ class SplashScreen(QWidget):
     
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
-        background_files = ["0.png", "0.jpg", "splash_bg.jpg"]
+        background_files = ["background/0.png", "background/0.jpg", "background/splash_bg.jpg"]
         
         pixmap = None
         for filename in background_files:
