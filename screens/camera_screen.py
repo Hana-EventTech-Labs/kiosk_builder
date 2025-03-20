@@ -28,7 +28,7 @@ class CameraScreen(QWidget):
             capture_height=self.capture_height, 
             x=config["frame"]["x"], 
             y=config["frame"]["y"], 
-            countdown=3
+            countdown=config["camera_count"]["number"]
         )
         self.webcam.setParent(self)
 

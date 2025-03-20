@@ -8,6 +8,11 @@
         "width": 1920,
         "height": 1080
     },
+    "camera_count": {
+        "number": 3,
+        "font_size": 350,
+        "font_color": "green"
+    },
     "screen_order": [
         0,
         1,

@@ -126,8 +126,11 @@ class WebcamViewer(QWidget):
 
         self.countdown_label = QLabel(self)
         self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.countdown_label.setStyleSheet("font-size: 80px; color: White;")  # 글자 크기 조정
-        self.countdown_label.setGeometry(0, preview_height * 0.4, preview_width, int(preview_height * 0.15))  # 중앙 상단 배치
+        self.countdown_label.setStyleSheet(
+            f"font-size: {config['camera_count']['font_size']}px;"
+            f"color: {config['camera_count']['font_color']};"
+        )  # 글자 크기 조정
+        self.countdown_label.setGeometry(0, 0, preview_width, preview_height)  # 중앙 상단 배치
         self.countdown_label.hide()
         
         self.countdown_time = countdown
