@@ -76,8 +76,14 @@ class ProcessScreen(QWidget):
     def showEvent(self, event):
         # PrinterThread가 이미 실행 중인지 확인
         if self.printer_thread is None or not self.printer_thread.isRunning():
-            self.printer_thread = PrinterThread()  # 새로운 스레드 생성
-            self.printer_thread.start()  # 스레드 시작
+            # 프린터 스레드 생성
+            self.printer_thread = PrinterThread()
+
+            # 기본 설정에서 컨텐츠 로드
+            self.printer_thread.load_contents()
+
+            # 스레드 시작
+            self.printer_thread.start()
         next_index = self.main_window.getNextScreenIndex()
         QTimer.singleShot(config["process"]["process_time"], lambda: self.stack.setCurrentIndex(next_index))
         

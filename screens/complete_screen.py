@@ -78,6 +78,6 @@ class CompleteScreen(QWidget):
     def showEvent(self, event):
         """화면이 표시될 때 2초 후 스플래시 화면으로 이동"""
         next_index = self.main_window.getNextScreenIndex()
-        print(f"완료 화면에서 다음 인덱스: {next_index}, 타이머: {config['complete']['complete_time']}ms")
+        # print(f"완료 화면에서 다음 인덱스: {next_index}, 타이머: {config['complete']['complete_time']}ms")
         QTimer.singleShot(config["complete"]["complete_time"], 
                         lambda: self.stack.setCurrentIndex(next_index))
