@@ -29,12 +29,12 @@ def draw_image(device_handle, page, panel, x, y, cx, cy, image_filename):
     # cx,cy는 px단위, 0인 경우 원래 크기를 사용
     
     # 현재 파일의 경로를 기준으로 resources 폴더 내의 이미지 파일 경로 생성
-    image_path = Path(__file__).parent / ".." / image_filename
-    image_path_str = str(image_path.resolve())
+    image_path = Path(image_filename).resolve()
+    image_path_str = str(image_path)
     # wchar_t 배열로 이미지 경로를 변환 (DLL 호출을 위해)
-    image = ffi.new("wchar_t[]", image_path_str)
+    image = ffi.new("wchar_t[]", image_path_str + '\0')
     # 출력 영역 정보 저장을 위한 RECT 구조체 메모리 할당
-    rect_area = ffi.new("RECT *")
+    rect_area = ffi.NULL
     # DLL의 SmartComm_DrawImage 함수를 호출하여 지정 영역에 이미지를 그림
     result = lib.SmartComm_DrawImage(device_handle, page, panel, x, y, cx, cy, image, rect_area)
     return result

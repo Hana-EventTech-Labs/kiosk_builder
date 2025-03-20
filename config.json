@@ -8,20 +8,26 @@
         "width": 1920,
         "height": 1080
     },
-    "screen_order": [0,  2,1, 3, 4],
-    "frame":{
+    "screen_order": [
+        0,
+        1,
+        2,
+        3,
+        4
+    ],
+    "frame": {
         "x": 0,
         "y": 0,
         "width": 1280,
         "height": 720
     },
-    "image":{
+    "image": {
         "x": 0,
         "y": 0,
         "width": 300,
         "height": 300
     },
-    "text":{
+    "text": {
         "x": 0,
         "y": 0,
         "width": 300,
@@ -52,7 +58,7 @@
         "button_radius": 10,
         "hangul_btn_color": "#4299E1",
         "shift_btn_color": "#3182CE",
-        "backspace_btn_color": "#E53E3E",
+        "backspace_btn_color": "#6ae517",
         "next_btn_color": "#48BB78",
         "special_btn_width": 100,
         "max_hangul": 100,
@@ -75,16 +81,16 @@
     },
     "process": {
         "font": "LAB디지털.ttf",
-        "phrase": "프로세스 화면입니다. 클릭하면 넘어갑니다.",
+        "phrase": "",
         "font_size": 32,
-        "font_color": "blue",
+        "font_color": "#a4ff5e",
         "x": 0,
         "y": 0,
         "process_time": 3000
     },
     "complete": {
         "font": "LAB디지털.ttf",
-        "phrase": "완료 화면입니다. 클릭하면 넘어갑니다.",
+        "phrase": "",
         "font_size": 32,
         "font_color": "green",
         "x": 0,
