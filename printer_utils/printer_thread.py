@@ -34,9 +34,9 @@ class PrinterThread(QThread):
             try:
                 # 이미지 그리기
                 result = draw_image(device_handle, PAGE_FRONT, PANELID_COLOR, 
-                                    config["image"]["x"], config["image"]["y"],
-                                    config["image"]["width"], config["image"]["height"], 
-                                    "resources/captured_image.jpg")
+                                    x=config["image"]["x"], y=config["image"]["y"],
+                                    cx=config["image"]["width"], cy=config["image"]["height"], 
+                                    image_filename="resources/captured_image.jpg")
                 if result != 0:
                     self.error.emit("이미지 그리기 실패")
                     return
