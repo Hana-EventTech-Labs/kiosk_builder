@@ -12,7 +12,87 @@ class PrinterThread(QThread):
     
     def __init__(self):
         super().__init__()
+        self.images = []  # 이미지 정보 저장 리스트
+        self.texts = []   # 텍스트 정보 저장 리스트
         
+    def add_image(self, image_filename, x, y, width, height):
+        """이미지 그리기 작업 추가"""
+        self.images.append({
+            "filename": image_filename,
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height
+        })
+        
+    def add_text(self, text, x, y, width, height, font_name, font_size, font_color, font_style=0x01, rotate=0, align=0x01|0x10, option=4):
+        """텍스트 그리기 작업 추가"""
+        self.texts.append({
+            "text": text,
+            "x": x,
+            "y": y,
+            "width": width,
+            "height": height,
+            "font_name": font_name,
+            "font_size": font_size, 
+            "font_color": font_color,
+            "font_style": font_style,
+            "rotate": rotate,
+            "align": align,
+            "option": option
+        })
+    
+    def load_contents(self):
+        """config.json에서 이미지와 텍스트 로드"""
+        # 이미지 설정 불러오기
+        expected_img_count = config.get("images", {}).get("count", 0)
+        img_items = config.get("images", {}).get("items", [])
+        
+        if len(img_items) != expected_img_count:
+            print(f"경고: 설정된 이미지 수({expected_img_count})와 실제 이미지 항목 수({len(img_items)})가 다릅니다")
+        
+        for img_config in img_items:
+            self.add_image(
+                image_filename=f"resources/{img_config.get('filename', 'captured_image.jpg')}",
+                x=img_config.get("x", 0),
+                y=img_config.get("y", 0),
+                width=img_config.get("width", 300),
+                height=img_config.get("height", 300)
+            )
+        
+        # 텍스트 설정 불러오기
+        expected_text_count = config.get("texts", {}).get("count", 0)
+        text_items = config.get("texts", {}).get("items", [])
+        
+        if len(text_items) != expected_text_count:
+            print(f"경고: 설정된 텍스트 수({expected_text_count})와 실제 텍스트 항목 수({len(text_items)})가 다릅니다")
+        
+        for text_config in text_items:
+            # content가 비어있으면 파일에서 읽기
+            content = text_config.get("content", "")
+            if not content and os.path.exists("resources/input_text.txt"):
+                try:
+                    with open("resources/input_text.txt", "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                except Exception as e:
+                    print(f"텍스트 파일 읽기 실패: {str(e)}")
+                    content = "텍스트 로드 실패"
+            
+            self.add_text(
+                text=content,
+                x=text_config.get("x", 0),
+                y=text_config.get("y", 0),
+                width=text_config.get("width", 300),
+                height=text_config.get("height", 300),
+                font_name=text_config.get("font", "LAB디지털.ttf"),
+                font_size=text_config.get("font_size", 32),
+                font_color=text_config.get("font_color", "#000000"),
+                font_style=text_config.get("style", 0x01),
+                rotate=text_config.get("rotate", 0),
+                align=text_config.get("align", 0x01 | 0x10),
+                option=text_config.get("option", 4)
+            )
+    
     def run(self):
         try:
             # 장치 목록 조회
@@ -32,42 +112,56 @@ class PrinterThread(QThread):
                 return
                 
             try:
-                # 이미지 그리기
-                result = draw_image(device_handle, PAGE_FRONT, PANELID_COLOR, 
-                                    x=config["image"]["x"], y=config["image"]["y"],
-                                    cx=config["image"]["width"], cy=config["image"]["height"], 
-                                    image_filename="resources/captured_image.jpg")
-                if result != 0:
-                    self.error.emit("이미지 그리기 실패")
-                    return
-                    
-                # 폰트 로드
-                font_name = load_font(f"resources/font/{config['text']['font']}")
-                if font_name is None:
-                    self.error.emit("폰트 로드 실패")
-                    return
-                    
-                # 사용자 입력 텍스트 가져오기
-                input_text = "TEST용 텍스트입니다"  # 기본값
-                if os.path.exists("resources/input_text.txt"):
-                    try:
-                        with open("resources/input_text.txt", "r", encoding="utf-8") as f:
-                            input_text = f.read().strip()
-                    except Exception as e:
-                        self.error.emit(f"텍스트 파일 읽기 실패: {str(e)}")
+                # 폰트 캐시 딕셔너리 생성 (폰트 중복 로드 방지)
+                loaded_fonts = {}
+                
+                # 이미지 그리기 (여러 개)
+                for img_info in self.images:
+                    result = draw_image(
+                        device_handle, PAGE_FRONT, PANELID_COLOR, 
+                        x=img_info["x"], y=img_info["y"],
+                        cx=img_info["width"], cy=img_info["height"], 
+                        image_filename=img_info["filename"]
+                    )
+                    if result != 0:
+                        self.error.emit(f"이미지 그리기 실패: {img_info['filename']}")
+                        return
+                
+                # 텍스트 그리기 (여러 개)
+                for text_info in self.texts:
+                    # 폰트 로드 (중복 로드 방지)
+                    font_path = f"resources/font/{text_info['font_name']}"
+                    if font_path not in loaded_fonts:
+                        font_name = load_font(font_path)
+                        if font_name is None:
+                            self.error.emit(f"폰트 로드 실패: {text_info['font_name']}")
+                            return
+                        loaded_fonts[font_path] = font_name
+                    else:
+                        font_name = loaded_fonts[font_path]
                         
-                # 텍스트 그리기
-                result = draw_text2(device_handle,
-                                    PAGE_FRONT, PANELID_COLOR,
-                                    x = config["text"]["x"], y = config["text"]["y"], 
-                                    width = config["text"]["width"], height = config["text"]["height"], 
-                                    font_name = font_name, 
-                                    font_height = config["text"]["font_size"], font_width = 0, font_style = 0x01, font_color = int(config["text"]["font_color"].lstrip('#'), 16), 
-                                    text = input_text, 
-                                    rotate = 0, align = 0x01 | 0x10, option = 4)
-                if result != 0:
-                    self.error.emit("텍스트 그리기 실패")
-                    return
+                    # 색상 변환 (문자열 -> 16진수 정수)
+                    if isinstance(text_info["font_color"], str):
+                        font_color = int(text_info["font_color"].lstrip('#'), 16)
+                    else:
+                        font_color = text_info["font_color"]
+                        
+                    result = draw_text2(
+                        device_handle, PAGE_FRONT, PANELID_COLOR,
+                        x=text_info["x"], y=text_info["y"], 
+                        width=text_info["width"], height=text_info["height"], 
+                        font_name=font_name, 
+                        font_height=text_info["font_size"], font_width=0, 
+                        font_style=text_info["font_style"], 
+                        font_color=font_color,
+                        text=text_info["text"], 
+                        rotate=text_info["rotate"], 
+                        align=text_info["align"], 
+                        option=text_info["option"]
+                    )
+                    if result != 0:
+                        self.error.emit(f"텍스트 그리기 실패: {text_info['text']}")
+                        return
                 
                 # 미리보기 비트맵 가져오기
                 result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)
