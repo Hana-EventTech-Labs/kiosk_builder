@@ -42,7 +42,7 @@ class PrinterThread(QThread):
                     return
                     
                 # 폰트 로드
-                font_name = load_font("resources/font/LAB디지털.ttf")
+                font_name = load_font(f"resources/font/{config['text']['font']}")
                 if font_name is None:
                     self.error.emit("폰트 로드 실패")
                     return
@@ -62,7 +62,7 @@ class PrinterThread(QThread):
                                     x = config["text"]["x"], y = config["text"]["y"], 
                                     width = config["text"]["width"], height = config["text"]["height"], 
                                     font_name = font_name, 
-                                    font_height = 32, font_width = 0, font_style = 0x01, font_color = 0x000000, 
+                                    font_height = config["text"]["font_size"], font_width = 0, font_style = 0x01, font_color = int(config["text"]["font_color"].lstrip('#'), 16), 
                                     text = input_text, 
                                     rotate = 0, align = 0x01 | 0x10, option = 4)
                 if result != 0:
