@@ -18,6 +18,7 @@ class QR_screen(QWidget):
     def setupUI(self):
         self.setupBackground()
         self.setupQRCode()
+        self.setupPreviewArea()
     
     def setupBackground(self):
         # First try index-based files (2.jpg, 2.png), then fallback to generic name
@@ -46,11 +47,27 @@ class QR_screen(QWidget):
         # QR 코드 위치와 크기 설정 (원하는 값으로 조정 가능)
         qr_size = 300
         x_pos = (self.screen_size[0] - qr_size) // 2  # 화면 중앙
-        y_pos = (self.screen_size[1] - qr_size) // 2  # 화면 중앙
+        y_pos = (self.screen_size[1] - qr_size) // 4  # 화면 중앙
         self.qr_label.setGeometry(x_pos, y_pos, qr_size, qr_size)
         
         # QR 코드 생성 (URL을 원하는 값으로 변경 가능)
         self.generateQRCode(config["qr"]["url"])
+    
+    def setupPreviewArea(self):
+        # 미리보기 영역 설정
+        preview_width = config["qr"]["preview_width"]
+        preview_height = config["qr"]["preview_height"]
+        
+        # 미리보기 위치 설정 (기본값은 QR 코드 아래)
+        x_pos = config["qr"]["x"]
+        y_pos = config["qr"]["y"]
+        
+        # 미리보기 라벨 생성
+        self.preview_label = QLabel(self)
+        self.preview_label.setGeometry(x_pos, y_pos, preview_width, preview_height)
+        self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.preview_label.setStyleSheet("background-color: #f0f0f0; border: 1px solid #cccccc;")
+        self.preview_label.setText("이미지 미리보기")
     
     def generateQRCode(self, data):
         # QR 코드 생성
