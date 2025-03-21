@@ -120,9 +120,10 @@ class WebcamViewer(QWidget):
         # 카메라 초기화 - 프리뷰 크기로 설정
         self.camera = initialize_camera(camera_index, preview_width, preview_height)
         
-        # 프리뷰 레이블 - 프리뷰 크기로 설정
+        # 프리뷰 레이블 - 프리뷰 크기로 설정 및 정확한 위치에 배치
         self.preview_label = QLabel(self)
         self.preview_label.setFixedSize(preview_width, preview_height)
+        self.preview_label.move(0, 0)  # 정확히 0,0 위치에 배치
 
         self.countdown_label = QLabel(self)
         self.countdown_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -135,9 +136,8 @@ class WebcamViewer(QWidget):
         
         self.countdown_time = countdown
         self.countdown_thread = None  # 카운트다운 스레드 초기화
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.preview_label)
-        self.setLayout(self.layout)
+        
+        # 레이아웃 제거하고 직접 위치 지정
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_frame)
         self.timer.start(16)  # 60fps

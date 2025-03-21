@@ -31,11 +31,10 @@ class CameraScreen(QWidget):
             countdown=config["camera_count"]["number"]
         )
         self.webcam.setParent(self)
-
+        self.webcam.setGeometry(config["frame"]["x"], config["frame"]["y"], self.preview_width, self.preview_height)
         self.webcam.photo_captured_signal.connect(self.onPhotoCaptured)
 
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+
     
     def setupBackground(self):
         # 먼저 인덱스 기반 파일(0.jpg, 0.png)을 찾고, 없으면 기존 파일명 사용
