@@ -3,3 +3,5 @@ cffi
 pillow
 opencv-python
 qrcode
+
+pyinstaller
