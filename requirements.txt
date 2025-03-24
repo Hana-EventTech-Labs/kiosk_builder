@@ -2,3 +2,6 @@ PySide6
 cffi
 pillow
 opencv-python
+qrcode
+
+pyinstaller

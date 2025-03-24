@@ -10,7 +10,7 @@ from screens.text_input_screen import TextInputScreen  # 추가된 부분
 from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
-
+from screens.QR_screen import QR_screen
 class KioskApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -45,12 +45,14 @@ class KioskApp(QMainWindow):
         
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
+        self.qr_screen = QR_screen(self.stack, self.screen_size, self)
 
         self.stack.addWidget(self.splash_screen)      # 인덱스 0
         self.stack.addWidget(self.photo_screen)       # 인덱스 1
         self.stack.addWidget(self.text_input_screen)  # 인덱스 2
-        self.stack.addWidget(self.process_screen)     # 인덱스 3
-        self.stack.addWidget(self.complete_screen)    # 인덱스 4
+        self.stack.addWidget(self.qr_screen)         # 인덱스 3
+        self.stack.addWidget(self.process_screen)     # 인덱스 4
+        self.stack.addWidget(self.complete_screen)    # 인덱스 5
 
     def getNextScreenIndex(self):
         # screen_order의 다음 인덱스로 이동
