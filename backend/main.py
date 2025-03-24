@@ -103,7 +103,8 @@ async def register_event(event_name: str):
     
     # QR 코드용 URL 생성
     qr_url = f"/event/{event_id}"
-    absolute_url = f"http://14.34.43.196:8000{qr_url}"  # 실제 도메인으로 변경 필요
+    from config import settings
+    absolute_url = f"{settings.DOMAIN}{qr_url}"
     
     return {
         "event_id": event_id,
@@ -407,4 +408,5 @@ app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
 # 서버 시작
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    from config import settings
+    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=True)
