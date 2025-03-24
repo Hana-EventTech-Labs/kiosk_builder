@@ -1,12 +1,18 @@
 {
     "app_name": "Kiosk App",
     "screen_size": {
-        "width": 1080,
-        "height": 1920
+        "width": 1920,
+        "height": 1080
     },
     "camera_size": {
         "width": 1920,
         "height": 1080
+    },
+    "crop_area": {
+        "width": 1000,
+        "height": 700,
+        "x": 300,
+        "y": 100
     },
     "camera_count": {
         "number": 3,
@@ -21,9 +27,9 @@
     ],
     "frame": {
         "x": 0,
-        "y": 270,
+        "y": 0,
         "width": 1080,
-        "height": 1650
+        "height": 720
     },
     "images": {
         "count": 1,
