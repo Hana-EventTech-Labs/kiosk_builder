@@ -102,7 +102,7 @@ class WebcamViewer(QWidget):
     # 사진 촬영 완료 시그널 추가
     photo_captured_signal = Signal(str)
     
-    def __init__(self, camera_index=0, preview_width=640, preview_height=480, capture_width=None, capture_height=None, x=0, y=0, countdown=0):
+    def __init__(self, camera_index=0, preview_width=640, preview_height=480, camera_width=None, camera_height=None, x=0, y=0, countdown=0):
         super().__init__()
         self.setWindowTitle("Webcam Viewer")
         self.setGeometry(x, y, preview_width, preview_height)  # 윈도우 위치 및 크기 설정
@@ -110,15 +110,15 @@ class WebcamViewer(QWidget):
         # 프리뷰 크기와 캡처 크기를 별도로 저장
         self.preview_width = preview_width
         self.preview_height = preview_height
-        self.capture_width = capture_width if capture_width is not None else preview_width
-        self.capture_height = capture_height if capture_height is not None else preview_height
         
-        # 캡처 영역 좌표
-        self.capture_x = x
-        self.capture_y = y
+        # config에서 카메라 설정 및 crop_area 설정 가져오기
+        self.capture_width = config["crop_area"]["width"]
+        self.capture_height = config["crop_area"]["height"]
+        self.capture_x = config["crop_area"]["x"]
+        self.capture_y = config["crop_area"]["y"]
         
-        # 카메라 초기화 - 프리뷰 크기로 설정
-        self.camera = initialize_camera(camera_index, preview_width, preview_height)
+        # 카메라 초기화 - config에서 설정된 해상도 사용
+        self.camera = initialize_camera(camera_index, config["camera_size"]["width"], config["camera_size"]["height"])
         
         # 프리뷰 레이블 - 프리뷰 크기로 설정 및 정확한 위치에 배치
         self.preview_label = QLabel(self)
@@ -143,8 +143,11 @@ class WebcamViewer(QWidget):
         self.timer.start(16)  # 60fps
     
     def set_capture_area(self, x, y, width, height):
-        self.capture_x = (config["camera_size"]["width"] - width) / 2
-        self.capture_y = (config["camera_size"]["height"] - height) / 2
+        # config에서 crop_area 설정을 사용하여 크롭 영역을 설정
+        self.capture_x = config["crop_area"]["x"]
+        self.capture_y = config["crop_area"]["y"]
+        self.capture_width = config["crop_area"]["width"]
+        self.capture_height = config["crop_area"]["height"]
     
     def update_frame(self):
         frame = get_frame(self.camera)
