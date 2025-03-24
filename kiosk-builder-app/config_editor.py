@@ -113,8 +113,8 @@ class ConfigEditor(QMainWindow):
         self.app_name_edit = QLineEdit(self.config["app_name"])
         form_layout.addRow("앱 이름:", self.app_name_edit)
         
-        # 화면 크기
-        screen_group = QGroupBox("화면 크기")
+        # 모니터 크기
+        screen_group = QGroupBox("모니터 크기")
         screen_layout = QFormLayout(screen_group)
         
         self.screen_width_edit = QSpinBox()
@@ -129,8 +129,8 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(screen_group)
         
-        # 카메라 크기
-        camera_group = QGroupBox("카메라 크기")
+        # 카메라 해상도
+        camera_group = QGroupBox("카메라 해상도")
         camera_layout = QFormLayout(camera_group)
         
         self.camera_width_edit = QSpinBox()
@@ -145,8 +145,8 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(camera_group)
         
-        # 크롭 영역 추가
-        crop_group = QGroupBox("크롭 영역")
+        # 실제 인쇄 영역 추가
+        crop_group = QGroupBox("실제 인쇄 영역")
         crop_layout = QFormLayout(crop_group)
         
         self.crop_fields = {}
