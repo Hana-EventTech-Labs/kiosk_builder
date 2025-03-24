@@ -15,17 +15,17 @@ class CameraScreen(QWidget):
     
     def setupUI(self):
         self.setupBackground()
-        # preview_width는 widget의 너비이고 capture_width는 카메라 전체 영역에서 캡쳐 영역의 너비입니다
+        # preview_width는 widget의 너비이고 camera_width는 카메라 화질의 너비입니다
         # 프리뷰 크기가 카메라 전체 크기가 아니니 참고 바랍니다 (카메라 크기는 config.json에 있습니다)
         self.preview_width = config["frame"]["width"]
         self.preview_height = config["frame"]["height"]
-        self.capture_width = config["camera_size"]["width"]
-        self.capture_height = config["camera_size"]["height"]
+        self.camera_width = config["camera_size"]["width"]
+        self.camera_height = config["camera_size"]["height"]
         self.webcam = WebcamViewer(
             preview_width=self.preview_width, 
             preview_height=self.preview_height, 
-            capture_width=self.capture_width, 
-            capture_height=self.capture_height, 
+            camera_width=self.camera_width, 
+            camera_height=self.camera_height, 
             x=config["frame"]["x"], 
             y=config["frame"]["y"], 
             countdown=config["camera_count"]["number"]
