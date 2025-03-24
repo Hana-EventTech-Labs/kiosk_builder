@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap
 from webcam_utils.webcam_controller import WebcamViewer
@@ -15,6 +15,7 @@ class CameraScreen(QWidget):
     
     def setupUI(self):
         self.setupBackground()
+        self.addCloseButton()
         # preview_width는 widget의 너비이고 camera_width는 카메라 화질의 너비입니다
         # 프리뷰 크기가 카메라 전체 크기가 아니니 참고 바랍니다 (카메라 크기는 config.json에 있습니다)
         self.preview_width = config["frame"]["width"]
@@ -59,3 +60,23 @@ class CameraScreen(QWidget):
     def onPhotoCaptured(self):
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
+
+    def addCloseButton(self):
+        """오른쪽 상단에 닫기 버튼 추가"""
+        self.close_button = QPushButton("X", self)
+        self.close_button.setFixedSize(200, 200)
+        self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 92, 92, 0);  /* 완전히 투명하게 설정 */
+                color: rgba(255, 255, 255, 0);  /* 텍스트도 완전히 투명하게 설정 (보이지 않음) */
+                font-weight: bold;
+                border: none;
+                border-radius: 20px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(224, 74, 74, 0);  /* 호버 시에도 완전히 투명하게 설정 */
+            }
+        """)
+        self.close_button.clicked.connect(self.main_window.closeApplication)
