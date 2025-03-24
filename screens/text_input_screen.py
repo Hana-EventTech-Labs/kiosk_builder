@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QPixmap, QFont
 from components.hangul_composer import HangulComposer
@@ -16,7 +16,7 @@ class TextInputScreen(QWidget):
     
     def setupUI(self):
         self.setupBackground()
-        
+        self.addCloseButton()
         # Main layout
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -95,6 +95,26 @@ class TextInputScreen(QWidget):
         # Move to the next screen
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
+    
+    def addCloseButton(self):
+        """오른쪽 상단에 닫기 버튼 추가"""
+        self.close_button = QPushButton("X", self)
+        self.close_button.setFixedSize(200, 200)
+        self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 92, 92, 0);  /* 완전히 투명하게 설정 */
+                color: rgba(255, 255, 255, 0);  /* 텍스트도 완전히 투명하게 설정 (보이지 않음) */
+                font-weight: bold;
+                border: none;
+                border-radius: 20px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(224, 74, 74, 0);  /* 호버 시에도 완전히 투명하게 설정 */
+            }
+        """)
+        self.close_button.clicked.connect(self.main_window.closeApplication)
     
     def showEvent(self, event):
         # When screen becomes visible, make sure keyboard is shown

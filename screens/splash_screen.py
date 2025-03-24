@@ -94,7 +94,7 @@ class SplashScreen(QWidget):
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
         self.close_button = QPushButton("X", self)
-        self.close_button.setFixedSize(100, 100)
+        self.close_button.setFixedSize(200, 200)
         self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
         self.close_button.setStyleSheet("""
             QPushButton {
