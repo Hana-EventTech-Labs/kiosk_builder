@@ -1,8 +1,8 @@
 {
     "app_name": "Kiosk App",
     "screen_size": {
-        "width": 1920,
-        "height": 1080
+        "width": 1080,
+        "height": 1920
     },
     "camera_size": {
         "width": 1920,
@@ -11,63 +11,45 @@
     "camera_count": {
         "number": 3,
         "font_size": 350,
-        "font_color": "green"
+        "font_color": "#58e0ff"
     },
     "screen_order": [
         0,
         1,
-        3,
         4,
         5
     ],
     "frame": {
         "x": 0,
-        "y": 300,
-        "width": 1280,
-        "height": 720
+        "y": 270,
+        "width": 1080,
+        "height": 1650
     },
     "images": {
-        "count": 2,
+        "count": 1,
         "items": [
-          {
-            "filename": "captured_image.jpg",
-            "x": 0,
-            "y": 0,
-            "width": 100,
-            "height": 100
-          },
-          {
-            "filename": "captured_image.jpg",
-            "x": 100,
-            "y": 100,
-            "width": 100,
-            "height": 100
-          }
+            {
+                "filename": "captured_image.jpg",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100
+            }
         ]
     },
     "texts": {
-        "count": 2,
+        "count": 1,
         "items": [
-          {
-            "content": "",
-            "x": 0,
-            "y": 0,
-            "width": 100,
-            "height": 100,
-            "font": "LAB디지털.ttf",
-            "font_size": 16,
-            "font_color": "#000000"
-          },
-          {
-            "content": "고정 텍스트",
-            "x": 100,
-            "y": 100,
-            "width": 100,
-            "height": 100,
-            "font": "LAB디지털.ttf",
-            "font_size": 16,
-            "font_color": "#FF0000"
-          }
+            {
+                "content": "",
+                "x": 0,
+                "y": 0,
+                "width": 100,
+                "height": 100,
+                "font": "LAB디지털.ttf",
+                "font_size": 16,
+                "font_color": "#000000"
+            }
         ]
     },
     "text_input": {
@@ -108,7 +90,7 @@
         "margin_bottom": 100,
         "font_size": 30
     },
-    "qr":{
+    "qr": {
         "url": "https://www.google.com",
         "preview_width": 300,
         "preview_height": 300,
@@ -117,7 +99,7 @@
     },
     "splash": {
         "font": "LAB디지털.ttf",
-        "phrase": "스플래시 화면입니다. 클릭하면 넘어갑니다.",
+        "phrase": "",
         "font_size": 32,
         "font_color": "red",
         "x": 0,
