@@ -58,7 +58,7 @@ class QR_screen(QWidget):
         preview_width = config["qr"]["preview_width"]
         preview_height = config["qr"]["preview_height"]
         
-        # 미리보기 위치 설정 (기본값은 QR 코드 아래)
+        # 미리보기 위치 설정 
         x_pos = config["qr"]["x"]
         y_pos = config["qr"]["y"]
         
