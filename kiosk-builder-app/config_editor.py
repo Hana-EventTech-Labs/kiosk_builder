@@ -145,6 +145,21 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(camera_group)
         
+        # 크롭 영역 추가
+        crop_group = QGroupBox("크롭 영역")
+        crop_layout = QFormLayout(crop_group)
+        
+        self.crop_fields = {}
+        
+        for key in ["width", "height", "x", "y"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 10000)
+            spin_box.setValue(self.config["crop_area"][key])
+            crop_layout.addRow(f"{key}:", spin_box)
+            self.crop_fields[key] = spin_box
+        
+        content_layout.addWidget(crop_group)
+        
         # 화면 순서
         screen_order_group = QGroupBox("화면 순서")
         screen_order_layout = QVBoxLayout(screen_order_group)
@@ -597,6 +612,10 @@ class ConfigEditor(QMainWindow):
         self.config["camera_size"]["width"] = self.camera_width_edit.value()
         self.config["camera_size"]["height"] = self.camera_height_edit.value()
         
+        # 크롭 영역 설정 저장
+        for key, widget in self.crop_fields.items():
+            self.config["crop_area"][key] = widget.value()
+        
         # 카메라 카운트 설정 저장
         self.config["camera_count"]["number"] = self.camera_count_fields["number"].value()
         self.config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
@@ -701,6 +720,10 @@ class ConfigEditor(QMainWindow):
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
         self.camera_width_edit.setValue(self.config["camera_size"]["width"])
         self.camera_height_edit.setValue(self.config["camera_size"]["height"])
+        
+        # 크롭 영역 설정 업데이트
+        for key, widget in self.crop_fields.items():
+            widget.setValue(self.config["crop_area"][key])
         
         # 카메라 카운트 설정 업데이트
         self.camera_count_fields["number"].setValue(self.config["camera_count"]["number"])
