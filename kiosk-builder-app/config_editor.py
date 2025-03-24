@@ -160,6 +160,64 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(crop_group)
         
+        # 이미지 설정 - 촬영 탭에서 이동
+        images_group = QGroupBox("이미지 설정")
+        images_layout = QVBoxLayout(images_group)
+        
+        # 이미지 개수 설정
+        image_count_layout = QHBoxLayout()
+        image_count_label = QLabel("이미지 개수:")
+        self.image_count_spinbox = QSpinBox()
+        self.image_count_spinbox.setRange(1, 10)
+        self.image_count_spinbox.setValue(self.config["images"]["count"])
+        self.image_count_spinbox.valueChanged.connect(self.update_image_items)
+        image_count_layout.addWidget(image_count_label)
+        image_count_layout.addWidget(self.image_count_spinbox)
+        image_count_layout.addStretch()
+        
+        images_layout.addLayout(image_count_layout)
+        
+        # 이미지 항목 컨테이너
+        self.image_items_container = QWidget()
+        self.image_items_layout = QVBoxLayout(self.image_items_container)
+        self.image_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 이미지 항목 필드 초기화
+        self.image_item_fields = []
+        self.update_image_items(self.config["images"]["count"])
+        
+        images_layout.addWidget(self.image_items_container)
+        content_layout.addWidget(images_group)
+        
+        # 텍스트 설정 - 키보드 탭에서 이동
+        texts_group = QGroupBox("텍스트 설정")
+        texts_layout = QVBoxLayout(texts_group)
+        
+        # 텍스트 개수 설정
+        text_count_layout = QHBoxLayout()
+        text_count_label = QLabel("텍스트 개수:")
+        self.text_count_spinbox = QSpinBox()
+        self.text_count_spinbox.setRange(1, 10)
+        self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        text_count_layout.addWidget(text_count_label)
+        text_count_layout.addWidget(self.text_count_spinbox)
+        text_count_layout.addStretch()
+        
+        texts_layout.addLayout(text_count_layout)
+        
+        # 텍스트 항목 컨테이너
+        self.text_items_container = QWidget()
+        self.text_items_layout = QVBoxLayout(self.text_items_container)
+        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 텍스트 항목 필드 초기화
+        self.text_item_fields = []
+        self.update_text_items(self.config["texts"]["count"])
+        
+        texts_layout.addWidget(self.text_items_container)
+        content_layout.addWidget(texts_group)
+        
         # 화면 순서
         screen_order_group = QGroupBox("화면 순서")
         screen_order_layout = QVBoxLayout(screen_order_group)
@@ -228,7 +286,7 @@ class ConfigEditor(QMainWindow):
         content_layout = QVBoxLayout(content_widget)
         
         # 프레임 설정
-        frame_group = self.create_position_size_group("프레임", "frame")
+        frame_group = self.create_position_size_group("위젯", "frame")
         content_layout.addWidget(frame_group)
         
         # 카메라 카운트 설정
@@ -258,35 +316,6 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(camera_count_group)
         
-        # 이미지 설정
-        images_group = QGroupBox("이미지 설정")
-        images_layout = QVBoxLayout(images_group)
-        
-        # 이미지 개수 설정
-        image_count_layout = QHBoxLayout()
-        image_count_label = QLabel("이미지 개수:")
-        self.image_count_spinbox = QSpinBox()
-        self.image_count_spinbox.setRange(1, 10)
-        self.image_count_spinbox.setValue(self.config["images"]["count"])
-        self.image_count_spinbox.valueChanged.connect(self.update_image_items)
-        image_count_layout.addWidget(image_count_label)
-        image_count_layout.addWidget(self.image_count_spinbox)
-        image_count_layout.addStretch()
-        
-        images_layout.addLayout(image_count_layout)
-        
-        # 이미지 항목 컨테이너
-        self.image_items_container = QWidget()
-        self.image_items_layout = QVBoxLayout(self.image_items_container)
-        self.image_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 이미지 항목 필드 초기화
-        self.image_item_fields = []
-        self.update_image_items(self.config["images"]["count"])
-        
-        images_layout.addWidget(self.image_items_container)
-        content_layout.addWidget(images_group)
-        
         # 스트레치 추가
         content_layout.addStretch()
         
@@ -309,35 +338,6 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
-        
-        # 텍스트 설정
-        texts_group = QGroupBox("텍스트 설정")
-        texts_layout = QVBoxLayout(texts_group)
-        
-        # 텍스트 개수 설정
-        text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
-        self.text_count_spinbox = QSpinBox()
-        self.text_count_spinbox.setRange(1, 10)
-        self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        text_count_layout.addWidget(text_count_label)
-        text_count_layout.addWidget(self.text_count_spinbox)
-        text_count_layout.addStretch()
-        
-        texts_layout.addLayout(text_count_layout)
-        
-        # 텍스트 항목 컨테이너
-        self.text_items_container = QWidget()
-        self.text_items_layout = QVBoxLayout(self.text_items_container)
-        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        self.update_text_items(self.config["texts"]["count"])
-        
-        texts_layout.addWidget(self.text_items_container)
-        content_layout.addWidget(texts_group)
         
         # 텍스트 입력 설정
         text_input_group = QGroupBox("텍스트 입력 설정")
