@@ -67,6 +67,9 @@ class ConfigEditor(QMainWindow):
         # 키보드 탭
         self.create_keyboard_input_tab()
         
+        # QR 코드 탭
+        self.create_qr_tab()
+        
         # 발급중 탭
         self.create_processing_tab()
         
@@ -153,7 +156,7 @@ class ConfigEditor(QMainWindow):
         self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
         screen_order_layout.addWidget(self.screen_order_edit)
         
-        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: 발급중, 4: 발급완료")
+        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
         screen_order_info.setStyleSheet("color: gray;")
         screen_order_layout.addWidget(screen_order_info)
         
@@ -406,6 +409,67 @@ class ConfigEditor(QMainWindow):
         layout = QVBoxLayout(keyboard_tab)
         layout.addWidget(scroll)
 
+    def create_qr_tab(self):
+        """QR 코드 탭 생성 - qr 설정"""
+        qr_tab = QWidget()
+        self.tab_widget.addTab(qr_tab, "QR코드 화면")
+        
+        # 스크롤 영역 추가
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        
+        # 스크롤 내용 위젯
+        content_widget = QWidget()
+        content_layout = QVBoxLayout(content_widget)
+        
+        # QR 코드 설정 그룹
+        qr_group = QGroupBox("QR 코드 설정")
+        qr_layout = QFormLayout(qr_group)
+        
+        self.qr_fields = {}
+        
+        # URL 필드
+        url_edit = QLineEdit(self.config["qr"]["url"])
+        qr_layout.addRow("URL:", url_edit)
+        self.qr_fields["url"] = url_edit
+        
+        # 미리보기 영역 위치 및 크기 설정
+        preview_width_spin = QSpinBox()
+        preview_width_spin.setRange(0, 1000)
+        preview_width_spin.setValue(self.config["qr"]["preview_width"])
+        qr_layout.addRow("미리보기 너비:", preview_width_spin)
+        self.qr_fields["preview_width"] = preview_width_spin
+        
+        preview_height_spin = QSpinBox()
+        preview_height_spin.setRange(0, 1000)
+        preview_height_spin.setValue(self.config["qr"]["preview_height"])
+        qr_layout.addRow("미리보기 높이:", preview_height_spin)
+        self.qr_fields["preview_height"] = preview_height_spin
+        
+        x_spin = QSpinBox()
+        x_spin.setRange(0, 3000)
+        x_spin.setValue(self.config["qr"]["x"])
+        qr_layout.addRow("X 위치:", x_spin)
+        self.qr_fields["x"] = x_spin
+        
+        y_spin = QSpinBox()
+        y_spin.setRange(0, 3000)
+        y_spin.setValue(self.config["qr"]["y"])
+        qr_layout.addRow("Y 위치:", y_spin)
+        self.qr_fields["y"] = y_spin
+        
+        content_layout.addWidget(qr_group)
+        
+        # 스트레치 추가
+        content_layout.addStretch()
+        
+        # 스크롤 영역에 컨텐츠 설정
+        scroll.setWidget(content_widget)
+        
+        # 탭에 스크롤 영역 추가
+        layout = QVBoxLayout(qr_tab)
+        layout.addWidget(scroll)
+
     def create_processing_tab(self):
         """발급중 탭 생성 - process 설정"""
         processing_tab = QWidget()
@@ -601,6 +665,13 @@ class ConfigEditor(QMainWindow):
             else:
                 self.config["keyboard"][key] = widget.value()
         
+        # QR 코드 설정 저장
+        self.config["qr"]["url"] = self.qr_fields["url"].text()
+        self.config["qr"]["preview_width"] = self.qr_fields["preview_width"].value()
+        self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
+        self.config["qr"]["x"] = self.qr_fields["x"].value()
+        self.config["qr"]["y"] = self.qr_fields["y"].value()
+        
         # 화면 설정 저장
         for section in ["splash", "process", "complete"]:
             fields = getattr(self, f"{section}_fields")
@@ -635,6 +706,13 @@ class ConfigEditor(QMainWindow):
         self.camera_count_fields["number"].setValue(self.config["camera_count"]["number"])
         self.camera_count_fields["font_size"].setValue(self.config["camera_count"]["font_size"])
         self.camera_count_fields["font_color"].update_color(self.config["camera_count"]["font_color"])
+        
+        # QR 코드 설정 업데이트
+        self.qr_fields["url"].setText(self.config["qr"]["url"])
+        self.qr_fields["preview_width"].setValue(self.config["qr"]["preview_width"])
+        self.qr_fields["preview_height"].setValue(self.config["qr"]["preview_height"])
+        self.qr_fields["x"].setValue(self.config["qr"]["x"])
+        self.qr_fields["y"].setValue(self.config["qr"]["y"])
         
         # screen_order 업데이트 (textChanged 시그널이 연결되어 있으므로 마지막에 업데이트)
         screen_order_text = ",".join(map(str, self.config["screen_order"]))
@@ -724,7 +802,7 @@ class ConfigEditor(QMainWindow):
             screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
             # 유효한 화면 순서인지 확인
             for order in screen_order:
-                if order < 0 or order > 4:
+                if order < 0 or order > 5:
                     return  # 유효하지 않은 값이 있으면 업데이트하지 않음
                     
             # 화면 순서에 따라 탭 활성화/비활성화 설정
@@ -739,28 +817,37 @@ class ConfigEditor(QMainWindow):
             # 입력값 파싱
             screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
             
-            # 탭별 인덱스 매핑
+            # config_editor.py의 탭 인덱스 순서:
+            # 인덱스 0: 기본 설정 탭 (항상 표시)
+            # 인덱스 1: 스플래쉬 탭 (화면 타입 0)
+            # 인덱스 2: 촬영 탭 (화면 타입 1)
+            # 인덱스 3: 키보드 탭 (화면 타입 2) 
+            # 인덱스 4: QR코드 탭 (화면 타입 3)
+            # 인덱스 5: 발급중 탭 (화면 타입 4)
+            # 인덱스 6: 발급완료 탭 (화면 타입 5)
+            
             tab_indices = {
-                0: 1,  # 스플래쉬 탭 (인덱스 1, 기본 설정 탭이 0)
-                1: 2,  # 촬영 탭 (인덱스 2)
-                2: 3,  # 키보드 탭 (인덱스 3)
-                3: 4,  # 발급중 탭 (인덱스 4)
-                4: 5   # 발급완료 탭 (인덱스 5)
+                0: 1,  # 화면 타입 0 (스플래쉬) -> 탭 인덱스 1
+                1: 2,  # 화면 타입 1 (촬영) -> 탭 인덱스 2
+                2: 3,  # 화면 타입 2 (키보드) -> 탭 인덱스 3
+                3: 4,  # 화면 타입 3 (QR코드) -> 탭 인덱스 4
+                4: 5,  # 화면 타입 4 (발급중) -> 탭 인덱스 5
+                5: 6   # 화면 타입 5 (발급완료) -> 탭 인덱스 6
             }
             
             # 모든 화면 탭 비활성화
-            for i in range(1, 6):  # 1부터 5까지 (기본 설정 탭 제외)
+            for i in range(1, 7):  # 1부터 6까지 (기본 설정 탭 제외)
                 self.tab_widget.setTabEnabled(i, False)
             
             # screen_order에 있는 탭만 활성화
             for screen_type in screen_order:
-                if 0 <= screen_type <= 4:  # 유효한 화면 타입인지 확인
+                if 0 <= screen_type <= 5:  # 유효한 화면 타입인지 확인
                     tab_index = tab_indices.get(screen_type)
                     if tab_index is not None:
                         self.tab_widget.setTabEnabled(tab_index, True)
                         
             # 탭 활성화 상태에 따라 시각적 표시 업데이트
-            for i in range(1, 6):
+            for i in range(1, 7):
                 tab_text = self.tab_widget.tabText(i)
                 if not self.tab_widget.isTabEnabled(i):
                     if not tab_text.startswith("[비활성] "):
@@ -771,7 +858,7 @@ class ConfigEditor(QMainWindow):
                         
         except ValueError:
             # 숫자로 변환할 수 없는 값이 있으면 모든 탭 활성화
-            for i in range(1, 6):
+            for i in range(1, 7):
                 self.tab_widget.setTabEnabled(i, True)
                 tab_text = self.tab_widget.tabText(i)
                 if tab_text.startswith("[비활성] "):
