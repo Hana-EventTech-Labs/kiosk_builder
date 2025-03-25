@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QIntValidator, QFont
 import json
 import copy
+import os
 from config_handler import ConfigHandler
 
 class NumberLineEdit(QLineEdit):
@@ -168,7 +169,7 @@ class ConfigEditor(QMainWindow):
         image_count_layout = QHBoxLayout()
         image_count_label = QLabel("이미지 개수:")
         self.image_count_spinbox = QSpinBox()
-        self.image_count_spinbox.setRange(1, 10)
+        self.image_count_spinbox.setRange(0, 10)
         self.image_count_spinbox.setValue(self.config["images"]["count"])
         self.image_count_spinbox.valueChanged.connect(self.update_image_items)
         image_count_layout.addWidget(image_count_label)
@@ -188,35 +189,37 @@ class ConfigEditor(QMainWindow):
         
         images_layout.addWidget(self.image_items_container)
         content_layout.addWidget(images_group)
-        
+
+        # 키보드 화면으로 넘어가서 주석 처리
         # 텍스트 설정 - 키보드 탭에서 이동
-        texts_group = QGroupBox("텍스트 설정")
-        texts_layout = QVBoxLayout(texts_group)
+        # texts_group = QGroupBox("텍스트 설정")
+        # texts_layout = QVBoxLayout(texts_group)
         
-        # 텍스트 개수 설정
-        text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
-        self.text_count_spinbox = QSpinBox()
-        self.text_count_spinbox.setRange(1, 10)
-        self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        text_count_layout.addWidget(text_count_label)
-        text_count_layout.addWidget(self.text_count_spinbox)
-        text_count_layout.addStretch()
+        # # 텍스트 개수 설정
+        # text_count_layout = QHBoxLayout()
+        # text_count_label = QLabel("텍스트 개수:")
+        # self.text_count_spinbox = QSpinBox()
+        # self.text_count_spinbox.setRange(0, 10)
+        # self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        # self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        # text_count_layout.addWidget(text_count_label)
+        # text_count_layout.addWidget(self.text_count_spinbox)
+        # text_count_layout.addStretch()
         
-        texts_layout.addLayout(text_count_layout)
+        # texts_layout.addLayout(text_count_layout)
         
-        # 텍스트 항목 컨테이너
-        self.text_items_container = QWidget()
-        self.text_items_layout = QVBoxLayout(self.text_items_container)
-        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        # # 텍스트 항목 컨테이너
+        # self.text_items_container = QWidget()
+        # self.text_items_layout = QVBoxLayout(self.text_items_container)
+        # self.text_items_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        self.update_text_items(self.config["texts"]["count"])
+        # # 텍스트 항목 필드 초기화
+        # self.text_item_fields = []
+        # self.update_text_items(self.config["texts"]["count"])
         
-        texts_layout.addWidget(self.text_items_container)
-        content_layout.addWidget(texts_group)
+        # texts_layout.addWidget(self.text_items_container)
+        # content_layout.addWidget(texts_group)
+
         
         # 화면 순서
         screen_order_group = QGroupBox("화면 순서")
@@ -338,6 +341,35 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 텍스트 설정
+        texts_group = QGroupBox("텍스트 설정")
+        texts_layout = QVBoxLayout(texts_group)
+        
+        # 텍스트 개수 설정
+        text_count_layout = QHBoxLayout()
+        text_count_label = QLabel("텍스트 개수:")
+        self.text_count_spinbox = QSpinBox()
+        self.text_count_spinbox.setRange(0, 10)
+        self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        text_count_layout.addWidget(text_count_label)
+        text_count_layout.addWidget(self.text_count_spinbox)
+        text_count_layout.addStretch()
+        
+        texts_layout.addLayout(text_count_layout)
+        
+        # 텍스트 항목 컨테이너
+        self.text_items_container = QWidget()
+        self.text_items_layout = QVBoxLayout(self.text_items_container)
+        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 텍스트 항목 필드 초기화
+        self.text_item_fields = []
+        self.update_text_items(self.config["texts"]["count"])
+        
+        texts_layout.addWidget(self.text_items_container)
+        content_layout.addWidget(texts_group)
         
         # 텍스트 입력 설정
         text_input_group = QGroupBox("텍스트 입력 설정")
@@ -605,6 +637,30 @@ class ConfigEditor(QMainWindow):
         return group
 
     def save_config(self):
+        # 텍스트 항목의 폰트 파일 존재 여부 확인
+        missing_fonts = []
+        
+        # 텍스트 항목 폰트 확인
+        for i, fields in enumerate(self.text_item_fields):
+            font_file = fields["font"].text()
+            font_path = os.path.join("resources/font", font_file)
+            if not os.path.exists(font_path):
+                missing_fonts.append(f"텍스트 {i+1}: {font_file}")
+        
+        # 스플래시, 프로세스, 완료 화면의 폰트 확인
+        for section in ["splash", "process", "complete"]:
+            fields = getattr(self, f"{section}_fields")
+            font_file = fields["font"].text()
+            font_path = os.path.join("resources/font", font_file)
+            if not os.path.exists(font_path):
+                missing_fonts.append(f"{section} 화면: {font_file}")
+        
+        # 누락된 폰트가 있으면 경고 메시지 표시
+        if missing_fonts:
+            error_msg = "다음 폰트 파일을 찾을 수 없습니다:\n\n" + "\n".join(missing_fonts)
+            QMessageBox.warning(self, "폰트 파일 누락", error_msg)
+            return
+        
         # 기본 설정
         self.config["app_name"] = self.app_name_edit.text()
         self.config["screen_size"]["width"] = self.screen_width_edit.value()
