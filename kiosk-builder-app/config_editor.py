@@ -945,6 +945,21 @@ class ConfigEditor(QMainWindow):
 
     def update_image_items(self, count):
         """이미지 항목 UI 업데이트"""
+        # 이전 이미지 개수 확인
+        prev_count = len(self.image_item_fields)
+        
+        # 기존 이미지 데이터 저장
+        prev_image_data = []
+        for i, fields in enumerate(self.image_item_fields):
+            prev_data = {
+                "filename": fields["filename"].text(),
+                "x": fields["x"].value(),
+                "y": fields["y"].value(),
+                "width": fields["width"].value(),
+                "height": fields["height"].value()
+            }
+            prev_image_data.append(prev_data)
+        
         # 기존 위젯 제거
         for i in reversed(range(self.image_items_layout.count())):
             item = self.image_items_layout.itemAt(i)
@@ -965,8 +980,20 @@ class ConfigEditor(QMainWindow):
                 "height": 300
             }
             
-            # 기존 데이터가 있으면 사용
-            if i < len(self.config["images"]["items"]):
+            # 기존 이미지 데이터 유지
+            if i < prev_count:
+                item_data = prev_image_data[i]
+            # 0개에서 1개로 변경되는 경우만 특별한 기본값 설정
+            elif prev_count == 0 and i == 0:
+                item_data = {
+                    "filename": "captured_image.jpg",  # 원하는 기본 파일명
+                    "x": 143,                          # 원하는 기본 X 위치
+                    "y": 314,                          # 원하는 기본 Y 위치
+                    "width": 350,                      # 원하는 기본 너비
+                    "height": 400                      # 원하는 기본 높이
+                }
+            # 저장된 config에서 데이터 가져오기
+            elif i < len(self.config["images"]["items"]):
                 item_data = self.config["images"]["items"][i]
             
             # 항목 그룹 생성
