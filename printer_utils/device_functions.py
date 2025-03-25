@@ -180,3 +180,26 @@ def draw_text2(device_handle, page, panel, x, y, width, height, font_name, font_
         print(f"❌ SmartComm_DrawText2 호출 실패 (오류 코드: {result})")
 
     return result
+
+def draw_barcode(device_handle, page, panel, x, y, width, height, color, name, size, data, post=None):
+    """
+    SmartComm_DrawBarcode 함수를 사용하여 바코드를 출력하는 함수
+    """
+    rect_area = ffi.NULL
+    name_wchar = ffi.new("wchar_t[]", name)
+    data_wchar = ffi.new("wchar_t[]", data)
+    
+    # post 파라미터가 None이 아닌 경우에만 wchar_t 배열로 변환
+    if post:
+        post_wchar = ffi.new("wchar_t[]", post)
+    else:
+        post_wchar = ffi.NULL
+
+    # 디버그 정보 출력
+    # print(f"바코드 그리기: 유형={name}, 위치=({x},{y}), 크기=({width},{height}), 데이터={data}")
+    
+    result = lib.SmartComm_DrawBarcode(device_handle, page, panel, x, y, width, height, color, rect_area, name_wchar, size, data_wchar, post_wchar)
+        
+    return result
+
+
