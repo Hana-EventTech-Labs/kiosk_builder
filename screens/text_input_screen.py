@@ -119,11 +119,6 @@ class TextInputScreen(QWidget):
         with open("resources/input_texts.json", "w", encoding="utf-8") as f:
             json.dump(input_texts, f, ensure_ascii=False)
         
-        # 이전 방식과의 호환성을 위해 첫 번째 입력 필드만 텍스트 파일로 저장
-        if self.text_inputs:
-            with open("resources/input_text.txt", "w", encoding="utf-8") as f:
-                f.write(self.text_inputs[0].text())
-        
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)

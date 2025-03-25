@@ -4,6 +4,7 @@ from .image_utils import bitmapinfo_to_image
 from .cffi_defs import ffi, SMART_OPENDEVICE_BYID, PAGE_FRONT, PANELID_COLOR
 from config import config
 import os
+import json
 
 class PrinterThread(QThread):
     finished = Signal()
@@ -67,16 +68,25 @@ class PrinterThread(QThread):
         if len(text_items) != expected_text_count:
             print(f"경고: 설정된 텍스트 수({expected_text_count})와 실제 텍스트 항목 수({len(text_items)})가 다릅니다")
         
-        for text_config in text_items:
-            # content가 비어있으면 파일에서 읽기
+        # input_texts.json 파일 로드 시도
+        input_texts = {}
+        if os.path.exists("resources/input_texts.json"):
+            try:
+                with open("resources/input_texts.json", "r", encoding="utf-8") as f:
+                    input_texts = json.loads(f.read())
+                # print(f"input_texts.json 파일을 성공적으로 로드했습니다: {input_texts}")
+            except Exception as e:
+                print(f"input_texts.json 파일 읽기 실패: {str(e)}")
+        
+        for i, text_config in enumerate(text_items):
+            # 텍스트 내용 결정
             content = text_config.get("content", "")
-            if not content and os.path.exists("resources/input_text.txt"):
-                try:
-                    with open("resources/input_text.txt", "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                except Exception as e:
-                    print(f"텍스트 파일 읽기 실패: {str(e)}")
-                    content = "텍스트 로드 실패"
+            
+            # input_texts.json에서 해당 인덱스의 텍스트 가져오기
+            text_key = f"text_{i+1}"
+            if text_key in input_texts and input_texts[text_key]:
+                content = input_texts[text_key]
+                # print(f"텍스트 {i+1}: input_texts.json에서 '{content}' 가져옴")
             
             self.add_text(
                 text=content,
