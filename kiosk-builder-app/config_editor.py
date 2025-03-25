@@ -373,17 +373,45 @@ class ConfigEditor(QMainWindow):
         
         # 텍스트 입력 설정
         text_input_group = QGroupBox("텍스트 입력 설정")
-        text_input_layout = QFormLayout(text_input_group)
+        text_input_layout = QVBoxLayout(text_input_group)
         
+        # 텍스트 입력 기본 설정
+        basic_settings_layout = QFormLayout()
         self.text_input_fields = {}
         
-        for key in ["width", "height", "margin_top", "margin_left", "margin_right", "font_size"]:
+        # 공통 설정 필드 (각 항목별 설정이 아닌 전체 설정)
+        for key in ["margin_top", "margin_left", "margin_right", "spacing"]:
             spin_box = QSpinBox()
             spin_box.setRange(0, 2000)
             spin_box.setValue(self.config["text_input"][key])
-            text_input_layout.addRow(f"{key.replace('_', ' ')}:", spin_box)
+            basic_settings_layout.addRow(f"{key.replace('_', ' ')}:", spin_box)
             self.text_input_fields[key] = spin_box
+            
+        text_input_layout.addLayout(basic_settings_layout)
         
+        # 텍스트 입력 개수 설정
+        text_input_count_layout = QHBoxLayout()
+        text_input_count_label = QLabel("텍스트 입력 개수:")
+        self.text_input_count_spinbox = QSpinBox()
+        self.text_input_count_spinbox.setRange(0, 10)
+        self.text_input_count_spinbox.setValue(self.config["text_input"]["count"])
+        self.text_input_count_spinbox.valueChanged.connect(self.update_text_input_items)
+        text_input_count_layout.addWidget(text_input_count_label)
+        text_input_count_layout.addWidget(self.text_input_count_spinbox)
+        text_input_count_layout.addStretch()
+        
+        text_input_layout.addLayout(text_input_count_layout)
+        
+        # 텍스트 입력 항목 컨테이너
+        self.text_input_items_container = QWidget()
+        self.text_input_items_layout = QVBoxLayout(self.text_input_items_container)
+        self.text_input_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 텍스트 입력 항목 필드 초기화
+        self.text_input_item_fields = []
+        self.update_text_input_items(self.config["text_input"]["count"])
+        
+        text_input_layout.addWidget(self.text_input_items_container)
         content_layout.addWidget(text_input_group)
         
         # 키보드 위치 및 크기
@@ -430,21 +458,6 @@ class ConfigEditor(QMainWindow):
             self.keyboard_style_fields[key] = spin_box
         
         content_layout.addWidget(style_group)
-        
-        # 확인 버튼 설정
-        confirm_button_group = QGroupBox("확인 버튼 설정")
-        confirm_button_layout = QFormLayout(confirm_button_group)
-        
-        self.confirm_button_fields = {}
-        
-        for key in ["width", "height", "margin_bottom", "font_size"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 2000)
-            spin_box.setValue(self.config["confirm_button"][key])
-            confirm_button_layout.addRow(f"{key.replace('_', ' ')}:", spin_box)
-            self.confirm_button_fields[key] = spin_box
-        
-        content_layout.addWidget(confirm_button_group)
         
         # 스트레치 추가
         content_layout.addStretch()
@@ -661,6 +674,14 @@ class ConfigEditor(QMainWindow):
             QMessageBox.warning(self, "폰트 파일 누락", error_msg)
             return
         
+        # 텍스트 개수가 텍스트 입력 개수보다 적은지 확인
+        text_count = self.text_count_spinbox.value()
+        text_input_count = self.text_input_count_spinbox.value()
+        if text_count < text_input_count:
+            error_msg = f"텍스트 개수({text_count})가 텍스트 입력 개수({text_input_count})보다 적습니다.\n\n텍스트 개수가 더 많거나 같아야 합니다."
+            QMessageBox.warning(self, "텍스트 개수 부족", error_msg)
+            return
+        
         # 기본 설정
         self.config["app_name"] = self.app_name_edit.text()
         self.config["screen_size"]["width"] = self.screen_width_edit.value()
@@ -724,9 +745,21 @@ class ConfigEditor(QMainWindow):
         for key, widget in self.text_input_fields.items():
             self.config["text_input"][key] = widget.value()
         
-        # 확인 버튼 설정 저장
-        for key, widget in self.confirm_button_fields.items():
-            self.config["confirm_button"][key] = widget.value()
+        # 텍스트 입력 개수 설정 저장
+        self.config["text_input"]["count"] = self.text_input_count_spinbox.value()
+        self.config["text_input"]["items"] = []
+        
+        for i, fields in enumerate(self.text_input_item_fields):
+            item = {
+                "label": fields["label"].text(),
+                "placeholder": fields["placeholder"].text(),
+                "x": fields["x"].value(),
+                "y": fields["y"].value(),
+                "width": fields["width"].value(),
+                "height": fields["height"].value(),
+                "font_size": fields["font_size"].value()
+            }
+            self.config["text_input"]["items"].append(item)
         
         # 키보드 설정 저장
         # 위치 및 크기
@@ -841,11 +874,26 @@ class ConfigEditor(QMainWindow):
         
         # 텍스트 입력 설정 업데이트
         for key, widget in self.text_input_fields.items():
-            widget.setValue(self.config["text_input"][key])
+            if key != "count":  # count는 spinbox에서 별도로 처리
+                widget.setValue(self.config["text_input"][key])
         
-        # 확인 버튼 설정 업데이트
-        for key, widget in self.confirm_button_fields.items():
-            widget.setValue(self.config["confirm_button"][key])
+        # 텍스트 입력 개수 업데이트
+        if self.text_input_count_spinbox.value() != self.config["text_input"]["count"]:
+            self.text_input_count_spinbox.setValue(self.config["text_input"]["count"])
+        else:
+            self.update_text_input_items(self.config["text_input"]["count"])
+        
+        # 텍스트 입력 항목 업데이트
+        for i, fields in enumerate(self.text_input_item_fields):
+            if i < len(self.config["text_input"]["items"]):
+                item = self.config["text_input"]["items"][i]
+                fields["label"].setText(item.get("label", ""))
+                fields["placeholder"].setText(item.get("placeholder", ""))
+                fields["x"].setValue(item.get("x", 0))
+                fields["y"].setValue(item.get("y", 0))
+                fields["width"].setValue(item.get("width", 800))
+                fields["height"].setValue(item.get("height", 80))
+                fields["font_size"].setValue(item.get("font_size", 36))
         
         # 키보드 설정 업데이트
         # 위치 및 크기
@@ -1093,3 +1141,72 @@ class ConfigEditor(QMainWindow):
         
         # UI 업데이트
         self.text_items_container.updateGeometry()
+
+    def update_text_input_items(self, count):
+        """텍스트 입력 항목 UI 업데이트"""
+        # 카운트 저장
+        self.text_input_fields["count"] = self.text_input_count_spinbox
+        
+        # 기존 위젯 제거
+        for i in reversed(range(self.text_input_items_layout.count())):
+            item = self.text_input_items_layout.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        # 텍스트 입력 항목 필드 초기화
+        self.text_input_item_fields = []
+        
+        # 새 항목 추가
+        for i in range(count):
+            # 기본값 설정
+            item_data = {
+                "label": f"입력 {i+1}",
+                "placeholder": "입력하세요",
+                "width": 800,
+                "height": 80,
+                "x": 100,
+                "y": 100 + i * 100,
+                "font_size": 36
+            }
+            
+            # 기존 데이터가 있으면 사용
+            if i < len(self.config["text_input"]["items"]):
+                item_data = self.config["text_input"]["items"][i]
+            
+            # 항목 그룹 생성
+            item_group = QGroupBox(f"텍스트 입력 {i+1}")
+            item_layout = QFormLayout(item_group)
+            
+            # 항목 필드 생성
+            item_fields = {}
+            
+            # 레이블
+            label_edit = QLineEdit(item_data.get("label", ""))
+            item_layout.addRow("레이블:", label_edit)
+            item_fields["label"] = label_edit
+            
+            # 플레이스홀더
+            placeholder_edit = QLineEdit(item_data.get("placeholder", ""))
+            item_layout.addRow("플레이스홀더:", placeholder_edit)
+            item_fields["placeholder"] = placeholder_edit
+            
+            # 위치 및 크기
+            for key in ["x", "y", "width", "height"]:
+                spin_box = QSpinBox()
+                spin_box.setRange(0, 3000)
+                spin_box.setValue(item_data.get(key, 0))
+                item_layout.addRow(f"{key}:", spin_box)
+                item_fields[key] = spin_box
+            
+            # 폰트 크기
+            font_size_spin = QSpinBox()
+            font_size_spin.setRange(8, 100)
+            font_size_spin.setValue(item_data.get("font_size", 36))
+            item_layout.addRow("폰트 크기:", font_size_spin)
+            item_fields["font_size"] = font_size_spin
+            
+            self.text_input_items_layout.addWidget(item_group)
+            self.text_input_item_fields.append(item_fields)
+        
+        # UI 업데이트
+        self.text_input_items_container.updateGeometry()

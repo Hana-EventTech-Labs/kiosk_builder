@@ -9,9 +9,9 @@
         "height": 1080
     },
     "crop_area": {
-        "width": 900,
+        "width": 1000,
         "height": 700,
-        "x": 500,
+        "x": 300,
         "y": 100
     },
     "camera_count": {
@@ -21,7 +21,7 @@
     },
     "screen_order": [
         0,
-        1,
+        2,
         4,
         5
     ],
@@ -32,19 +32,11 @@
         "height": 720
     },
     "images": {
-        "count": 1,
-        "items": [
-            {
-                "filename": "captured_image.jpg",
-                "x": 0,
-                "y": 0,
-                "width": 100,
-                "height": 100
-            }
-        ]
+        "count": 0,
+        "items": []
     },
     "texts": {
-        "count": 1,
+        "count": 2,
         "items": [
             {
                 "content": "",
@@ -55,16 +47,45 @@
                 "font": "LAB디지털.ttf",
                 "font_size": 16,
                 "font_color": "#000000"
+            },
+            {
+                "content": "텍스트",
+                "x": 0,
+                "y": 0,
+                "width": 300,
+                "height": 100,
+                "font": "LAB디지털.ttf",
+                "font_size": 16,
+                "font_color": "#000000"
             }
         ]
     },
     "text_input": {
-        "width": 800,
-        "height": 80,
         "margin_top": 200,
         "margin_left": 0,
         "margin_right": 0,
-        "font_size": 36
+        "spacing": 30,
+        "count": 2,
+        "items": [
+            {
+                "label": "이름",
+                "placeholder": "이름을 입력하세요",
+                "x": 100,
+                "y": 100,
+                "width": 800,
+                "height": 80,
+                "font_size": 36
+            },
+            {
+                "label": "전화번호",
+                "placeholder": "전화번호를 입력하세요",
+                "x": 500,
+                "y": 100,
+                "width": 800,
+                "height": 80,
+                "font_size": 36
+            }
+        ]
     },
     "keyboard": {
         "x": 320,
