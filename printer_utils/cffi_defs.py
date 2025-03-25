@@ -118,6 +118,22 @@ int SmartComm_DrawText2(
     DRAWTEXT2INFO* pdt2info, 
     wchar_t* szText
 );
+         
+int SmartComm_DrawBarcode(
+    HSMART hHandle,
+    BYTE page,
+    BYTE panel,
+    int x,
+    int y,
+    int cx,
+    int cy,
+    unsigned long col,
+    RECT* prcArea,
+    const wchar_t* szName,
+    int nSize,
+    const wchar_t* szData,
+    const wchar_t* szPost
+);
 
 """)
 

@@ -1,5 +1,5 @@
 from PySide6.QtCore import QThread, Signal
-from .device_functions import get_device_list, get_device_id, open_device, draw_image, get_preview_bitmap, print_image, close_device, load_font, draw_text2
+from .device_functions import get_device_list, get_device_id, open_device, draw_image, get_preview_bitmap, print_image, close_device, load_font, draw_text2, draw_barcode
 from .image_utils import bitmapinfo_to_image
 from .cffi_defs import ffi, SMART_OPENDEVICE_BYID, PAGE_FRONT, PANELID_COLOR
 from config import config
@@ -172,7 +172,20 @@ class PrinterThread(QThread):
                     if result != 0:
                         self.error.emit(f"텍스트 그리기 실패: {text_info['text']}")
                         return
-                
+                    
+                # 바코드 그리기
+                # result = draw_barcode(
+                #     device_handle, PAGE_FRONT, PANELID_COLOR,
+                #     x=200, y=400, width=300, height=100,
+                #     color=0x000000,
+                #     name="Code128(C)",  # 표준 바코드 유형 (CODE39, CODE128, QR, EAN13 등)
+                #     size=24,  # 바코드 크기 조정 (더 큰 값으로)
+                #     data="바코드",  # 바코드에 인코딩할 데이터
+                #     post=None  # MaxiCode 바코드 유형일 때만 사용되는 우편번호 데이터
+                # )
+                # if result != 0:
+                #     self.error.emit(f"바코드 그리기 실패 (오류 코드: {result})")
+
                 # 미리보기 비트맵 가져오기
                 result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)
                 if result == 0:
