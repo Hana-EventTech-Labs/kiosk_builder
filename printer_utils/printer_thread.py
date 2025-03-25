@@ -87,15 +87,6 @@ class PrinterThread(QThread):
             if text_key in input_texts and input_texts[text_key]:
                 content = input_texts[text_key]
                 # print(f"텍스트 {i+1}: input_texts.json에서 '{content}' 가져옴")
-            # content가 비어있고 input_texts.json에서 찾을 수 없으면 기존 방식으로 fallback
-            elif not content and os.path.exists("resources/input_text.txt"):
-                try:
-                    with open("resources/input_text.txt", "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                    print(f"텍스트 {i+1}: input_text.txt에서 '{content}' 가져옴")
-                except Exception as e:
-                    print(f"텍스트 파일 읽기 실패: {str(e)}")
-                    content = "텍스트 로드 실패"
             
             self.add_text(
                 text=content,
