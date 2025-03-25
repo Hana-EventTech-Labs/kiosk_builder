@@ -196,14 +196,9 @@ def draw_barcode(device_handle, page, panel, x, y, width, height, color, name, s
         post_wchar = ffi.NULL
 
     # 디버그 정보 출력
-    print(f"바코드 그리기: 유형={name}, 위치=({x},{y}), 크기=({width},{height}), 데이터={data}")
+    # print(f"바코드 그리기: 유형={name}, 위치=({x},{y}), 크기=({width},{height}), 데이터={data}")
     
     result = lib.SmartComm_DrawBarcode(device_handle, page, panel, x, y, width, height, color, rect_area, name_wchar, size, data_wchar, post_wchar)
-    
-    if result != 0:
-        print(f"바코드 그리기 실패: 오류 코드 {result}")
-    else:
-        print("바코드 그리기 성공")
         
     return result
 
