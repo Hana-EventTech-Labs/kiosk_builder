@@ -259,19 +259,14 @@ class VirtualKeyboard(QWidget):
 
     def next_pressed(self):
         """다음 버튼 클릭 시 동작"""
-        # 입력 텍스트 저장
-        text = self.input_widget.text()
-        with open("resources/input_text.txt", "w", encoding="utf-8") as f:
-            f.write(text)
-            
-        # TextInputScreen의 부모를 찾아 다음 화면으로 이동
+        # TextInputScreen의 부모를 찾아 confirm_pressed 호출
         parent = self.parent()
-        while parent and not hasattr(parent, 'main_window'):
+        while parent and not hasattr(parent, 'confirm_pressed'):
             parent = parent.parent()
             
-        if parent and hasattr(parent, 'main_window'):
-            next_index = parent.main_window.getNextScreenIndex()
-            parent.main_window.stack.setCurrentIndex(next_index)
+        if parent and hasattr(parent, 'confirm_pressed'):
+            # None을 이벤트 인자로 전달 (이벤트 객체는 사용되지 않음)
+            parent.confirm_pressed(None)
         
         self.hangul_composer.reset()
             
