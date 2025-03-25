@@ -47,8 +47,8 @@ class TextInputScreen(QWidget):
             if "label" in item_config:
                 label = QLabel(item_config["label"], self)
                 # 레이블 위치 설정 (입력 필드 왼쪽)
-                label_x = item_config.get("x", 0) + config["text_input"].get("margin_left", 0) - 150
-                label_y = item_config.get("y", 0) + config["text_input"].get("margin_top", 0) + i * config["text_input"].get("spacing", 30)
+                label_x = item_config.get("x", 0) - 150  # 입력 필드 왼쪽에 레이블 배치
+                label_y = item_config.get("y", 0)
                 label.setGeometry(label_x, label_y, 140, 40)
                 label.setStyleSheet("color: black; font-size: 18px;")
                 label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -57,14 +57,15 @@ class TextInputScreen(QWidget):
             text_input = CustomLineEdit(self, i, self.input_focus_received)
             
             # 위치 및 크기 설정
-            width = item_config.get("width", config["text_input"]["common"]["width"])
-            height = item_config.get("height", config["text_input"]["common"]["height"])
-            x = item_config.get("x", 0) + config["text_input"].get("margin_left", 0)
-            y = item_config.get("y", 0) + config["text_input"].get("margin_top", 0) + i * config["text_input"].get("spacing", 30)
+            width = item_config.get("width", 800)
+            height = item_config.get("height", 80)
+            # config.json의 x, y 값 그대로 사용
+            x = item_config.get("x", 0)
+            y = item_config.get("y", 0)
             
             text_input.setGeometry(x, y, width, height)
             text_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            text_input.setFont(QFont('맑은 고딕', config["text_input"]["common"]["font_size"]))
+            text_input.setFont(QFont('맑은 고딕', item_config.get("font_size", 36)))
             
             # 플레이스홀더 설정 (있는 경우)
             if "placeholder" in item_config:
