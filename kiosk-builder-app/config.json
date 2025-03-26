@@ -9,10 +9,10 @@
         "height": 1080
     },
     "crop_area": {
-        "width": 1000,
-        "height": 700,
-        "x": 300,
-        "y": 100
+        "width": 1920,
+        "height": 1080,
+        "x": 0,
+        "y": 0
     },
     "camera_count": {
         "number": 3,
@@ -21,7 +21,7 @@
     },
     "screen_order": [
         0,
-        2,
+        1,
         4,
         5
     ],
@@ -31,61 +31,28 @@
         "width": 1080,
         "height": 720
     },
+    "photo": {
+        "filename": "captured_image.jpg",
+        "x": 143,
+        "y": 314,
+        "width": 350,
+        "height": 400
+    },
     "images": {
         "count": 0,
         "items": []
     },
     "texts": {
-        "count": 2,
-        "items": [
-            {
-                "content": "",
-                "x": 0,
-                "y": 0,
-                "width": 100,
-                "height": 100,
-                "font": "LAB디지털.ttf",
-                "font_size": 16,
-                "font_color": "#000000"
-            },
-            {
-                "content": "텍스트",
-                "x": 0,
-                "y": 0,
-                "width": 300,
-                "height": 100,
-                "font": "LAB디지털.ttf",
-                "font_size": 16,
-                "font_color": "#000000"
-            }
-        ]
+        "count": 0,
+        "items": []
     },
     "text_input": {
         "margin_top": 200,
         "margin_left": 0,
         "margin_right": 0,
         "spacing": 30,
-        "count": 2,
-        "items": [
-            {
-                "label": "이름",
-                "placeholder": "이름을 입력하세요",
-                "x": 100,
-                "y": 100,
-                "width": 800,
-                "height": 80,
-                "font_size": 36
-            },
-            {
-                "label": "전화번호",
-                "placeholder": "전화번호를 입력하세요",
-                "x": 500,
-                "y": 100,
-                "width": 800,
-                "height": 80,
-                "font_size": 36
-            }
-        ]
+        "count": 0,
+        "items": []
     },
     "keyboard": {
         "x": 320,
