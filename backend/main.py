@@ -13,6 +13,10 @@ import datetime  # 추가된 부분
 # 앱 생성
 app = FastAPI(title="QR Code Image Server")
 
+# 이미지 접근을 위한 StaticFiles 마운트
+from fastapi.staticfiles import StaticFiles
+app.mount("/images", StaticFiles(directory="uploads"), name="images")
+
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
