@@ -199,14 +199,29 @@ async def get_event_page(event_id: str):
     if not event_dir.exists():
         raise HTTPException(status_code=404, detail="Event not found")
     
-    # 간단한 HTML 페이지 반환 (실제로는 더 복잡한 프론트엔드 구현 필요)
+    # 서버 도메인 가져오기
+    from config import settings
+    server_domain = settings.DOMAIN
+    
+    # 웹소켓 프로토콜 설정 (https -> wss, http -> ws)
+    ws_protocol = "wss" if server_domain.startswith("https") else "ws"
+    ws_domain = server_domain.replace("https://", "").replace("http://", "")
+    
+    # 클라이언트 ID 생성
     client_id = str(uuid.uuid4())
+    
     return f"""
     <!DOCTYPE html>
     <html>
         <head>
             <title>QR Code Image Upload</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
+            <!-- 변수를 메타 태그로 저장 -->
+            <meta id="event-id" content="{event_id}">
+            <meta id="client-id" content="{client_id}">
+            <meta id="server-domain" content="{server_domain}">
+            <meta id="ws-protocol" content="{ws_protocol}">
+            <meta id="ws-domain" content="{ws_domain}">
             <style>
                 body {{
                     font-family: Arial, sans-serif;
@@ -287,14 +302,22 @@ async def get_event_page(event_id: str):
             </div>
             
             <script>
-                const eventId = "{event_id}";
-                const clientId = "{client_id}";
+                // 메타 태그에서 변수 가져오기
+                const eventId = document.getElementById('event-id').getAttribute('content');
+                const clientId = document.getElementById('client-id').getAttribute('content');
+                const serverDomain = document.getElementById('server-domain').getAttribute('content');
+                const wsProtocol = document.getElementById('ws-protocol').getAttribute('content');
+                const wsDomain = document.getElementById('ws-domain').getAttribute('content');
+                
                 let socket;
                 let selectedImageId;
                 
                 // 웹소켓 연결
                 function connectWebSocket() {{
-                    socket = new WebSocket(`ws://localhost:8000/ws/mobile/${{clientId}}/${{eventId}}`);
+                    // 서버 도메인 기반으로 웹소켓 연결
+                    const wsUrl = `${{wsProtocol}}://${{wsDomain}}/ws/mobile/${{clientId}}/${{eventId}}`;
+                    socket = new WebSocket(wsUrl);
+                    console.log(`연결 중: ${{wsUrl}}`);
                     
                     socket.onopen = function(e) {{
                         document.getElementById('connectionStatus').textContent = '연결됨';
@@ -306,7 +329,8 @@ async def get_event_page(event_id: str):
                         
                         if (data.type === 'upload_success') {{
                             // 업로드 성공 시 최종 이미지 표시
-                            document.getElementById('finalImage').src = data.image_url;
+                            const imageUrl = data.image_url.startsWith('/') ? `${{serverDomain}}${{data.image_url}}` : data.image_url;
+                            document.getElementById('finalImage').src = imageUrl;
                             document.getElementById('step2').classList.add('hidden');
                             document.getElementById('step3').classList.remove('hidden');
                         }}
@@ -325,6 +349,10 @@ async def get_event_page(event_id: str):
                 
                 // 초기화
                 window.addEventListener('load', function() {{
+                    console.log("페이지 로드됨. 이벤트 ID:", eventId);
+                    console.log("클라이언트 ID:", clientId);
+                    console.log("서버 도메인:", serverDomain);
+                    
                     connectWebSocket();
                     
                     // 업로드 영역 클릭 처리
@@ -362,7 +390,8 @@ async def get_event_page(event_id: str):
                             const formData = new FormData();
                             formData.append('file', fileInput.files[0]);
                             
-                            fetch(`/api/images/upload/${{eventId}}/${{clientId}}`, {{
+                            // 서버 도메인 포함한 전체 URL 사용
+                            fetch(`${{serverDomain}}/api/images/upload/${{eventId}}/${{clientId}}`, {{
                                 method: 'POST',
                                 body: formData
                             }})
@@ -401,12 +430,3 @@ async def get_event_page(event_id: str):
         </body>
     </html>
     """
-
-# 정적 파일 서비스 설정 (업로드된 이미지 접근용)
-app.mount("/images", StaticFiles(directory=UPLOAD_DIR), name="images")
-
-# 서버 시작
-if __name__ == "__main__":
-    import uvicorn
-    from config import settings
-    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=True)
