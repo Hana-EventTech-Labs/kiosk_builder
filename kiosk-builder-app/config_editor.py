@@ -292,6 +292,27 @@ class ConfigEditor(QMainWindow):
         frame_group = self.create_position_size_group("위젯", "frame")
         content_layout.addWidget(frame_group)
         
+        # 사진 설정 추가 (photo)
+        photo_group = QGroupBox("촬영 사진 설정")
+        photo_layout = QFormLayout(photo_group)
+        
+        self.photo_fields = {}
+        
+        # 파일명
+        filename_edit = QLineEdit(self.config["photo"]["filename"])
+        photo_layout.addRow("파일명:", filename_edit)
+        self.photo_fields["filename"] = filename_edit
+        
+        # 위치 및 크기
+        for key in ["x", "y", "width", "height"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 3000)
+            spin_box.setValue(self.config["photo"][key])
+            photo_layout.addRow(f"{key}:", spin_box)
+            self.photo_fields[key] = spin_box
+        
+        content_layout.addWidget(photo_group)
+        
         # 카메라 카운트 설정
         camera_count_group = QGroupBox("카메라 카운트 설정")
         camera_count_layout = QFormLayout(camera_count_group)
@@ -710,6 +731,11 @@ class ConfigEditor(QMainWindow):
         for key, widget in self.frame_fields.items():
             self.config["frame"][key] = widget.value()
         
+        # 촬영 사진 설정 저장
+        self.config["photo"]["filename"] = self.photo_fields["filename"].text()
+        for key in ["x", "y", "width", "height"]:
+            self.config["photo"][key] = self.photo_fields[key].value()
+        
         # 이미지 설정 저장
         self.config["images"]["count"] = self.image_count_spinbox.value()
         self.config["images"]["items"] = []
@@ -836,6 +862,11 @@ class ConfigEditor(QMainWindow):
         # 프레임 설정 업데이트
         for key, widget in self.frame_fields.items():
             widget.setValue(self.config["frame"][key])
+        
+        # 촬영 사진 설정 업데이트
+        self.photo_fields["filename"].setText(self.config["photo"]["filename"])
+        for key in ["x", "y", "width", "height"]:
+            self.photo_fields[key].setValue(self.config["photo"][key])
         
         # 이미지 설정 업데이트
         if self.image_count_spinbox.value() != self.config["images"]["count"]:
@@ -1021,7 +1052,7 @@ class ConfigEditor(QMainWindow):
         for i in range(count):
             # 기본값 설정
             item_data = {
-                "filename": "captured_image.jpg",
+                "filename": "file_name.jpg",
                 "x": 0,
                 "y": 0,
                 "width": 300,
@@ -1031,15 +1062,6 @@ class ConfigEditor(QMainWindow):
             # 기존 이미지 데이터 유지
             if i < prev_count:
                 item_data = prev_image_data[i]
-            # 0개에서 1개로 변경되는 경우만 특별한 기본값 설정
-            elif prev_count == 0 and i == 0:
-                item_data = {
-                    "filename": "captured_image.jpg",  # 원하는 기본 파일명
-                    "x": 143,                          # 원하는 기본 X 위치
-                    "y": 314,                          # 원하는 기본 Y 위치
-                    "width": 350,                      # 원하는 기본 너비
-                    "height": 400                      # 원하는 기본 높이
-                }
             # 저장된 config에서 데이터 가져오기
             elif i < len(self.config["images"]["items"]):
                 item_data = self.config["images"]["items"][i]
