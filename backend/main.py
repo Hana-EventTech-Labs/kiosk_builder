@@ -8,7 +8,11 @@ import os
 import shutil
 import json
 from pathlib import Path
-import datetime  # 추가된 부분
+import datetime
+from pathlib import Path
+
+# uploads 폴더가 없으면 자동으로 생성
+Path("uploads").mkdir(exist_ok=True)
 
 # 앱 생성
 app = FastAPI(title="QR Code Image Server")
