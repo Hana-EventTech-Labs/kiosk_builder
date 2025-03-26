@@ -156,7 +156,8 @@ class ConfigEditor(QMainWindow):
             spin_box = QSpinBox()
             spin_box.setRange(0, 10000)
             spin_box.setValue(self.config["crop_area"][key])
-            crop_layout.addRow(f"{key}:", spin_box)
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            crop_layout.addRow(f"{label_text}:", spin_box)
             self.crop_fields[key] = spin_box
         
         content_layout.addWidget(crop_group)
@@ -190,37 +191,6 @@ class ConfigEditor(QMainWindow):
         images_layout.addWidget(self.image_items_container)
         content_layout.addWidget(images_group)
 
-        # 키보드 화면으로 넘어가서 주석 처리
-        # 텍스트 설정 - 키보드 탭에서 이동
-        # texts_group = QGroupBox("텍스트 설정")
-        # texts_layout = QVBoxLayout(texts_group)
-        
-        # # 텍스트 개수 설정
-        # text_count_layout = QHBoxLayout()
-        # text_count_label = QLabel("텍스트 개수:")
-        # self.text_count_spinbox = QSpinBox()
-        # self.text_count_spinbox.setRange(0, 10)
-        # self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        # self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        # text_count_layout.addWidget(text_count_label)
-        # text_count_layout.addWidget(self.text_count_spinbox)
-        # text_count_layout.addStretch()
-        
-        # texts_layout.addLayout(text_count_layout)
-        
-        # # 텍스트 항목 컨테이너
-        # self.text_items_container = QWidget()
-        # self.text_items_layout = QVBoxLayout(self.text_items_container)
-        # self.text_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # # 텍스트 항목 필드 초기화
-        # self.text_item_fields = []
-        # self.update_text_items(self.config["texts"]["count"])
-        
-        # texts_layout.addWidget(self.text_items_container)
-        # content_layout.addWidget(texts_group)
-
-        
         # 화면 순서
         screen_order_group = QGroupBox("화면 순서")
         screen_order_layout = QVBoxLayout(screen_order_group)
@@ -304,11 +274,12 @@ class ConfigEditor(QMainWindow):
         self.photo_fields["filename"] = filename_edit
         
         # 위치 및 크기
-        for key in ["x", "y", "width", "height"]:
+        for key in ["width", "height", "x", "y"]:
             spin_box = QSpinBox()
             spin_box.setRange(0, 3000)
             spin_box.setValue(self.config["photo"][key])
-            photo_layout.addRow(f"{key}:", spin_box)
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            photo_layout.addRow(f"{label_text}:", spin_box)
             self.photo_fields[key] = spin_box
         
         content_layout.addWidget(photo_group)
@@ -363,36 +334,7 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
-        # 텍스트 설정
-        texts_group = QGroupBox("텍스트 설정")
-        texts_layout = QVBoxLayout(texts_group)
-        
-        # 텍스트 개수 설정
-        text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
-        self.text_count_spinbox = QSpinBox()
-        self.text_count_spinbox.setRange(0, 10)
-        self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        text_count_layout.addWidget(text_count_label)
-        text_count_layout.addWidget(self.text_count_spinbox)
-        text_count_layout.addStretch()
-        
-        texts_layout.addLayout(text_count_layout)
-        
-        # 텍스트 항목 컨테이너
-        self.text_items_container = QWidget()
-        self.text_items_layout = QVBoxLayout(self.text_items_container)
-        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        self.update_text_items(self.config["texts"]["count"])
-        
-        texts_layout.addWidget(self.text_items_container)
-        content_layout.addWidget(texts_group)
-        
-        # 텍스트 입력 설정
+        # 텍스트 입력 설정 (먼저 배치)
         text_input_group = QGroupBox("텍스트 입력 설정")
         text_input_layout = QVBoxLayout(text_input_group)
         
@@ -401,11 +343,18 @@ class ConfigEditor(QMainWindow):
         self.text_input_fields = {}
         
         # 공통 설정 필드 (각 항목별 설정이 아닌 전체 설정)
+        settings_map = {
+            "margin_top": "상단 여백",
+            "margin_left": "왼쪽 여백",
+            "margin_right": "오른쪽 여백",
+            "spacing": "간격"
+        }
+        
         for key in ["margin_top", "margin_left", "margin_right", "spacing"]:
             spin_box = QSpinBox()
             spin_box.setRange(0, 2000)
             spin_box.setValue(self.config["text_input"][key])
-            basic_settings_layout.addRow(f"{key.replace('_', ' ')}:", spin_box)
+            basic_settings_layout.addRow(f"{settings_map[key]}:", spin_box)
             self.text_input_fields[key] = spin_box
             
         text_input_layout.addLayout(basic_settings_layout)
@@ -435,17 +384,47 @@ class ConfigEditor(QMainWindow):
         text_input_layout.addWidget(self.text_input_items_container)
         content_layout.addWidget(text_input_group)
         
+        # 텍스트 설정 (텍스트 입력 설정 뒤에 배치)
+        texts_group = QGroupBox("텍스트 설정")
+        texts_layout = QVBoxLayout(texts_group)
+        
+        # 텍스트 개수 설정
+        text_count_layout = QHBoxLayout()
+        text_count_label = QLabel("텍스트 개수:")
+        self.text_count_spinbox = QSpinBox()
+        self.text_count_spinbox.setRange(0, 10)
+        self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        text_count_layout.addWidget(text_count_label)
+        text_count_layout.addWidget(self.text_count_spinbox)
+        text_count_layout.addStretch()
+        
+        texts_layout.addLayout(text_count_layout)
+        
+        # 텍스트 항목 컨테이너
+        self.text_items_container = QWidget()
+        self.text_items_layout = QVBoxLayout(self.text_items_container)
+        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 텍스트 항목 필드 초기화
+        self.text_item_fields = []
+        self.update_text_items(self.config["texts"]["count"])
+        
+        texts_layout.addWidget(self.text_items_container)
+        content_layout.addWidget(texts_group)
+        
         # 키보드 위치 및 크기
         position_group = QGroupBox("키보드 위치 및 크기")
         position_layout = QFormLayout(position_group)
         
         self.keyboard_position_fields = {}
         
-        for key in ["x", "y", "width", "height"]:
+        for key in ["width", "height", "x", "y"]:
             spin_box = QSpinBox()
             spin_box.setRange(0, 3000)
             spin_box.setValue(self.config["keyboard"][key])
-            position_layout.addRow(f"{key}:", spin_box)
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            position_layout.addRow(f"{label_text}:", spin_box)
             self.keyboard_position_fields[key] = spin_box
         
         content_layout.addWidget(position_group)
@@ -460,22 +439,48 @@ class ConfigEditor(QMainWindow):
         color_keys = ["bg_color", "border_color", "button_bg_color", "button_text_color", 
                       "button_pressed_color", "hangul_btn_color", "shift_btn_color", 
                       "backspace_btn_color", "next_btn_color"]
+        
+        # 색상 필드 이름 매핑
+        color_labels = {
+            "bg_color": "배경 색상",
+            "border_color": "테두리 색상",
+            "button_bg_color": "버튼 배경 색상",
+            "button_text_color": "버튼 텍스트 색상",
+            "button_pressed_color": "버튼 누름 색상",
+            "hangul_btn_color": "한글 버튼 색상",
+            "shift_btn_color": "시프트 버튼 색상",
+            "backspace_btn_color": "지우기 버튼 색상",
+            "next_btn_color": "다음 버튼 색상"
+        }
                       
         for key in color_keys:
             color_button = ColorPickerButton(self.config["keyboard"][key])
-            style_layout.addRow(f"{key.replace('_', ' ')}:", color_button)
+            style_layout.addRow(f"{color_labels[key]}:", color_button)
             self.keyboard_style_fields[key] = color_button
         
         # 숫자 필드
         number_keys = ["border_width", "border_radius", "padding", "font_size", 
                        "button_radius", "special_btn_width", "max_hangul", 
                        "max_lowercase", "max_uppercase"]
+        
+        # 숫자 필드 이름 매핑
+        number_labels = {
+            "border_width": "테두리 두께",
+            "border_radius": "테두리 둥글기",
+            "padding": "내부 여백",
+            "font_size": "폰트 크기",
+            "button_radius": "버튼 둥글기",
+            "special_btn_width": "특수 버튼 너비",
+            "max_hangul": "최대 한글 자수",
+            "max_lowercase": "최대 소문자 자수",
+            "max_uppercase": "최대 대문자 자수"
+        }
                        
         for key in number_keys:
             spin_box = QSpinBox()
             spin_box.setRange(0, 1000)
             spin_box.setValue(self.config["keyboard"][key])
-            style_layout.addRow(f"{key.replace('_', ' ')}:", spin_box)
+            style_layout.addRow(f"{number_labels[key]}:", spin_box)
             self.keyboard_style_fields[key] = spin_box
         
         content_layout.addWidget(style_group)
@@ -612,11 +617,12 @@ class ConfigEditor(QMainWindow):
         fields = {}
         setattr(self, f"{config_key}_fields", fields)
         
-        for key in ["x", "y", "width", "height"]:
+        for key in ["width", "height", "x", "y"]:
             spin_box = QSpinBox()
             spin_box.setRange(0, 3000)
             spin_box.setValue(self.config[config_key][key])
-            layout.addRow(f"{key}:", spin_box)
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            layout.addRow(f"{label_text}:", spin_box)
             fields[key] = spin_box
         
         return group
@@ -1079,11 +1085,12 @@ class ConfigEditor(QMainWindow):
             item_fields["filename"] = filename_edit
             
             # 위치 및 크기
-            for key in ["x", "y", "width", "height"]:
+            for key in ["width", "height", "x", "y"]:
                 spin_box = QSpinBox()
                 spin_box.setRange(0, 3000)
-                spin_box.setValue(item_data[key])
-                item_layout.addRow(f"{key}:", spin_box)
+                spin_box.setValue(item_data.get(key, 0))
+                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                item_layout.addRow(f"{label_text}:", spin_box)
                 item_fields[key] = spin_box
             
             self.image_items_layout.addWidget(item_group)
@@ -1130,15 +1137,16 @@ class ConfigEditor(QMainWindow):
             
             # 내용
             content_edit = QLineEdit(item_data["content"])
-            item_layout.addRow("내용:", content_edit)
+            item_layout.addRow("문구:", content_edit)
             item_fields["content"] = content_edit
             
             # 위치 및 크기
-            for key in ["x", "y", "width", "height"]:
+            for key in ["width", "height", "x", "y"]:
                 spin_box = QSpinBox()
                 spin_box.setRange(0, 3000)
                 spin_box.setValue(item_data[key])
-                item_layout.addRow(f"{key}:", spin_box)
+                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                item_layout.addRow(f"{label_text}:", spin_box)
                 item_fields[key] = spin_box
             
             # 폰트
@@ -1204,20 +1212,21 @@ class ConfigEditor(QMainWindow):
             
             # 레이블
             label_edit = QLineEdit(item_data.get("label", ""))
-            item_layout.addRow("레이블:", label_edit)
+            item_layout.addRow("항목 이름:", label_edit)
             item_fields["label"] = label_edit
             
             # 플레이스홀더
             placeholder_edit = QLineEdit(item_data.get("placeholder", ""))
-            item_layout.addRow("플레이스홀더:", placeholder_edit)
+            item_layout.addRow("입력 예시:", placeholder_edit)
             item_fields["placeholder"] = placeholder_edit
             
             # 위치 및 크기
-            for key in ["x", "y", "width", "height"]:
+            for key in ["width", "height", "x", "y"]:
                 spin_box = QSpinBox()
                 spin_box.setRange(0, 3000)
                 spin_box.setValue(item_data.get(key, 0))
-                item_layout.addRow(f"{key}:", spin_box)
+                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                item_layout.addRow(f"{label_text}:", spin_box)
                 item_fields[key] = spin_box
             
             # 폰트 크기
