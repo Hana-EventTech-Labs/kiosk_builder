@@ -728,6 +728,16 @@ class ConfigEditor(QMainWindow):
         # 화면 순서
         try:
             screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
+            
+            # 유효한 화면 타입 (0~5) 확인
+            valid_screen_types = [0, 1, 2, 3, 4, 5]
+            invalid_screen_types = [x for x in screen_order if x not in valid_screen_types]
+            
+            if invalid_screen_types:
+                error_msg = f"유효하지 않은 화면 번호가 포함되어 있습니다: {', '.join(map(str, invalid_screen_types))}\n\n유효한 화면 번호는 0~5입니다."
+                QMessageBox.warning(self, "화면 순서 오류", error_msg)
+                return
+                
             self.config["screen_order"] = screen_order
             
             # 화면 순서에 따른 photo와 qr_uploaded_image 존재 여부 설정
