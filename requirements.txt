@@ -6,3 +6,4 @@ qrcode
 requests
 pyinstaller
 websocket-client
+pyinstaller
