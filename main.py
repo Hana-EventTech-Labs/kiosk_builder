@@ -78,6 +78,7 @@ class KioskApp(QMainWindow):
                 #임시 이미지 파일 삭제
                 temp_files = [
                     "resources/captured_image.jpg",
+                    "resources/qr_uploaded_image.jpg",
                     "resources/input_texts.json"
                 ]
                 
