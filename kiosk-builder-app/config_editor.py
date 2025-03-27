@@ -729,6 +729,20 @@ class ConfigEditor(QMainWindow):
         try:
             screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
             self.config["screen_order"] = screen_order
+            
+            # 화면 순서에 따른 photo와 qr_uploaded_image 존재 여부 설정
+            if "photo" in self.config:
+                if 1 in screen_order:
+                    self.config["photo"]["exists"] = True
+                else:
+                    self.config["photo"]["exists"] = False
+            
+            if "qr_uploaded_image" in self.config:
+                if 3 in screen_order:
+                    self.config["qr_uploaded_image"]["exists"] = True
+                else:
+                    self.config["qr_uploaded_image"]["exists"] = False
+                
         except ValueError:
             QMessageBox.warning(self, "입력 오류", "화면 순서는 쉼표로 구분된 숫자여야 합니다.")
             return
