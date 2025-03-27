@@ -187,24 +187,41 @@ class QR_screen(QWidget):
             response.raise_for_status()
 
             img_data = BytesIO(response.content)
+            
+            # 간단한 파일명으로 이미지를 resources 폴더에 저장
+            file_name = "qr_uploaded_image.jpg"
+            save_path = os.path.join("resources", file_name)
+            
+            # 디렉토리가 존재하는지 확인하고 없으면 생성
+            os.makedirs("resources", exist_ok=True)
+            
+            # 이미지 저장
+            with open(save_path, 'wb') as f:
+                f.write(img_data.getvalue())
+            print(f"[이미지 저장 성공] {save_path}")
+            
+            # 이미지 표시 관련 코드
             img = QImage.fromData(img_data.getvalue())
             pixmap = QPixmap.fromImage(img)
             
             # 이미지 크기 조정
             pixmap = pixmap.scaled(config["qr"]["preview_width"], config["qr"]["preview_height"], 
-                                  Qt.AspectRatioMode.KeepAspectRatio, 
-                                  Qt.TransformationMode.SmoothTransformation)
+                                Qt.AspectRatioMode.KeepAspectRatio, 
+                                Qt.TransformationMode.SmoothTransformation)
 
             # 미리보기 라벨에 이미지 표시
             self.preview_label.setPixmap(pixmap)
             print("[이미지 표시 성공]")
 
+            # 저장된 이미지 경로를 메인 윈도우에 저장해서 다른 화면에서도 접근 가능하게 함
+            self.main_window.uploaded_image_path = save_path
+
             # 다음 화면으로 자동 이동
             # QTimer.singleShot(2000, lambda: self.stack.setCurrentIndex(self.main_window.getNextScreenIndex()))
 
         except Exception as e:
-            print(f"[이미지 표시 오류]: {e}")
-    
+            print(f"[이미지 표시 및 저장 오류]: {e}")
+            
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
         self.close_button = QPushButton("X", self)
