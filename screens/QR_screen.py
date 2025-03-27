@@ -243,6 +243,10 @@ class QR_screen(QWidget):
         self.close_button.clicked.connect(self.main_window.closeApplication)
     
     def mousePressEvent(self, event):
+        # 미리보기 위젯의 이미지 지우기
+        self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
+        self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
+        
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
