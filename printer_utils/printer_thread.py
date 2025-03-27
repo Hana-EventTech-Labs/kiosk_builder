@@ -46,14 +46,27 @@ class PrinterThread(QThread):
     def load_contents(self):
         """config.json에서 이미지와 텍스트 로드"""
         # 카메라로 촬영한 사진 로드 (photo 섹션)
-        if "photo" in config:
+        if "photo" in config and config["photo"]["exists"]:
             photo_config = config["photo"]
+            print(f"photo_config: {photo_config}")
             self.add_image(
                 image_filename=f"resources/{photo_config.get('filename', 'captured_image.jpg')}",
                 x=photo_config.get("x", 0),
                 y=photo_config.get("y", 0),
                 width=photo_config.get("width", 300),
                 height=photo_config.get("height", 300)
+            )
+        
+        # QR 업로드 이미지 로드 (qr_uploaded_image 섹션)    
+        if "qr_uploaded_image" in config and config["qr_uploaded_image"]["exists"]:
+            qr_image_config = config["qr_uploaded_image"]
+            print(f"qr_image_config: {qr_image_config}")
+            self.add_image(
+                image_filename=f"resources/{qr_image_config.get('filename', 'qr_uploaded_image.jpg')}",
+                x=qr_image_config.get("x", 0),
+                y=qr_image_config.get("y", 0),
+                width=qr_image_config.get("width", 300),
+                height=qr_image_config.get("height", 300)
             )
         
         # 일반 이미지 설정 불러오기
