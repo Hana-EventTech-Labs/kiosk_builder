@@ -97,7 +97,6 @@
         "font_size": 30
     },
     "qr": {
-        "url": "https://www.google.com",
         "preview_width": 300,
         "preview_height": 300,
         "x": 800,
