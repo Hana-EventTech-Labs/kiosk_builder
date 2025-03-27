@@ -22,8 +22,8 @@
     "screen_order": [
         0,
         3,
-        5,
-        6
+        4,
+        5
     ],
     "frame": {
         "x": 0,
@@ -32,22 +32,24 @@
         "height": 720
     },
     "photo": {
+        "exists": false,
         "filename": "captured_image.jpg",
         "x": 0,
         "y": 0,
         "width": 350,
         "height": 400
     },
+    "qr_uploaded_image": {
+        "exists": true,
+        "filename": "qr_uploaded_image.jpg",
+        "x": 400,
+        "y": 400,
+        "width": 350,
+        "height": 400
+    },
     "images": {
-        "count": 1,
+        "count": 0,
         "items": [
-            {
-                "filename": "route.png",
-                "x": 200,
-                "y": 200,
-                "width": 350,
-                "height": 400
-            }
         ]
     },
     "texts": {
