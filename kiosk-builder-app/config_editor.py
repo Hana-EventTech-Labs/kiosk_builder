@@ -514,11 +514,6 @@ class ConfigEditor(QMainWindow):
         
         self.qr_fields = {}
         
-        # URL 필드
-        url_edit = QLineEdit(self.config["qr"]["url"])
-        qr_layout.addRow("URL:", url_edit)
-        self.qr_fields["url"] = url_edit
-        
         # 미리보기 영역 위치 및 크기 설정
         preview_width_spin = QSpinBox()
         preview_width_spin.setRange(0, 1000)
