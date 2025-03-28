@@ -114,6 +114,23 @@ class ConfigEditor(QMainWindow):
         self.app_name_edit = QLineEdit(self.config["app_name"])
         form_layout.addRow("앱 이름:", self.app_name_edit)
         
+        # 화면 순서
+        screen_order_group = QGroupBox("화면 순서")
+        screen_order_layout = QVBoxLayout(screen_order_group)
+        
+        screen_order_label = QLabel("화면 순서 (쉼표로 구분):")
+        screen_order_layout.addWidget(screen_order_label)
+        
+        self.screen_order_edit = QLineEdit(",".join(map(str, self.config["screen_order"])))
+        self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
+        screen_order_layout.addWidget(self.screen_order_edit)
+        
+        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
+        screen_order_info.setStyleSheet("color: gray;")
+        screen_order_layout.addWidget(screen_order_info)
+        
+        content_layout.addWidget(screen_order_group)
+        
         # 모니터 크기
         screen_group = QGroupBox("모니터 크기")
         screen_layout = QFormLayout(screen_group)
@@ -177,23 +194,6 @@ class ConfigEditor(QMainWindow):
         images_layout.addWidget(self.image_items_container)
         content_layout.addWidget(images_group)
 
-        # 화면 순서
-        screen_order_group = QGroupBox("화면 순서")
-        screen_order_layout = QVBoxLayout(screen_order_group)
-        
-        screen_order_label = QLabel("화면 순서 (쉼표로 구분):")
-        screen_order_layout.addWidget(screen_order_label)
-        
-        self.screen_order_edit = QLineEdit(",".join(map(str, self.config["screen_order"])))
-        self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
-        screen_order_layout.addWidget(self.screen_order_edit)
-        
-        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
-        screen_order_info.setStyleSheet("color: gray;")
-        screen_order_layout.addWidget(screen_order_info)
-        
-        content_layout.addWidget(screen_order_group)
-        
         # 스트레치 추가
         content_layout.addStretch()
         
