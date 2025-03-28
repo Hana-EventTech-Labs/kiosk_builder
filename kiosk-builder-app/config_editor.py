@@ -91,6 +91,11 @@ class ConfigEditor(QMainWindow):
         save_button.clicked.connect(self.save_config)
         button_layout.addWidget(save_button)
         
+        # 배포용 생성 버튼 (미리보기 생성 대체)
+        build_button = QPushButton("배포용 생성")
+        build_button.clicked.connect(self.create_distribution)
+        button_layout.addWidget(build_button)
+        
         # 다시 로드 버튼
         reload_button = QPushButton("다시 로드")
         reload_button.clicked.connect(self.reload_config)
@@ -967,7 +972,106 @@ class ConfigEditor(QMainWindow):
             QMessageBox.information(self, "저장 완료", "설정이 저장되었습니다.")
         else:
             QMessageBox.warning(self, "저장 실패", "설정 저장 중 오류가 발생했습니다.")
-    
+            
+    def create_distribution(self):
+        """배포용 파일 생성 및 복사"""
+        # 배포용 파일 처리
+        try:
+            import subprocess
+            import sys
+            
+            # 실행 파일 경로 확인 (PyInstaller)
+            if getattr(sys, 'frozen', False):
+                # PyInstaller로 패키징된 경우
+                base_path = sys._MEIPASS
+                target_dir = os.path.dirname(sys.executable)
+            else:
+                # 일반 Python 스크립트로 실행된 경우
+                base_path = os.getcwd()
+                target_dir = os.getcwd()
+            
+            # 필요한 파일들 목록
+            required_files = [
+                {"name": "kiosk_preview.exe", "source": os.path.join(base_path, "kiosk_preview.exe")},
+                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")},
+                {"name": "config.json", "source": os.path.join(base_path, "config.json")}
+            ]
+            
+            # 폴더 목록
+            required_folders = [
+                {"name": "resources", "source": os.path.join(base_path, "resources")}
+            ]
+            
+            # 파일들을 대상 폴더로 복사
+            copied_files = []
+            missing_files = []
+            
+            for file_info in required_files:
+                source_path = file_info["source"]
+                target_path = os.path.join(target_dir, file_info["name"])
+                
+                if os.path.exists(source_path):
+                    shutil.copy2(source_path, target_path)
+                    copied_files.append(file_info["name"])
+                else:
+                    missing_files.append(file_info["name"])
+            
+            # 폴더들을 대상 폴더로 복사
+            copied_folders = []
+            missing_folders = []
+            
+            for folder_info in required_folders:
+                source_path = folder_info["source"]
+                target_path = os.path.join(target_dir, folder_info["name"])
+                
+                if os.path.exists(source_path):
+                    # 대상 폴더가 존재하면 삭제 후 복사
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+                    
+                    shutil.copytree(source_path, target_path)
+                    copied_folders.append(folder_info["name"])
+                else:
+                    missing_folders.append(folder_info["name"])
+            
+            # 결과 메시지 구성
+            result_message = ""
+            
+            if copied_files or copied_folders:
+                result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                
+                if copied_files:
+                    result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
+                
+                if copied_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
+            
+            if missing_files or missing_folders:
+                result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
+                
+                if missing_files:
+                    result_message += "파일:\n- " + "\n- ".join(missing_files) + "\n\n"
+                
+                if missing_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
+            
+            # 사용자에게 결과 알림
+            if copied_files or copied_folders:
+                QMessageBox.information(
+                    self, 
+                    "배포용 파일 생성 완료", 
+                    result_message
+                )
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "배포용 파일 생성 실패", 
+                    result_message + "필요한 파일을 찾을 수 없습니다."
+                )
+                
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"배포용 파일 처리 중 오류가 발생했습니다: {str(e)}")
+
     def reload_config(self):
         """설정을 다시 로드하고 UI를 업데이트합니다."""
         self.config = copy.deepcopy(self.config_handler.load_config())
