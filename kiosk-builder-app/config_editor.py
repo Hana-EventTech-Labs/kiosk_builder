@@ -3,12 +3,14 @@
 
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, 
                               QFormLayout, QLineEdit, QSpinBox, QColorDialog, QPushButton, 
-                              QLabel, QListWidget, QMessageBox, QGroupBox, QScrollArea, QSizePolicy)
+                              QLabel, QListWidget, QMessageBox, QGroupBox, QScrollArea, QSizePolicy,
+                              QFileDialog)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QIntValidator, QFont
 import json
 import copy
 import os
+import shutil
 from config_handler import ConfigHandler
 
 class NumberLineEdit(QLineEdit):
@@ -827,7 +829,6 @@ class ConfigEditor(QMainWindow):
                 self.config["keyboard"][key] = widget.value()
         
         # QR 코드 설정 저장
-        self.config["qr"]["url"] = self.qr_fields["url"].text()
         self.config["qr"]["preview_width"] = self.qr_fields["preview_width"].value()
         self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
         self.config["qr"]["x"] = self.qr_fields["x"].value()
@@ -873,7 +874,6 @@ class ConfigEditor(QMainWindow):
         self.camera_count_fields["font_color"].update_color(self.config["camera_count"]["font_color"])
         
         # QR 코드 설정 업데이트
-        self.qr_fields["url"].setText(self.config["qr"]["url"])
         self.qr_fields["preview_width"].setValue(self.config["qr"]["preview_width"])
         self.qr_fields["preview_height"].setValue(self.config["qr"]["preview_height"])
         self.qr_fields["x"].setValue(self.config["qr"]["x"])
@@ -1100,10 +1100,20 @@ class ConfigEditor(QMainWindow):
             # 항목 필드 생성
             item_fields = {}
             
-            # 파일명
+            # 파일명 입력란과 파일 선택 버튼을 담을 레이아웃
+            filename_layout = QHBoxLayout()
+            
+            # 파일명 입력란
             filename_edit = QLineEdit(item_data["filename"])
-            item_layout.addRow("파일명:", filename_edit)
+            filename_layout.addWidget(filename_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
             item_fields["filename"] = filename_edit
+            
+            # 파일 선택 버튼
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=filename_edit: self.browse_image_file(edit))
+            filename_layout.addWidget(browse_button)
+            
+            item_layout.addRow("파일명:", filename_layout)
             
             # 위치 및 크기
             for key in ["width", "height", "x", "y"]:
@@ -1119,6 +1129,81 @@ class ConfigEditor(QMainWindow):
         
         # UI 업데이트
         self.image_items_container.updateGeometry()
+        
+    def browse_image_file(self, line_edit):
+        """이미지 파일 선택 다이얼로그를 띄우고 선택된 파일명을 입력란에 설정합니다."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "이미지 파일 선택", 
+            "resources", 
+            "이미지 파일 (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        
+        if file_path:
+            # 리소스 폴더 경로 확인
+            resources_img_path = os.path.abspath("resources")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_path = os.path.normpath(resources_img_path)
+            
+            # 파일이 리소스 폴더 외부에 있는 경우에만 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_path):
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(resources_img_path, file_name)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    self, 
+                    "파일 복사", 
+                    f"선택한 파일을 resources 폴더로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"파일이 resources 폴더로 복사되었습니다."
+                        )
+                        
+                        # 파일명만 설정
+                        line_edit.setText(file_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                        # 전체 경로 설정
+                        line_edit.setText(file_path)
+                else:
+                    # 복사하지 않는 경우 파일명만 설정
+                    line_edit.setText(file_name)
+                    # 사용자에게 수동 복사 안내
+                    QMessageBox.warning(
+                        self, 
+                        "파일 경로", 
+                        f"파일명만 설정되었습니다. 실제 사용을 위해서는 해당 파일을 resources 폴더로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우 상대 경로 사용
+                rel_path = os.path.relpath(file_path, resources_img_path)
+                line_edit.setText(rel_path)
 
     def update_text_items(self, count):
         """텍스트 항목 UI 업데이트"""
