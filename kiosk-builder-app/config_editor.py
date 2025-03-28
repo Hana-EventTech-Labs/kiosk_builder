@@ -669,9 +669,18 @@ class ConfigEditor(QMainWindow):
         setattr(self, f"{config_key}_fields", fields)
         
         # 기본 필드
+        # 폰트 선택 레이아웃 추가
+        font_layout = QHBoxLayout()
         font_edit = QLineEdit(self.config[config_key]["font"])
-        layout.addRow("폰트:", font_edit)
+        font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
         fields["font"] = font_edit
+        
+        # 폰트 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked, edit=font_edit: self.browse_font_file(edit))
+        font_layout.addWidget(browse_button)
+        
+        layout.addRow("폰트:", font_layout)
         
         phrase_edit = QLineEdit(self.config[config_key]["phrase"])
         layout.addRow("문구:", phrase_edit)
@@ -709,6 +718,81 @@ class ConfigEditor(QMainWindow):
             fields[time_key] = time_edit
         
         return group
+
+    def browse_font_file(self, line_edit):
+        """폰트 파일 선택 다이얼로그를 띄우고 선택된 파일명을 입력란에 설정합니다."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "폰트 파일 선택", 
+            "resources/font", 
+            "폰트 파일 (*.ttf *.otf *.woff *.woff2)"
+        )
+        
+        if file_path:
+            # 리소스 폰트 폴더 경로 확인
+            resources_font_path = os.path.abspath("resources/font")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_font_path = os.path.normpath(resources_font_path)
+            
+            # 파일이 리소스 폴더 외부에 있는 경우에만 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_font_path):
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(resources_font_path, file_name)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    self, 
+                    "폰트 파일 복사", 
+                    f"선택한 폰트 파일을 resources/font 폴더로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"폰트 파일이 resources/font 폴더로 복사되었습니다."
+                        )
+                        
+                        # 파일명만 설정
+                        line_edit.setText(file_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"폰트 파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                        # 전체 경로 설정
+                        line_edit.setText(file_path)
+                else:
+                    # 복사하지 않는 경우 파일명만 설정
+                    line_edit.setText(file_name)
+                    # 사용자에게 수동 복사 안내
+                    QMessageBox.warning(
+                        self, 
+                        "파일 경로", 
+                        f"파일명만 설정되었습니다. 실제 사용을 위해서는 해당 폰트 파일을 resources/font 폴더로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우 파일명만 사용
+                file_name = os.path.basename(file_path)
+                line_edit.setText(file_name)
 
     def save_config(self):
         # 텍스트 항목의 폰트 파일 존재 여부 확인
@@ -1290,10 +1374,18 @@ class ConfigEditor(QMainWindow):
                 item_layout.addRow(f"{label_text}:", spin_box)
                 item_fields[key] = spin_box
             
-            # 폰트
+            # 폰트 선택 레이아웃
+            font_layout = QHBoxLayout()
             font_edit = QLineEdit(item_data["font"])
-            item_layout.addRow("폰트:", font_edit)
+            font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
             item_fields["font"] = font_edit
+            
+            # 폰트 파일 선택 버튼
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=font_edit: self.browse_font_file(edit))
+            font_layout.addWidget(browse_button)
+            
+            item_layout.addRow("폰트:", font_layout)
             
             # 폰트 크기
             font_size_spin = QSpinBox()
