@@ -3,12 +3,14 @@
 
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, 
                               QFormLayout, QLineEdit, QSpinBox, QColorDialog, QPushButton, 
-                              QLabel, QListWidget, QMessageBox, QGroupBox, QScrollArea, QSizePolicy)
+                              QLabel, QListWidget, QMessageBox, QGroupBox, QScrollArea, QSizePolicy,
+                              QFileDialog)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QIntValidator, QFont
 import json
 import copy
 import os
+import shutil
 from config_handler import ConfigHandler
 
 class NumberLineEdit(QLineEdit):
@@ -106,6 +108,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 폼 레이아웃
         form_layout = QFormLayout()
         content_layout.addLayout(form_layout)
@@ -113,6 +120,23 @@ class ConfigEditor(QMainWindow):
         # 앱 이름
         self.app_name_edit = QLineEdit(self.config["app_name"])
         form_layout.addRow("앱 이름:", self.app_name_edit)
+        
+        # 화면 순서
+        screen_order_group = QGroupBox("화면 순서")
+        screen_order_layout = QVBoxLayout(screen_order_group)
+        
+        screen_order_label = QLabel("화면 순서 (쉼표로 구분):")
+        screen_order_layout.addWidget(screen_order_label)
+        
+        self.screen_order_edit = QLineEdit(",".join(map(str, self.config["screen_order"])))
+        self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
+        screen_order_layout.addWidget(self.screen_order_edit)
+        
+        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
+        screen_order_info.setStyleSheet("color: gray;")
+        screen_order_layout.addWidget(screen_order_info)
+        
+        content_layout.addWidget(screen_order_group)
         
         # 모니터 크기
         screen_group = QGroupBox("모니터 크기")
@@ -146,21 +170,7 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(camera_group)
         
-        # 실제 인쇄 영역 추가
-        crop_group = QGroupBox("실제 인쇄 영역")
-        crop_layout = QFormLayout(crop_group)
-        
-        self.crop_fields = {}
-        
-        for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 10000)
-            spin_box.setValue(self.config["crop_area"][key])
-            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            crop_layout.addRow(f"{label_text}:", spin_box)
-            self.crop_fields[key] = spin_box
-        
-        content_layout.addWidget(crop_group)
+        # 실제 인쇄 영역은 촬영 화면 탭으로 이동
         
         # 이미지 설정 - 촬영 탭에서 이동
         images_group = QGroupBox("이미지 설정")
@@ -191,23 +201,6 @@ class ConfigEditor(QMainWindow):
         images_layout.addWidget(self.image_items_container)
         content_layout.addWidget(images_group)
 
-        # 화면 순서
-        screen_order_group = QGroupBox("화면 순서")
-        screen_order_layout = QVBoxLayout(screen_order_group)
-        
-        screen_order_label = QLabel("화면 순서 (쉼표로 구분):")
-        screen_order_layout.addWidget(screen_order_label)
-        
-        self.screen_order_edit = QLineEdit(",".join(map(str, self.config["screen_order"])))
-        self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
-        screen_order_layout.addWidget(self.screen_order_edit)
-        
-        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
-        screen_order_info.setStyleSheet("color: gray;")
-        screen_order_layout.addWidget(screen_order_info)
-        
-        content_layout.addWidget(screen_order_group)
-        
         # 스트레치 추가
         content_layout.addStretch()
         
@@ -230,6 +223,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 스플래시 화면 설정
         splash_group = self.create_screen_group("스플래쉬 화면 설정", "splash")
@@ -258,9 +256,30 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 프레임 설정
         frame_group = self.create_position_size_group("위젯", "frame")
         content_layout.addWidget(frame_group)
+        
+        # 실제 인쇄 영역 추가
+        crop_group = QGroupBox("실제 인쇄 영역")
+        crop_layout = QFormLayout(crop_group)
+        
+        self.crop_fields = {}
+        
+        for key in ["width", "height", "x", "y"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 10000)
+            spin_box.setValue(self.config["crop_area"][key])
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            crop_layout.addRow(f"{label_text}:", spin_box)
+            self.crop_fields[key] = spin_box
+        
+        content_layout.addWidget(crop_group)
         
         # 사진 설정 추가 (photo)
         photo_group = QGroupBox("촬영 사진 설정")
@@ -333,6 +352,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 텍스트 입력 설정 (먼저 배치)
         text_input_group = QGroupBox("텍스트 입력 설정")
@@ -508,6 +532,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # QR 코드 설정 그룹
         qr_group = QGroupBox("QR 코드 설정")
         qr_layout = QFormLayout(qr_group)
@@ -564,6 +593,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 프로세스 화면 설정
         process_group = self.create_screen_group("발급중 화면 설정", "process", True)
         content_layout.addWidget(process_group)
@@ -590,6 +624,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 완료 화면 설정
         complete_group = self.create_screen_group("발급완료 화면 설정", "complete", True)
@@ -630,9 +669,18 @@ class ConfigEditor(QMainWindow):
         setattr(self, f"{config_key}_fields", fields)
         
         # 기본 필드
+        # 폰트 선택 레이아웃 추가
+        font_layout = QHBoxLayout()
         font_edit = QLineEdit(self.config[config_key]["font"])
-        layout.addRow("폰트:", font_edit)
+        font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
         fields["font"] = font_edit
+        
+        # 폰트 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked, edit=font_edit: self.browse_font_file(edit))
+        font_layout.addWidget(browse_button)
+        
+        layout.addRow("폰트:", font_layout)
         
         phrase_edit = QLineEdit(self.config[config_key]["phrase"])
         layout.addRow("문구:", phrase_edit)
@@ -670,6 +718,81 @@ class ConfigEditor(QMainWindow):
             fields[time_key] = time_edit
         
         return group
+
+    def browse_font_file(self, line_edit):
+        """폰트 파일 선택 다이얼로그를 띄우고 선택된 파일명을 입력란에 설정합니다."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "폰트 파일 선택", 
+            "resources/font", 
+            "폰트 파일 (*.ttf *.otf *.woff *.woff2)"
+        )
+        
+        if file_path:
+            # 리소스 폰트 폴더 경로 확인
+            resources_font_path = os.path.abspath("resources/font")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_font_path = os.path.normpath(resources_font_path)
+            
+            # 파일이 리소스 폴더 외부에 있는 경우에만 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_font_path):
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(resources_font_path, file_name)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    self, 
+                    "폰트 파일 복사", 
+                    f"선택한 폰트 파일을 resources/font 폴더로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"폰트 파일이 resources/font 폴더로 복사되었습니다."
+                        )
+                        
+                        # 파일명만 설정
+                        line_edit.setText(file_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"폰트 파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                        # 전체 경로 설정
+                        line_edit.setText(file_path)
+                else:
+                    # 복사하지 않는 경우 파일명만 설정
+                    line_edit.setText(file_name)
+                    # 사용자에게 수동 복사 안내
+                    QMessageBox.warning(
+                        self, 
+                        "파일 경로", 
+                        f"파일명만 설정되었습니다. 실제 사용을 위해서는 해당 폰트 파일을 resources/font 폴더로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우 파일명만 사용
+                file_name = os.path.basename(file_path)
+                line_edit.setText(file_name)
 
     def save_config(self):
         # 텍스트 항목의 폰트 파일 존재 여부 확인
@@ -825,7 +948,6 @@ class ConfigEditor(QMainWindow):
                 self.config["keyboard"][key] = widget.value()
         
         # QR 코드 설정 저장
-        self.config["qr"]["url"] = self.qr_fields["url"].text()
         self.config["qr"]["preview_width"] = self.qr_fields["preview_width"].value()
         self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
         self.config["qr"]["x"] = self.qr_fields["x"].value()
@@ -871,7 +993,6 @@ class ConfigEditor(QMainWindow):
         self.camera_count_fields["font_color"].update_color(self.config["camera_count"]["font_color"])
         
         # QR 코드 설정 업데이트
-        self.qr_fields["url"].setText(self.config["qr"]["url"])
         self.qr_fields["preview_width"].setValue(self.config["qr"]["preview_width"])
         self.qr_fields["preview_height"].setValue(self.config["qr"]["preview_height"])
         self.qr_fields["x"].setValue(self.config["qr"]["x"])
@@ -1098,10 +1219,20 @@ class ConfigEditor(QMainWindow):
             # 항목 필드 생성
             item_fields = {}
             
-            # 파일명
+            # 파일명 입력란과 파일 선택 버튼을 담을 레이아웃
+            filename_layout = QHBoxLayout()
+            
+            # 파일명 입력란
             filename_edit = QLineEdit(item_data["filename"])
-            item_layout.addRow("파일명:", filename_edit)
+            filename_layout.addWidget(filename_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
             item_fields["filename"] = filename_edit
+            
+            # 파일 선택 버튼
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=filename_edit: self.browse_image_file(edit))
+            filename_layout.addWidget(browse_button)
+            
+            item_layout.addRow("파일명:", filename_layout)
             
             # 위치 및 크기
             for key in ["width", "height", "x", "y"]:
@@ -1117,6 +1248,81 @@ class ConfigEditor(QMainWindow):
         
         # UI 업데이트
         self.image_items_container.updateGeometry()
+        
+    def browse_image_file(self, line_edit):
+        """이미지 파일 선택 다이얼로그를 띄우고 선택된 파일명을 입력란에 설정합니다."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "이미지 파일 선택", 
+            "resources", 
+            "이미지 파일 (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        
+        if file_path:
+            # 리소스 폴더 경로 확인
+            resources_img_path = os.path.abspath("resources")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_path = os.path.normpath(resources_img_path)
+            
+            # 파일이 리소스 폴더 외부에 있는 경우에만 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_path):
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(resources_img_path, file_name)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    self, 
+                    "파일 복사", 
+                    f"선택한 파일을 resources 폴더로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"파일이 resources 폴더로 복사되었습니다."
+                        )
+                        
+                        # 파일명만 설정
+                        line_edit.setText(file_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                        # 전체 경로 설정
+                        line_edit.setText(file_path)
+                else:
+                    # 복사하지 않는 경우 파일명만 설정
+                    line_edit.setText(file_name)
+                    # 사용자에게 수동 복사 안내
+                    QMessageBox.warning(
+                        self, 
+                        "파일 경로", 
+                        f"파일명만 설정되었습니다. 실제 사용을 위해서는 해당 파일을 resources 폴더로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우 상대 경로 사용
+                rel_path = os.path.relpath(file_path, resources_img_path)
+                line_edit.setText(rel_path)
 
     def update_text_items(self, count):
         """텍스트 항목 UI 업데이트"""
@@ -1168,10 +1374,18 @@ class ConfigEditor(QMainWindow):
                 item_layout.addRow(f"{label_text}:", spin_box)
                 item_fields[key] = spin_box
             
-            # 폰트
+            # 폰트 선택 레이아웃
+            font_layout = QHBoxLayout()
             font_edit = QLineEdit(item_data["font"])
-            item_layout.addRow("폰트:", font_edit)
+            font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
             item_fields["font"] = font_edit
+            
+            # 폰트 파일 선택 버튼
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=font_edit: self.browse_font_file(edit))
+            font_layout.addWidget(browse_button)
+            
+            item_layout.addRow("폰트:", font_layout)
             
             # 폰트 크기
             font_size_spin = QSpinBox()
