@@ -980,15 +980,8 @@ class ConfigEditor(QMainWindow):
             import subprocess
             import sys
             
-            # config.json 파일이 없으면 현재 설정으로 저장
-            if not os.path.exists(self.config_handler.config_path):
-                print("config.json 파일이 없습니다. 현재 설정으로 저장합니다.")
-                if not self.config_handler.save_config(self.config):
-                    QMessageBox.warning(self, "오류", "config.json 파일을 생성할 수 없습니다.")
-                    return
-            
             # 앱 이름으로 폴더 생성
-            app_name = self.config["app_name"]
+            app_name = self.app_name_edit.text()
             if not app_name:
                 app_name = "Kiosk_App"  # 기본 이름
             
@@ -1079,6 +1072,25 @@ class ConfigEditor(QMainWindow):
                     copied_files.append(file_info["name"])
                 else:
                     missing_files.append(file_info["name"])
+            
+            # config.json 파일의 app_name 업데이트
+            config_json_path = os.path.join(target_dir, "config.json")
+            if os.path.exists(config_json_path):
+                try:
+                    # 복사된 config.json 파일 읽기
+                    with open(config_json_path, 'r', encoding='utf-8') as f:
+                        target_config = json.load(f)
+                    
+                    # app_name 업데이트
+                    target_config["app_name"] = app_name
+                    
+                    # 수정된 config.json 파일 저장
+                    with open(config_json_path, 'w', encoding='utf-8') as f:
+                        json.dump(target_config, f, ensure_ascii=False, indent=4)
+                    
+                    print(f"복사된 config.json의 app_name을 '{app_name}'으로 업데이트했습니다.")
+                except Exception as e:
+                    print(f"config.json 파일 업데이트 중 오류 발생: {str(e)}")
             
             # 폴더들을 대상 폴더로 복사
             copied_folders = []
