@@ -138,3 +138,8 @@ kiosk_app/
 ## 주의 사항
 - 프린터 기능을 사용하려면 SmartComm2.dll이 resources 폴더에 있어야 합니다.
 - 폰트 파일(LAB디지털.ttf)이 resources 폴더에 필요합니다.
+
+### kiosk-builder-app 용 pyinstaller 명령어
+```
+pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --add-data "kiosk_preview.exe;." --add-data "kiosk_print.exe;." --name json-reader main.py
+```
