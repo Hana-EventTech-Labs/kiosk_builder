@@ -91,6 +91,11 @@ class ConfigEditor(QMainWindow):
         save_button.clicked.connect(self.save_config)
         button_layout.addWidget(save_button)
         
+        # 배포용 생성 버튼 (미리보기 생성 대체)
+        build_button = QPushButton("배포용 생성")
+        build_button.clicked.connect(self.create_distribution)
+        button_layout.addWidget(build_button)
+        
         # 다시 로드 버튼
         reload_button = QPushButton("다시 로드")
         reload_button.clicked.connect(self.reload_config)
@@ -967,7 +972,188 @@ class ConfigEditor(QMainWindow):
             QMessageBox.information(self, "저장 완료", "설정이 저장되었습니다.")
         else:
             QMessageBox.warning(self, "저장 실패", "설정 저장 중 오류가 발생했습니다.")
-    
+            
+    def create_distribution(self):
+        """배포용 파일 생성 및 복사"""
+        # 배포용 파일 처리
+        try:
+            import subprocess
+            import sys
+            
+            # 앱 이름으로 폴더 생성
+            app_name = self.app_name_edit.text()
+            if not app_name:
+                app_name = "Kiosk_App"  # 기본 이름
+            
+            # 특수문자 및 공백 처리
+            app_folder_name = app_name.replace(" ", "_").replace(".", "_")
+            
+            # 실행 파일 경로 확인 (PyInstaller)
+            if getattr(sys, 'frozen', False):
+                # PyInstaller로 패키징된 경우
+                base_path = sys._MEIPASS
+                parent_dir = os.path.dirname(sys.executable)
+            else:
+                # 일반 Python 스크립트로 실행된 경우
+                base_path = os.getcwd()
+                parent_dir = os.getcwd()
+            
+            # 앱 폴더 경로
+            target_dir = os.path.join(parent_dir, app_folder_name)
+            
+            # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
+            if os.path.exists(target_dir):
+                reply = QMessageBox.question(
+                    self, 
+                    "폴더 이미 존재", 
+                    f"'{app_folder_name}' 폴더가 이미 존재합니다. 내용을 덮어쓰시겠습니까?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.No:
+                    return
+                
+                # 기존 폴더 내용 삭제
+                for item in os.listdir(target_dir):
+                    item_path = os.path.join(target_dir, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+            else:
+                # 폴더 생성
+                os.makedirs(target_dir, exist_ok=True)
+            
+            # json-reader 실행 파일 찾기 및 복사
+            json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
+            json_reader_copied = False
+            
+            if os.path.exists(json_reader_exe):
+                # json-reader.exe 파일을 대상 폴더로 복사
+                shutil.copy2(json_reader_exe, os.path.join(target_dir, "json-reader.exe"))
+                json_reader_copied = True
+            else:
+                # 다른 경로에서 json-reader.exe 찾기
+                possible_paths = [
+                    os.path.join(parent_dir, "dist", "json-reader.exe"),
+                    os.path.join(parent_dir, "build", "json-reader.exe"),
+                    os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                ]
+                
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        shutil.copy2(path, os.path.join(target_dir, "json-reader.exe"))
+                        json_reader_copied = True
+                        break
+            
+            # 필요한 파일들 목록
+            required_files = [
+                {"name": "kiosk_preview.exe", "source": os.path.join(base_path, "kiosk_preview.exe")},
+                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")},
+                {"name": "config.json", "source": os.path.join(base_path, "config.json")}
+            ]
+            
+            # 폴더 목록
+            required_folders = [
+                {"name": "resources", "source": os.path.join(base_path, "resources")}
+            ]
+            
+            # 파일들을 대상 폴더로 복사
+            copied_files = []
+            missing_files = []
+            
+            for file_info in required_files:
+                source_path = file_info["source"]
+                target_path = os.path.join(target_dir, file_info["name"])
+                
+                if os.path.exists(source_path):
+                    shutil.copy2(source_path, target_path)
+                    copied_files.append(file_info["name"])
+                else:
+                    missing_files.append(file_info["name"])
+            
+            # config.json 파일의 app_name 업데이트
+            config_json_path = os.path.join(target_dir, "config.json")
+            if os.path.exists(config_json_path):
+                try:
+                    # 복사된 config.json 파일 읽기
+                    with open(config_json_path, 'r', encoding='utf-8') as f:
+                        target_config = json.load(f)
+                    
+                    # app_name 업데이트
+                    target_config["app_name"] = app_name
+                    
+                    # 수정된 config.json 파일 저장
+                    with open(config_json_path, 'w', encoding='utf-8') as f:
+                        json.dump(target_config, f, ensure_ascii=False, indent=4)
+                    
+                    print(f"복사된 config.json의 app_name을 '{app_name}'으로 업데이트했습니다.")
+                except Exception as e:
+                    print(f"config.json 파일 업데이트 중 오류 발생: {str(e)}")
+            
+            # 폴더들을 대상 폴더로 복사
+            copied_folders = []
+            missing_folders = []
+            
+            for folder_info in required_folders:
+                source_path = folder_info["source"]
+                target_path = os.path.join(target_dir, folder_info["name"])
+                
+                if os.path.exists(source_path):
+                    # 대상 폴더가 존재하면 삭제 후 복사
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+                    
+                    shutil.copytree(source_path, target_path)
+                    copied_folders.append(folder_info["name"])
+                else:
+                    missing_folders.append(folder_info["name"])
+            
+            # 결과 메시지 구성
+            result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
+            
+            if copied_files or copied_folders or json_reader_copied:
+                result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                
+                if json_reader_copied:
+                    result_message += "실행 파일:\n- json-reader.exe\n\n"
+                
+                if copied_files:
+                    result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
+                
+                if copied_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
+            
+            if not json_reader_copied:
+                result_message += "json-reader.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
+            
+            if missing_files or missing_folders:
+                result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
+                
+                if missing_files:
+                    result_message += "파일:\n- " + "\n- ".join(missing_files) + "\n\n"
+                
+                if missing_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
+            
+            # 사용자에게 결과 알림
+            if copied_files or copied_folders or json_reader_copied:
+                QMessageBox.information(
+                    self, 
+                    "배포용 파일 생성 완료", 
+                    result_message
+                )
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "배포용 파일 생성 실패", 
+                    result_message + "필요한 파일을 찾을 수 없습니다."
+                )
+                
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"배포용 파일 처리 중 오류가 발생했습니다: {str(e)}")
+
     def reload_config(self):
         """설정을 다시 로드하고 UI를 업데이트합니다."""
         self.config = copy.deepcopy(self.config_handler.load_config())
