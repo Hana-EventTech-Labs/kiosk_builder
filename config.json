@@ -21,7 +21,6 @@
     },
     "screen_order": [
         0,
-        3,
         4,
         5
     ],
@@ -40,7 +39,7 @@
         "height": 400
     },
     "qr_uploaded_image": {
-        "exists": true,
+        "exists": false,
         "filename": "qr_uploaded_image.jpg",
         "x": 400,
         "y": 400,
@@ -49,13 +48,11 @@
     },
     "images": {
         "count": 0,
-        "items": [
-        ]
+        "items": []
     },
     "texts": {
         "count": 0,
-        "items": [
-        ]
+        "items": []
     },
     "text_input": {
         "margin_top": 200,
@@ -63,8 +60,7 @@
         "margin_right": 0,
         "spacing": 30,
         "count": 0,
-        "items": [
-        ]
+        "items": []
     },
     "keyboard": {
         "x": 320,
@@ -103,7 +99,7 @@
         "y": 600
     },
     "splash": {
-        "font": "LAB디지털.ttf",
+        "font": "GmarketSansTTFMedium.ttf",
         "phrase": "",
         "font_size": 32,
         "font_color": "red",
@@ -111,7 +107,7 @@
         "y": 0
     },
     "process": {
-        "font": "LAB디지털.ttf",
+        "font": "GmarketSansTTFMedium.ttf",
         "phrase": "",
         "font_size": 32,
         "font_color": "#a4ff5e",
@@ -120,7 +116,7 @@
         "process_time": 3000
     },
     "complete": {
-        "font": "LAB디지털.ttf",
+        "font": "GmarketSansTTFMedium.ttf",
         "phrase": "",
         "font_size": 32,
         "font_color": "green",
