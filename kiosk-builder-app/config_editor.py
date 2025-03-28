@@ -980,15 +980,79 @@ class ConfigEditor(QMainWindow):
             import subprocess
             import sys
             
+            # config.json 파일이 없으면 현재 설정으로 저장
+            if not os.path.exists(self.config_handler.config_path):
+                print("config.json 파일이 없습니다. 현재 설정으로 저장합니다.")
+                if not self.config_handler.save_config(self.config):
+                    QMessageBox.warning(self, "오류", "config.json 파일을 생성할 수 없습니다.")
+                    return
+            
+            # 앱 이름으로 폴더 생성
+            app_name = self.config["app_name"]
+            if not app_name:
+                app_name = "Kiosk_App"  # 기본 이름
+            
+            # 특수문자 및 공백 처리
+            app_folder_name = app_name.replace(" ", "_").replace(".", "_")
+            
             # 실행 파일 경로 확인 (PyInstaller)
             if getattr(sys, 'frozen', False):
                 # PyInstaller로 패키징된 경우
                 base_path = sys._MEIPASS
-                target_dir = os.path.dirname(sys.executable)
+                parent_dir = os.path.dirname(sys.executable)
             else:
                 # 일반 Python 스크립트로 실행된 경우
                 base_path = os.getcwd()
-                target_dir = os.getcwd()
+                parent_dir = os.getcwd()
+            
+            # 앱 폴더 경로
+            target_dir = os.path.join(parent_dir, app_folder_name)
+            
+            # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
+            if os.path.exists(target_dir):
+                reply = QMessageBox.question(
+                    self, 
+                    "폴더 이미 존재", 
+                    f"'{app_folder_name}' 폴더가 이미 존재합니다. 내용을 덮어쓰시겠습니까?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.No:
+                    return
+                
+                # 기존 폴더 내용 삭제
+                for item in os.listdir(target_dir):
+                    item_path = os.path.join(target_dir, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+            else:
+                # 폴더 생성
+                os.makedirs(target_dir, exist_ok=True)
+            
+            # json-reader 실행 파일 찾기 및 복사
+            json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
+            json_reader_copied = False
+            
+            if os.path.exists(json_reader_exe):
+                # json-reader.exe 파일을 대상 폴더로 복사
+                shutil.copy2(json_reader_exe, os.path.join(target_dir, "json-reader.exe"))
+                json_reader_copied = True
+            else:
+                # 다른 경로에서 json-reader.exe 찾기
+                possible_paths = [
+                    os.path.join(parent_dir, "dist", "json-reader.exe"),
+                    os.path.join(parent_dir, "build", "json-reader.exe"),
+                    os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                ]
+                
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        shutil.copy2(path, os.path.join(target_dir, "json-reader.exe"))
+                        json_reader_copied = True
+                        break
             
             # 필요한 파일들 목록
             required_files = [
@@ -1035,16 +1099,22 @@ class ConfigEditor(QMainWindow):
                     missing_folders.append(folder_info["name"])
             
             # 결과 메시지 구성
-            result_message = ""
+            result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
             
-            if copied_files or copied_folders:
+            if copied_files or copied_folders or json_reader_copied:
                 result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                
+                if json_reader_copied:
+                    result_message += "실행 파일:\n- json-reader.exe\n\n"
                 
                 if copied_files:
                     result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
                 
                 if copied_folders:
                     result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
+            
+            if not json_reader_copied:
+                result_message += "json-reader.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
             
             if missing_files or missing_folders:
                 result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
@@ -1056,7 +1126,7 @@ class ConfigEditor(QMainWindow):
                     result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
             
             # 사용자에게 결과 알림
-            if copied_files or copied_folders:
+            if copied_files or copied_folders or json_reader_copied:
                 QMessageBox.information(
                     self, 
                     "배포용 파일 생성 완료", 
