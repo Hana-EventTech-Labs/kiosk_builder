@@ -146,21 +146,7 @@ class ConfigEditor(QMainWindow):
         
         content_layout.addWidget(camera_group)
         
-        # 실제 인쇄 영역 추가
-        crop_group = QGroupBox("실제 인쇄 영역")
-        crop_layout = QFormLayout(crop_group)
-        
-        self.crop_fields = {}
-        
-        for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 10000)
-            spin_box.setValue(self.config["crop_area"][key])
-            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            crop_layout.addRow(f"{label_text}:", spin_box)
-            self.crop_fields[key] = spin_box
-        
-        content_layout.addWidget(crop_group)
+        # 실제 인쇄 영역은 촬영 화면 탭으로 이동
         
         # 이미지 설정 - 촬영 탭에서 이동
         images_group = QGroupBox("이미지 설정")
@@ -261,6 +247,22 @@ class ConfigEditor(QMainWindow):
         # 프레임 설정
         frame_group = self.create_position_size_group("위젯", "frame")
         content_layout.addWidget(frame_group)
+        
+        # 실제 인쇄 영역 추가
+        crop_group = QGroupBox("실제 인쇄 영역")
+        crop_layout = QFormLayout(crop_group)
+        
+        self.crop_fields = {}
+        
+        for key in ["width", "height", "x", "y"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 10000)
+            spin_box.setValue(self.config["crop_area"][key])
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            crop_layout.addRow(f"{label_text}:", spin_box)
+            self.crop_fields[key] = spin_box
+        
+        content_layout.addWidget(crop_group)
         
         # 사진 설정 추가 (photo)
         photo_group = QGroupBox("촬영 사진 설정")
