@@ -108,6 +108,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 폼 레이아웃
         form_layout = QFormLayout()
         content_layout.addLayout(form_layout)
@@ -219,6 +224,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 스플래시 화면 설정
         splash_group = self.create_screen_group("스플래쉬 화면 설정", "splash")
         content_layout.addWidget(splash_group)
@@ -245,6 +255,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 프레임 설정
         frame_group = self.create_position_size_group("위젯", "frame")
@@ -337,6 +352,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 텍스트 입력 설정 (먼저 배치)
         text_input_group = QGroupBox("텍스트 입력 설정")
@@ -512,6 +532,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # QR 코드 설정 그룹
         qr_group = QGroupBox("QR 코드 설정")
         qr_layout = QFormLayout(qr_group)
@@ -568,6 +593,11 @@ class ConfigEditor(QMainWindow):
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
+        
         # 프로세스 화면 설정
         process_group = self.create_screen_group("발급중 화면 설정", "process", True)
         content_layout.addWidget(process_group)
@@ -594,6 +624,11 @@ class ConfigEditor(QMainWindow):
         # 스크롤 내용 위젯
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
+        
+        # 단위 안내 레이블 추가
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
+        unit_label.setStyleSheet("color: #555;")
+        content_layout.addWidget(unit_label)
         
         # 완료 화면 설정
         complete_group = self.create_screen_group("발급완료 화면 설정", "complete", True)
