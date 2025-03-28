@@ -362,6 +362,51 @@ class ConfigEditor(QMainWindow):
         unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
         unit_label.setStyleSheet("color: #555;")
         content_layout.addWidget(unit_label)
+
+        # 키보드 위치 및 크기
+        position_group = QGroupBox("키보드 위치 및 크기")
+        position_layout = QFormLayout(position_group)
+        
+        self.keyboard_position_fields = {}
+        
+        for key in ["width", "height", "x", "y"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 3000)
+            spin_box.setValue(self.config["keyboard"][key])
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            position_layout.addRow(f"{label_text}:", spin_box)
+            self.keyboard_position_fields[key] = spin_box
+        
+        content_layout.addWidget(position_group)
+
+        # 텍스트 설정 (텍스트 입력 설정 뒤에 배치)
+        texts_group = QGroupBox("텍스트 입력 개수 설정")
+        texts_layout = QVBoxLayout(texts_group)
+        
+        # 텍스트 개수 설정
+        text_count_layout = QHBoxLayout()
+        text_count_label = QLabel("텍스트 개수:")
+        self.text_count_spinbox = QSpinBox()
+        self.text_count_spinbox.setRange(0, 10)
+        self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        text_count_layout.addWidget(text_count_label)
+        text_count_layout.addWidget(self.text_count_spinbox)
+        text_count_layout.addStretch()
+        
+        texts_layout.addLayout(text_count_layout)
+        
+        # 텍스트 항목 컨테이너
+        self.text_items_container = QWidget()
+        self.text_items_layout = QVBoxLayout(self.text_items_container)
+        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 텍스트 항목 필드 초기화
+        self.text_item_fields = []
+        self.update_text_items(self.config["texts"]["count"])
+        
+        texts_layout.addWidget(self.text_items_container)
+        content_layout.addWidget(texts_group)
         
         # 텍스트 입력 설정 (먼저 배치)
         text_input_group = QGroupBox("텍스트 입력 설정")
@@ -412,51 +457,6 @@ class ConfigEditor(QMainWindow):
         
         text_input_layout.addWidget(self.text_input_items_container)
         content_layout.addWidget(text_input_group)
-        
-        # 텍스트 설정 (텍스트 입력 설정 뒤에 배치)
-        texts_group = QGroupBox("텍스트 설정")
-        texts_layout = QVBoxLayout(texts_group)
-        
-        # 텍스트 개수 설정
-        text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
-        self.text_count_spinbox = QSpinBox()
-        self.text_count_spinbox.setRange(0, 10)
-        self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        text_count_layout.addWidget(text_count_label)
-        text_count_layout.addWidget(self.text_count_spinbox)
-        text_count_layout.addStretch()
-        
-        texts_layout.addLayout(text_count_layout)
-        
-        # 텍스트 항목 컨테이너
-        self.text_items_container = QWidget()
-        self.text_items_layout = QVBoxLayout(self.text_items_container)
-        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        self.update_text_items(self.config["texts"]["count"])
-        
-        texts_layout.addWidget(self.text_items_container)
-        content_layout.addWidget(texts_group)
-        
-        # 키보드 위치 및 크기
-        position_group = QGroupBox("키보드 위치 및 크기")
-        position_layout = QFormLayout(position_group)
-        
-        self.keyboard_position_fields = {}
-        
-        for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 3000)
-            spin_box.setValue(self.config["keyboard"][key])
-            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            position_layout.addRow(f"{label_text}:", spin_box)
-            self.keyboard_position_fields[key] = spin_box
-        
-        content_layout.addWidget(position_group)
         
         # 키보드 스타일
         style_group = QGroupBox("키보드 스타일")
