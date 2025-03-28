@@ -34,3 +34,8 @@ config.json 파일은 다음과 같은 주요 섹션으로 구성됩니다:
 - keyboard: 가상 키보드 설정
 - confirm_button: 확인 버튼 설정
 - splash, process, complete: 각 화면별 설정 
+
+### kiosk-builder-app 용 pyinstaller 명령어
+```
+pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --add-data "kiosk_preview.exe;." --add-data "kiosk_print.exe;." --name json-reader main.py
+```
