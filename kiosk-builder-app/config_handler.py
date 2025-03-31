@@ -29,10 +29,13 @@ class ConfigHandler:
             "camera_count": {
                 "number": 3,
                 "font_size": 350,
-                "font_color": "#58e0ff"
+                "font_color": "#ffffff"
             },
             "screen_order": [
                 0,
+                1,
+                2,
+                3,
                 4,
                 5
             ],
@@ -45,16 +48,16 @@ class ConfigHandler:
             "photo": {
                 "exists": False,
                 "filename": "captured_image.jpg",
-                "x": 0,
-                "y": 0,
+                "x": 143,
+                "y": 314,
                 "width": 350,
                 "height": 400
             },
             "qr_uploaded_image": {
                 "exists": False,
                 "filename": "qr_uploaded_image.jpg",
-                "x": 400,
-                "y": 400,
+                "x": 143,
+                "y": 314,
                 "width": 350,
                 "height": 400
             },
