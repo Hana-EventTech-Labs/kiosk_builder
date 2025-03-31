@@ -267,7 +267,7 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(unit_label)
         
         # 프레임 설정
-        frame_group = self.create_position_size_group("위젯", "frame")
+        frame_group = self.create_position_size_group("카메라", "frame")
         content_layout.addWidget(frame_group)
         
         # 실제 인쇄 영역 추가
@@ -291,11 +291,6 @@ class ConfigEditor(QMainWindow):
         photo_layout = QFormLayout(photo_group)
         
         self.photo_fields = {}
-        
-        # 파일명
-        filename_edit = QLineEdit(self.config["photo"]["filename"])
-        photo_layout.addRow("파일명:", filename_edit)
-        self.photo_fields["filename"] = filename_edit
         
         # 위치 및 크기
         for key in ["width", "height", "x", "y"]:
@@ -574,6 +569,23 @@ class ConfigEditor(QMainWindow):
         self.qr_fields["y"] = y_spin
         
         content_layout.addWidget(qr_group)
+        
+        # 업로드 이미지 설정 그룹박스 추가
+        qr_uploaded_group = QGroupBox("업로드 이미지 설정")
+        qr_uploaded_layout = QFormLayout(qr_uploaded_group)
+        
+        self.qr_uploaded_fields = {}
+        
+        # 이미지 위치 및 크기 설정
+        for key in ["width", "height", "x", "y"]:
+            spin_box = QSpinBox()
+            spin_box.setRange(0, 3000)
+            spin_box.setValue(self.config["qr_uploaded_image"][key])
+            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+            qr_uploaded_layout.addRow(f"{label_text}:", spin_box)
+            self.qr_uploaded_fields[key] = spin_box
+        
+        content_layout.addWidget(qr_uploaded_group)
         
         # 스트레치 추가
         content_layout.addStretch()
@@ -885,7 +897,7 @@ class ConfigEditor(QMainWindow):
             self.config["frame"][key] = widget.value()
         
         # 촬영 사진 설정 저장
-        self.config["photo"]["filename"] = self.photo_fields["filename"].text()
+        self.config["photo"]["filename"] = "captured_image.jpg"
         for key in ["x", "y", "width", "height"]:
             self.config["photo"][key] = self.photo_fields[key].value()
         
@@ -957,6 +969,10 @@ class ConfigEditor(QMainWindow):
         self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
         self.config["qr"]["x"] = self.qr_fields["x"].value()
         self.config["qr"]["y"] = self.qr_fields["y"].value()
+        
+        # QR 업로드 이미지 설정 저장
+        for key in ["x", "y", "width", "height"]:
+            self.config["qr_uploaded_image"][key] = self.qr_uploaded_fields[key].value()
         
         # 화면 설정 저장
         for section in ["splash", "process", "complete"]:
@@ -1184,6 +1200,10 @@ class ConfigEditor(QMainWindow):
         self.qr_fields["x"].setValue(self.config["qr"]["x"])
         self.qr_fields["y"].setValue(self.config["qr"]["y"])
         
+        # QR 업로드 이미지 설정 업데이트
+        for key in ["x", "y", "width", "height"]:
+            self.qr_uploaded_fields[key].setValue(self.config["qr_uploaded_image"][key])
+        
         # screen_order 업데이트 (textChanged 시그널이 연결되어 있으므로 마지막에 업데이트)
         screen_order_text = ",".join(map(str, self.config["screen_order"]))
         if self.screen_order_edit.text() != screen_order_text:
@@ -1196,7 +1216,6 @@ class ConfigEditor(QMainWindow):
             widget.setValue(self.config["frame"][key])
         
         # 촬영 사진 설정 업데이트
-        self.photo_fields["filename"].setText(self.config["photo"]["filename"])
         for key in ["x", "y", "width", "height"]:
             self.photo_fields[key].setValue(self.config["photo"][key])
         
