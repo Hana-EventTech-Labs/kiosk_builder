@@ -21,9 +21,6 @@
     },
     "screen_order": [
         0,
-        1,
-        2,
-        3,
         4,
         5
     ],
@@ -34,7 +31,7 @@
         "height": 720
     },
     "photo": {
-        "exists": true,
+        "exists": false,
         "filename": "captured_image.jpg",
         "x": 143,
         "y": 314,
@@ -42,7 +39,7 @@
         "height": 400
     },
     "qr_uploaded_image": {
-        "exists": true,
+        "exists": false,
         "filename": "qr_uploaded_image.jpg",
         "x": 143,
         "y": 314,
@@ -54,37 +51,16 @@
         "items": []
     },
     "texts": {
-        "count": 1,
-        "items": [
-            {
-                "content": "텍스트",
-                "x": 0,
-                "y": 0,
-                "width": 300,
-                "height": 100,
-                "font": "LAB디지털.ttf",
-                "font_size": 16,
-                "font_color": "#000000"
-            }
-        ]
+        "count": 0,
+        "items": []
     },
     "text_input": {
         "margin_top": 200,
         "margin_left": 0,
         "margin_right": 0,
         "spacing": 30,
-        "count": 1,
-        "items": [
-            {
-                "label": "입력 1",
-                "placeholder": "입력하세요",
-                "x": 100,
-                "y": 100,
-                "width": 800,
-                "height": 80,
-                "font_size": 36
-            }
-        ]
+        "count": 0,
+        "items": []
     },
     "keyboard": {
         "x": 320,
@@ -123,27 +99,27 @@
         "y": 600
     },
     "splash": {
-        "font": "GmarketSansTTFMedium.ttf",
+        "font": "",
         "phrase": "",
-        "font_size": 0,
-        "font_color": "black",
+        "font_size": 32,
+        "font_color": "red",
         "x": 0,
         "y": 0
     },
     "process": {
-        "font": "GmarketSansTTFMedium.ttf",
+        "font": "",
         "phrase": "",
-        "font_size": 0,
-        "font_color": "black",
+        "font_size": 32,
+        "font_color": "#a4ff5e",
         "x": 0,
         "y": 0,
         "process_time": 3000
     },
     "complete": {
-        "font": "GmarketSansTTFMedium.ttf",
+        "font": "",
         "phrase": "",
-        "font_size": 0,
-        "font_color": "black",
+        "font_size": 32,
+        "font_color": "green",
         "x": 0,
         "y": 0,
         "complete_time": 2000
