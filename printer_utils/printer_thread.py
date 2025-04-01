@@ -118,7 +118,7 @@ class PrinterThread(QThread):
                 y=text_config.get("y", 0),
                 width=text_config.get("width", 300),
                 height=text_config.get("height", 300),
-                font_name=text_config.get("font", "LAB디지털.ttf"),
+                font_name=text_config.get("font", ""),
                 font_size=text_config.get("font_size", 32),
                 font_color=text_config.get("font_color", "#000000"),
                 font_style=text_config.get("style", 0x01),
@@ -169,11 +169,12 @@ class PrinterThread(QThread):
                         font_name = load_font(font_path)
                         if font_name is None:
                             self.error.emit(f"폰트 로드 실패: {text_info['font_name']}")
-                            return
+                            font_name = "맑은 고딕"
+                            # return
                         loaded_fonts[font_path] = font_name
                     else:
                         font_name = loaded_fonts[font_path]
-                        
+
                     # 색상 변환 (문자열 -> 16진수 정수)
                     if isinstance(text_info["font_color"], str):
                         font_color = int(text_info["font_color"].lstrip('#'), 16)
