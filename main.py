@@ -78,7 +78,8 @@ class KioskApp(QMainWindow):
                 #임시 이미지 파일 삭제
                 temp_files = [
                     "resources/captured_image.jpg",
-                    "resources/input_text.txt"  # 추가된 부분: 텍스트 파일도 삭제
+                    "resources/qr_uploaded_image.jpg",
+                    "resources/input_texts.json"
                 ]
                 
                 for file_path in temp_files:

@@ -20,52 +20,62 @@ class ConfigHandler:
                 "width": 1920,
                 "height": 1080
             },
+            "crop_area": {
+                "width": 1920,
+                "height": 1080,
+                "x": 0,
+                "y": 0
+            },
             "camera_count": {
                 "number": 3,
                 "font_size": 350,
-                "font_color": "green"
+                "font_color": "#ffffff"
             },
-            "screen_order": [0, 1, 2, 3, 4],
+            "screen_order": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
             "frame": {
                 "x": 0,
                 "y": 0,
-                "width": 1280,
+                "width": 1080,
                 "height": 720
             },
+            "photo": {
+                "exists": False,
+                "filename": "captured_image.jpg",
+                "x": 143,
+                "y": 314,
+                "width": 350,
+                "height": 400
+            },
+            "qr_uploaded_image": {
+                "exists": False,
+                "filename": "qr_uploaded_image.jpg",
+                "x": 143,
+                "y": 314,
+                "width": 350,
+                "height": 400
+            },
             "images": {
-                "count": 1,
-                "items": [
-                    {
-                        "filename": "captured_image.jpg",
-                        "x": 0,
-                        "y": 0,
-                        "width": 300,
-                        "height": 300
-                    }
-                ]
+                "count": 0,
+                "items": []
             },
             "texts": {
-                "count": 1,
-                "items": [
-                    {
-                        "content": "텍스트",
-                        "x": 0,
-                        "y": 0,
-                        "width": 300,
-                        "height": 100,
-                        "font": "LAB디지털.ttf",
-                        "font_size": 16,
-                        "font_color": "#000000"
-                    }
-                ]
+                "count": 0,
+                "items": []
             },
             "text_input": {
-                "width": 800,
-                "height": 80,
                 "margin_top": 200,
                 "margin_left": 0,
                 "margin_right": 0,
-                "font_size": 36
+                "spacing": 30,
+                "count": 0,
+                "items": []
             },
             "keyboard": {
                 "x": 320,
@@ -84,7 +94,7 @@ class ConfigHandler:
                 "button_radius": 10,
                 "hangul_btn_color": "#4299E1",
                 "shift_btn_color": "#3182CE",
-                "backspace_btn_color": "#E53E3E",
+                "backspace_btn_color": "#6ae517",
                 "next_btn_color": "#48BB78",
                 "special_btn_width": 100,
                 "max_hangul": 100,
@@ -97,28 +107,34 @@ class ConfigHandler:
                 "margin_bottom": 100,
                 "font_size": 30
             },
+            "qr": {
+                "preview_width": 300,
+                "preview_height": 300,
+                "x": 800,
+                "y": 600
+            },
             "splash": {
-                "font": "LAB디지털.ttf",
-                "phrase": "스플래시 화면입니다. 클릭하면 넘어갑니다.",
-                "font_size": 32,
-                "font_color": "red",
+                "font": "",
+                "phrase": "",
+                "font_size": 0,
+                "font_color": "black",
                 "x": 0,
                 "y": 0
             },
             "process": {
-                "font": "LAB디지털.ttf",
-                "phrase": "프로세스 화면입니다. 클릭하면 넘어갑니다.",
-                "font_size": 32,
-                "font_color": "blue",
+                "font": "",
+                "phrase": "",
+                "font_size": 0,
+                "font_color": "black",
                 "x": 0,
                 "y": 0,
                 "process_time": 3000
             },
             "complete": {
-                "font": "LAB디지털.ttf",
-                "phrase": "완료 화면입니다. 클릭하면 넘어갑니다.",
-                "font_size": 32,
-                "font_color": "green",
+                "font": "",
+                "phrase": "",
+                "font_size": 0,
+                "font_color": "black",
                 "x": 0,
                 "y": 0,
                 "complete_time": 2000
@@ -127,7 +143,7 @@ class ConfigHandler:
         self.config = self.load_config()
 
     def load_config(self):
-        """기존 config.json 파일을 로드하거나 없으면 오류 메시지 표시 후 종료"""
+        """기존 config.json 파일을 로드하거나 없으면 기본 설정을 반환"""
         if os.path.exists(self.config_path):
             try:
                 with open(self.config_path, 'r', encoding='utf-8') as f:
@@ -174,7 +190,8 @@ class ConfigHandler:
                 print(f"설정 파일 로드 오류: {e}")
                 self.show_error_and_exit(f"설정 파일 로드 오류: {e}")
         else:
-            self.show_error_and_exit("json 파일이 없습니다")
+            print("config.json 파일이 없습니다. 기본 설정을 사용합니다.")
+            return self.default_config.copy()
 
     def show_error_and_exit(self, message):
         """오류 메시지를 표시하고 프로그램 종료"""
