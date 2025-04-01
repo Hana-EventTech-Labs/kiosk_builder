@@ -44,7 +44,7 @@ class ConfigEditor(QMainWindow):
         self.init_ui()
         
     def init_ui(self):
-        self.setWindowTitle("키오스크 설정 편집기")
+        self.setWindowTitle("슈퍼 키오스크 프로그램")
         self.setMinimumSize(800, 600)
         
         # 중앙 위젯 설정
