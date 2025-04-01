@@ -848,151 +848,17 @@ class ConfigEditor(QMainWindow):
             QMessageBox.warning(self, "텍스트 개수 부족", error_msg)
             return
         
-        # 기본 설정
-        self.config["app_name"] = self.app_name_edit.text()
-        self.config["screen_size"]["width"] = self.screen_width_edit.value()
-        self.config["screen_size"]["height"] = self.screen_height_edit.value()
-        self.config["camera_size"]["width"] = self.camera_width_edit.value()
-        self.config["camera_size"]["height"] = self.camera_height_edit.value()
-        
-        # 크롭 영역 설정 저장
-        for key, widget in self.crop_fields.items():
-            self.config["crop_area"][key] = widget.value()
-        
-        # 카메라 카운트 설정 저장
-        self.config["camera_count"]["number"] = self.camera_count_fields["number"].value()
-        self.config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
-        self.config["camera_count"]["font_color"] = self.camera_count_fields["font_color"].color
-        
-        # 화면 순서
-        try:
-            screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
-            
-            # 유효한 화면 타입 (0~5) 확인
-            valid_screen_types = [0, 1, 2, 3, 4, 5]
-            invalid_screen_types = [x for x in screen_order if x not in valid_screen_types]
-            
-            if invalid_screen_types:
-                error_msg = f"유효하지 않은 화면 번호가 포함되어 있습니다: {', '.join(map(str, invalid_screen_types))}\n\n유효한 화면 번호는 0~5입니다."
-                QMessageBox.warning(self, "화면 순서 오류", error_msg)
-                return
-                
-            self.config["screen_order"] = screen_order
-            
-            # 화면 순서에 따른 photo와 qr_uploaded_image 존재 여부 설정
-            if "photo" in self.config:
-                if 1 in screen_order:
-                    self.config["photo"]["exists"] = True
-                else:
-                    self.config["photo"]["exists"] = False
-            
-            if "qr_uploaded_image" in self.config:
-                if 3 in screen_order:
-                    self.config["qr_uploaded_image"]["exists"] = True
-                else:
-                    self.config["qr_uploaded_image"]["exists"] = False
-                
-        except ValueError:
-            QMessageBox.warning(self, "입력 오류", "화면 순서는 쉼표로 구분된 숫자여야 합니다.")
+        # UI의 값들을 self.config에 업데이트
+        if not self.update_config_from_ui():
+            QMessageBox.warning(self, "입력 오류", "입력 값에 오류가 있어 저장할 수 없습니다.")
             return
-        
-        # 프레임 설정 저장
-        for key, widget in self.frame_fields.items():
-            self.config["frame"][key] = widget.value()
-        
-        # 촬영 사진 설정 저장
-        self.config["photo"]["filename"] = "captured_image.jpg"
-        for key in ["x", "y", "width", "height"]:
-            self.config["photo"][key] = self.photo_fields[key].value()
-        
-        # 이미지 설정 저장
-        self.config["images"]["count"] = self.image_count_spinbox.value()
-        self.config["images"]["items"] = []
-        
-        for i, fields in enumerate(self.image_item_fields):
-            item = {
-                "filename": fields["filename"].text(),
-                "x": fields["x"].value(),
-                "y": fields["y"].value(),
-                "width": fields["width"].value(),
-                "height": fields["height"].value()
-            }
-            self.config["images"]["items"].append(item)
-        
-        # 텍스트 설정 저장
-        self.config["texts"]["count"] = self.text_count_spinbox.value()
-        self.config["texts"]["items"] = []
-        
-        for i, fields in enumerate(self.text_item_fields):
-            item = {
-                "content": fields["content"].text(),
-                "x": fields["x"].value(),
-                "y": fields["y"].value(),
-                "width": fields["width"].value(),
-                "height": fields["height"].value(),
-                "font": fields["font"].text(),
-                "font_size": fields["font_size"].value(),
-                "font_color": fields["font_color"].color
-            }
-            self.config["texts"]["items"].append(item)
-        
-        # 텍스트 입력 설정 저장
-        for key, widget in self.text_input_fields.items():
-            self.config["text_input"][key] = widget.value()
-        
-        # 텍스트 입력 개수 설정 저장
-        self.config["text_input"]["count"] = self.text_input_count_spinbox.value()
-        self.config["text_input"]["items"] = []
-        
-        for i, fields in enumerate(self.text_input_item_fields):
-            item = {
-                "label": fields["label"].text(),
-                "placeholder": fields["placeholder"].text(),
-                "x": fields["x"].value(),
-                "y": fields["y"].value(),
-                "width": fields["width"].value(),
-                "height": fields["height"].value(),
-                "font_size": fields["font_size"].value()
-            }
-            self.config["text_input"]["items"].append(item)
-        
-        # 키보드 설정 저장
-        # 위치 및 크기
-        for key, widget in self.keyboard_position_fields.items():
-            self.config["keyboard"][key] = widget.value()
-        
-        # 스타일
-        for key, widget in self.keyboard_style_fields.items():
-            if isinstance(widget, ColorPickerButton):
-                self.config["keyboard"][key] = widget.color
-            else:
-                self.config["keyboard"][key] = widget.value()
-        
-        # QR 코드 설정 저장
-        self.config["qr"]["preview_width"] = self.qr_fields["preview_width"].value()
-        self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
-        self.config["qr"]["x"] = self.qr_fields["x"].value()
-        self.config["qr"]["y"] = self.qr_fields["y"].value()
-        
-        # QR 업로드 이미지 설정 저장
-        for key in ["x", "y", "width", "height"]:
-            self.config["qr_uploaded_image"][key] = self.qr_uploaded_fields[key].value()
-        
-        # 화면 설정 저장
-        for section in ["splash", "process", "complete"]:
-            fields = getattr(self, f"{section}_fields")
-            for key, widget in fields.items():
-                if isinstance(widget, ColorPickerButton):
-                    self.config[section][key] = widget.color
-                else:
-                    self.config[section][key] = widget.value() if isinstance(widget, QSpinBox) else widget.text()
         
         # 설정 저장
         if self.config_handler.save_config(self.config):
             QMessageBox.information(self, "저장 완료", "설정이 저장되었습니다.")
         else:
             QMessageBox.warning(self, "저장 실패", "설정 저장 중 오류가 발생했습니다.")
-            
+
     def create_distribution(self):
         """배포용 파일 생성 및 복사"""
         # 배포용 파일 처리
@@ -1021,6 +887,10 @@ class ConfigEditor(QMainWindow):
             # 앱 폴더 경로
             target_dir = os.path.join(parent_dir, app_folder_name)
             
+            # "저장" 버튼과 동일한 기능 수행하지만, 외부 config.json에는 저장하지 않음
+            # 설정 업데이트 (모든 UI 항목의 값들을 self.config에 업데이트)
+            self.update_config_from_ui()
+            
             # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
             if os.path.exists(target_dir):
                 reply = QMessageBox.question(
@@ -1044,6 +914,11 @@ class ConfigEditor(QMainWindow):
             else:
                 # 폴더 생성
                 os.makedirs(target_dir, exist_ok=True)
+            
+            # 배포 폴더 내에 config.json 파일 생성
+            target_config_path = os.path.join(target_dir, "config.json")
+            with open(target_config_path, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, ensure_ascii=False, indent=4)
             
             # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
             resources_path = os.path.join(base_path, "resources")
@@ -1090,8 +965,7 @@ class ConfigEditor(QMainWindow):
             # 필요한 파일들 목록
             required_files = [
                 {"name": "kiosk_preview.exe", "source": os.path.join(base_path, "kiosk_preview.exe")},
-                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")},
-                {"name": "config.json", "source": os.path.join(base_path, "config.json")}
+                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")}
             ]
             
             # 폴더 목록
@@ -1113,24 +987,6 @@ class ConfigEditor(QMainWindow):
                 else:
                     missing_files.append(file_info["name"])
             
-            # config.json 파일의 app_name 업데이트
-            config_json_path = os.path.join(target_dir, "config.json")
-            if os.path.exists(config_json_path):
-                try:
-                    # 복사된 config.json 파일 읽기
-                    with open(config_json_path, 'r', encoding='utf-8') as f:
-                        target_config = json.load(f)
-                    
-                    # app_name 업데이트
-                    target_config["app_name"] = app_name
-                    
-                    # 수정된 config.json 파일 저장
-                    with open(config_json_path, 'w', encoding='utf-8') as f:
-                        json.dump(target_config, f, ensure_ascii=False, indent=4)
-                    
-                    print(f"복사된 config.json의 app_name을 '{app_name}'으로 업데이트했습니다.")
-                except Exception as e:
-                    print(f"config.json 파일 업데이트 중 오류 발생: {str(e)}")
             
             # 폴더들을 대상 폴더로 복사
             copied_folders = []
@@ -1707,3 +1563,146 @@ class ConfigEditor(QMainWindow):
         
         # UI 업데이트
         self.text_input_items_container.updateGeometry()
+
+    def update_config_from_ui(self):
+        """UI 항목의 값들을 self.config에 업데이트합니다. (파일에는 저장하지 않음)"""
+        # 기본 설정
+        self.config["app_name"] = self.app_name_edit.text()
+        self.config["screen_size"]["width"] = self.screen_width_edit.value()
+        self.config["screen_size"]["height"] = self.screen_height_edit.value()
+        self.config["camera_size"]["width"] = self.camera_width_edit.value()
+        self.config["camera_size"]["height"] = self.camera_height_edit.value()
+        
+        # 크롭 영역 설정 저장
+        for key, widget in self.crop_fields.items():
+            self.config["crop_area"][key] = widget.value()
+        
+        # 카메라 카운트 설정 저장
+        self.config["camera_count"]["number"] = self.camera_count_fields["number"].value()
+        self.config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
+        self.config["camera_count"]["font_color"] = self.camera_count_fields["font_color"].color
+        
+        # 화면 순서
+        try:
+            screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
+            
+            # 유효한 화면 타입 (0~5) 확인
+            valid_screen_types = [0, 1, 2, 3, 4, 5]
+            invalid_screen_types = [x for x in screen_order if x not in valid_screen_types]
+            
+            if invalid_screen_types:
+                error_msg = f"유효하지 않은 화면 번호가 포함되어 있습니다: {', '.join(map(str, invalid_screen_types))}\n\n유효한 화면 번호는 0~5입니다."
+                QMessageBox.warning(self, "화면 순서 오류", error_msg)
+                return False
+                
+            self.config["screen_order"] = screen_order
+            
+            # 화면 순서에 따른 photo와 qr_uploaded_image 존재 여부 설정
+            if "photo" in self.config:
+                if 1 in screen_order:
+                    self.config["photo"]["exists"] = True
+                else:
+                    self.config["photo"]["exists"] = False
+            
+            if "qr_uploaded_image" in self.config:
+                if 3 in screen_order:
+                    self.config["qr_uploaded_image"]["exists"] = True
+                else:
+                    self.config["qr_uploaded_image"]["exists"] = False
+                
+        except ValueError:
+            QMessageBox.warning(self, "입력 오류", "화면 순서는 쉼표로 구분된 숫자여야 합니다.")
+            return False
+        
+        # 프레임 설정 저장
+        for key, widget in self.frame_fields.items():
+            self.config["frame"][key] = widget.value()
+        
+        # 촬영 사진 설정 저장
+        self.config["photo"]["filename"] = "captured_image.jpg"
+        for key in ["x", "y", "width", "height"]:
+            self.config["photo"][key] = self.photo_fields[key].value()
+        
+        # 이미지 설정 저장
+        self.config["images"]["count"] = self.image_count_spinbox.value()
+        self.config["images"]["items"] = []
+        
+        for i, fields in enumerate(self.image_item_fields):
+            item = {
+                "filename": fields["filename"].text(),
+                "x": fields["x"].value(),
+                "y": fields["y"].value(),
+                "width": fields["width"].value(),
+                "height": fields["height"].value()
+            }
+            self.config["images"]["items"].append(item)
+        
+        # 텍스트 설정 저장
+        self.config["texts"]["count"] = self.text_count_spinbox.value()
+        self.config["texts"]["items"] = []
+        
+        for i, fields in enumerate(self.text_item_fields):
+            item = {
+                "content": fields["content"].text(),
+                "x": fields["x"].value(),
+                "y": fields["y"].value(),
+                "width": fields["width"].value(),
+                "height": fields["height"].value(),
+                "font": fields["font"].text(),
+                "font_size": fields["font_size"].value(),
+                "font_color": fields["font_color"].color
+            }
+            self.config["texts"]["items"].append(item)
+        
+        # 텍스트 입력 설정 저장
+        for key, widget in self.text_input_fields.items():
+            self.config["text_input"][key] = widget.value()
+        
+        # 텍스트 입력 개수 설정 저장
+        self.config["text_input"]["count"] = self.text_input_count_spinbox.value()
+        self.config["text_input"]["items"] = []
+        
+        for i, fields in enumerate(self.text_input_item_fields):
+            item = {
+                "label": fields["label"].text(),
+                "placeholder": fields["placeholder"].text(),
+                "x": fields["x"].value(),
+                "y": fields["y"].value(),
+                "width": fields["width"].value(),
+                "height": fields["height"].value(),
+                "font_size": fields["font_size"].value()
+            }
+            self.config["text_input"]["items"].append(item)
+        
+        # 키보드 설정 저장
+        # 위치 및 크기
+        for key, widget in self.keyboard_position_fields.items():
+            self.config["keyboard"][key] = widget.value()
+        
+        # 스타일
+        for key, widget in self.keyboard_style_fields.items():
+            if isinstance(widget, ColorPickerButton):
+                self.config["keyboard"][key] = widget.color
+            else:
+                self.config["keyboard"][key] = widget.value()
+        
+        # QR 코드 설정 저장
+        self.config["qr"]["preview_width"] = self.qr_fields["preview_width"].value()
+        self.config["qr"]["preview_height"] = self.qr_fields["preview_height"].value()
+        self.config["qr"]["x"] = self.qr_fields["x"].value()
+        self.config["qr"]["y"] = self.qr_fields["y"].value()
+        
+        # QR 업로드 이미지 설정 저장
+        for key in ["x", "y", "width", "height"]:
+            self.config["qr_uploaded_image"][key] = self.qr_uploaded_fields[key].value()
+        
+        # 화면 설정 저장
+        for section in ["splash", "process", "complete"]:
+            fields = getattr(self, f"{section}_fields")
+            for key, widget in fields.items():
+                if isinstance(widget, ColorPickerButton):
+                    self.config[section][key] = widget.color
+                else:
+                    self.config[section][key] = widget.value() if isinstance(widget, QSpinBox) else widget.text()
+        
+        return True
