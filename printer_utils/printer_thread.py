@@ -1,9 +1,10 @@
 from PySide6.QtCore import QThread, Signal
-from .device_functions import get_device_list, get_device_id, open_device, draw_image, get_preview_bitmap, print_image, close_device, load_font, draw_text2
+from .device_functions import get_device_list, get_device_id, open_device, draw_image, get_preview_bitmap, print_image, close_device, load_font, draw_text2, draw_barcode
 from .image_utils import bitmapinfo_to_image
 from .cffi_defs import ffi, SMART_OPENDEVICE_BYID, PAGE_FRONT, PANELID_COLOR
 from config import config
 import os
+import json
 
 class PrinterThread(QThread):
     finished = Signal()
@@ -44,7 +45,31 @@ class PrinterThread(QThread):
     
     def load_contents(self):
         """config.json에서 이미지와 텍스트 로드"""
-        # 이미지 설정 불러오기
+        # 카메라로 촬영한 사진 로드 (photo 섹션)
+        if "photo" in config and config["photo"]["exists"]:
+            photo_config = config["photo"]
+            print(f"photo_config: {photo_config}")
+            self.add_image(
+                image_filename=f"resources/{photo_config.get('filename', 'captured_image.jpg')}",
+                x=photo_config.get("x", 0),
+                y=photo_config.get("y", 0),
+                width=photo_config.get("width", 300),
+                height=photo_config.get("height", 300)
+            )
+        
+        # QR 업로드 이미지 로드 (qr_uploaded_image 섹션)    
+        if "qr_uploaded_image" in config and config["qr_uploaded_image"]["exists"]:
+            qr_image_config = config["qr_uploaded_image"]
+            print(f"qr_image_config: {qr_image_config}")
+            self.add_image(
+                image_filename=f"resources/{qr_image_config.get('filename', 'qr_uploaded_image.jpg')}",
+                x=qr_image_config.get("x", 0),
+                y=qr_image_config.get("y", 0),
+                width=qr_image_config.get("width", 300),
+                height=qr_image_config.get("height", 300)
+            )
+        
+        # 일반 이미지 설정 불러오기
         expected_img_count = config.get("images", {}).get("count", 0)
         img_items = config.get("images", {}).get("items", [])
         
@@ -67,16 +92,25 @@ class PrinterThread(QThread):
         if len(text_items) != expected_text_count:
             print(f"경고: 설정된 텍스트 수({expected_text_count})와 실제 텍스트 항목 수({len(text_items)})가 다릅니다")
         
-        for text_config in text_items:
-            # content가 비어있으면 파일에서 읽기
+        # input_texts.json 파일 로드 시도
+        input_texts = {}
+        if os.path.exists("resources/input_texts.json"):
+            try:
+                with open("resources/input_texts.json", "r", encoding="utf-8") as f:
+                    input_texts = json.loads(f.read())
+                # print(f"input_texts.json 파일을 성공적으로 로드했습니다: {input_texts}")
+            except Exception as e:
+                print(f"input_texts.json 파일 읽기 실패: {str(e)}")
+        
+        for i, text_config in enumerate(text_items):
+            # 텍스트 내용 결정
             content = text_config.get("content", "")
-            if not content and os.path.exists("resources/input_text.txt"):
-                try:
-                    with open("resources/input_text.txt", "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                except Exception as e:
-                    print(f"텍스트 파일 읽기 실패: {str(e)}")
-                    content = "텍스트 로드 실패"
+            
+            # input_texts.json에서 해당 인덱스의 텍스트 가져오기
+            text_key = f"text_{i+1}"
+            if text_key in input_texts and input_texts[text_key]:
+                content = input_texts[text_key]
+                # print(f"텍스트 {i+1}: input_texts.json에서 '{content}' 가져옴")
             
             self.add_text(
                 text=content,
@@ -84,7 +118,7 @@ class PrinterThread(QThread):
                 y=text_config.get("y", 0),
                 width=text_config.get("width", 300),
                 height=text_config.get("height", 300),
-                font_name=text_config.get("font", "LAB디지털.ttf"),
+                font_name=text_config.get("font", ""),
                 font_size=text_config.get("font_size", 32),
                 font_color=text_config.get("font_color", "#000000"),
                 font_style=text_config.get("style", 0x01),
@@ -135,11 +169,12 @@ class PrinterThread(QThread):
                         font_name = load_font(font_path)
                         if font_name is None:
                             self.error.emit(f"폰트 로드 실패: {text_info['font_name']}")
-                            return
+                            font_name = "맑은 고딕"
+                            # return
                         loaded_fonts[font_path] = font_name
                     else:
                         font_name = loaded_fonts[font_path]
-                        
+
                     # 색상 변환 (문자열 -> 16진수 정수)
                     if isinstance(text_info["font_color"], str):
                         font_color = int(text_info["font_color"].lstrip('#'), 16)
@@ -162,7 +197,20 @@ class PrinterThread(QThread):
                     if result != 0:
                         self.error.emit(f"텍스트 그리기 실패: {text_info['text']}")
                         return
-                
+                    
+                # 바코드 그리기
+                # result = draw_barcode(
+                #     device_handle, PAGE_FRONT, PANELID_COLOR,
+                #     x=200, y=400, width=300, height=100,
+                #     color=0x000000,
+                #     name="Code128(C)",  # 표준 바코드 유형 (CODE39, CODE128, QR, EAN13 등)
+                #     size=24,  # 바코드 크기 조정 (더 큰 값으로)
+                #     data="바코드",  # 바코드에 인코딩할 데이터
+                #     post=None  # MaxiCode 바코드 유형일 때만 사용되는 우편번호 데이터
+                # )
+                # if result != 0:
+                #     self.error.emit(f"바코드 그리기 실패 (오류 코드: {result})")
+
                 # 미리보기 비트맵 가져오기
                 result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)
                 if result == 0:

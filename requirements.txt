@@ -3,5 +3,7 @@ cffi
 pillow
 opencv-python
 qrcode
-
+requests
+pyinstaller
+websocket-client
 pyinstaller
