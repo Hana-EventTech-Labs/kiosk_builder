@@ -1045,6 +1045,26 @@ class ConfigEditor(QMainWindow):
                 # 폴더 생성
                 os.makedirs(target_dir, exist_ok=True)
             
+            # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
+            resources_path = os.path.join(base_path, "resources")
+            font_path = os.path.join(resources_path, "font")
+            background_path = os.path.join(resources_path, "background")
+            
+            # 폴더 생성 여부를 저장할 변수
+            created_dirs = []
+            
+            # font 폴더가 없으면 생성
+            if not os.path.exists(font_path):
+                os.makedirs(font_path, exist_ok=True)
+                created_dirs.append("resources/font")
+                print(f"resources/font 폴더를 생성했습니다: {font_path}")
+            
+            # background 폴더가 없으면 생성
+            if not os.path.exists(background_path):
+                os.makedirs(background_path, exist_ok=True)
+                created_dirs.append("resources/background")
+                print(f"resources/background 폴더를 생성했습니다: {background_path}")
+            
             # json-reader 실행 파일 찾기 및 복사
             super_kiosk_program_exe = os.path.join(parent_dir, "super-kiosk-program.exe")
             super_kiosk_program_copied = False
@@ -1132,6 +1152,10 @@ class ConfigEditor(QMainWindow):
             
             # 결과 메시지 구성
             result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
+            
+            # 폴더 생성 메시지 추가
+            if created_dirs:
+                result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
             
             if copied_files or copied_folders or super_kiosk_program_copied:
                 result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
