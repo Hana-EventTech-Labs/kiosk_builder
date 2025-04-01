@@ -86,16 +86,16 @@ class ConfigEditor(QMainWindow):
         button_layout = QHBoxLayout()
         main_layout.addLayout(button_layout)
         
-        # 저장 버튼
-        save_button = QPushButton("저장")
-        save_button.clicked.connect(self.save_config)
-        button_layout.addWidget(save_button)
-        
         # 배포용 생성 버튼 (미리보기 생성 대체)
         build_button = QPushButton("배포용 생성")
         build_button.clicked.connect(self.create_distribution)
         button_layout.addWidget(build_button)
         
+        # 저장 버튼
+        save_button = QPushButton("저장")
+        save_button.clicked.connect(self.save_config)
+        button_layout.addWidget(save_button)
+                
         # 다시 로드 버튼
         reload_button = QPushButton("다시 로드")
         reload_button.clicked.connect(self.reload_config)
@@ -818,17 +818,21 @@ class ConfigEditor(QMainWindow):
         # 텍스트 항목 폰트 확인
         for i, fields in enumerate(self.text_item_fields):
             font_file = fields["font"].text()
-            font_path = os.path.join("resources/font", font_file)
-            if not os.path.exists(font_path):
-                missing_fonts.append(f"텍스트 {i+1}: {font_file}")
+            # 폰트가 빈 문자열이면 확인 건너뛰기
+            if font_file and font_file.strip():  # 빈 문자열이 아니면 체크
+                font_path = os.path.join("resources/font", font_file)
+                if not os.path.exists(font_path):
+                    missing_fonts.append(f"텍스트 {i+1}: {font_file}")
         
         # 스플래시, 프로세스, 완료 화면의 폰트 확인
         for section in ["splash", "process", "complete"]:
             fields = getattr(self, f"{section}_fields")
             font_file = fields["font"].text()
-            font_path = os.path.join("resources/font", font_file)
-            if not os.path.exists(font_path):
-                missing_fonts.append(f"{section} 화면: {font_file}")
+            # 폰트가 빈 문자열이면 확인 건너뛰기
+            if font_file and font_file.strip():  # 빈 문자열이 아니면 체크
+                font_path = os.path.join("resources/font", font_file)
+                if not os.path.exists(font_path):
+                    missing_fonts.append(f"{section} 화면: {font_file}")
         
         # 누락된 폰트가 있으면 경고 메시지 표시
         if missing_fonts:
@@ -1042,25 +1046,25 @@ class ConfigEditor(QMainWindow):
                 os.makedirs(target_dir, exist_ok=True)
             
             # json-reader 실행 파일 찾기 및 복사
-            json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
-            json_reader_copied = False
+            super_kiosk_program_exe = os.path.join(parent_dir, "super-kiosk-program.exe")
+            super_kiosk_program_copied = False
             
-            if os.path.exists(json_reader_exe):
-                # json-reader.exe 파일을 대상 폴더로 복사
-                shutil.copy2(json_reader_exe, os.path.join(target_dir, "json-reader.exe"))
-                json_reader_copied = True
+            if os.path.exists(super_kiosk_program_exe):
+                # super-kiosk-program.exe 파일을 대상 폴더로 복사
+                shutil.copy2(super_kiosk_program_exe, os.path.join(target_dir, "super-kiosk-program.exe"))
+                super_kiosk_program_copied = True
             else:
-                # 다른 경로에서 json-reader.exe 찾기
+                # 다른 경로에서 super-kiosk-program.exe 찾기
                 possible_paths = [
-                    os.path.join(parent_dir, "dist", "json-reader.exe"),
-                    os.path.join(parent_dir, "build", "json-reader.exe"),
-                    os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                    os.path.join(parent_dir, "dist", "super-kiosk-program.exe"),
+                    os.path.join(parent_dir, "build", "super-kiosk-program.exe"),
+                    os.path.join(os.path.dirname(parent_dir), "super-kiosk-program.exe")
                 ]
                 
                 for path in possible_paths:
                     if os.path.exists(path):
-                        shutil.copy2(path, os.path.join(target_dir, "json-reader.exe"))
-                        json_reader_copied = True
+                        shutil.copy2(path, os.path.join(target_dir, "super-kiosk-program.exe"))
+                        super_kiosk_program_copied = True
                         break
             
             # 필요한 파일들 목록
@@ -1129,11 +1133,11 @@ class ConfigEditor(QMainWindow):
             # 결과 메시지 구성
             result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
             
-            if copied_files or copied_folders or json_reader_copied:
+            if copied_files or copied_folders or super_kiosk_program_copied:
                 result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
                 
-                if json_reader_copied:
-                    result_message += "실행 파일:\n- json-reader.exe\n\n"
+                if super_kiosk_program_copied:
+                    result_message += "실행 파일:\n- super-kiosk-program.exe\n\n"
                 
                 if copied_files:
                     result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
@@ -1141,8 +1145,8 @@ class ConfigEditor(QMainWindow):
                 if copied_folders:
                     result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
             
-            if not json_reader_copied:
-                result_message += "json-reader.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
+            if not super_kiosk_program_copied:
+                result_message += "super-kiosk-program.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
             
             if missing_files or missing_folders:
                 result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
@@ -1154,7 +1158,7 @@ class ConfigEditor(QMainWindow):
                     result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
             
             # 사용자에게 결과 알림
-            if copied_files or copied_folders or json_reader_copied:
+            if copied_files or copied_folders or super_kiosk_program_copied:
                 QMessageBox.information(
                     self, 
                     "배포용 파일 생성 완료", 
