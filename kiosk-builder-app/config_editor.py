@@ -818,17 +818,21 @@ class ConfigEditor(QMainWindow):
         # 텍스트 항목 폰트 확인
         for i, fields in enumerate(self.text_item_fields):
             font_file = fields["font"].text()
-            font_path = os.path.join("resources/font", font_file)
-            if not os.path.exists(font_path):
-                missing_fonts.append(f"텍스트 {i+1}: {font_file}")
+            # 폰트가 빈 문자열이면 확인 건너뛰기
+            if font_file and font_file.strip():  # 빈 문자열이 아니면 체크
+                font_path = os.path.join("resources/font", font_file)
+                if not os.path.exists(font_path):
+                    missing_fonts.append(f"텍스트 {i+1}: {font_file}")
         
         # 스플래시, 프로세스, 완료 화면의 폰트 확인
         for section in ["splash", "process", "complete"]:
             fields = getattr(self, f"{section}_fields")
             font_file = fields["font"].text()
-            font_path = os.path.join("resources/font", font_file)
-            if not os.path.exists(font_path):
-                missing_fonts.append(f"{section} 화면: {font_file}")
+            # 폰트가 빈 문자열이면 확인 건너뛰기
+            if font_file and font_file.strip():  # 빈 문자열이 아니면 체크
+                font_path = os.path.join("resources/font", font_file)
+                if not os.path.exists(font_path):
+                    missing_fonts.append(f"{section} 화면: {font_file}")
         
         # 누락된 폰트가 있으면 경고 메시지 표시
         if missing_fonts:
