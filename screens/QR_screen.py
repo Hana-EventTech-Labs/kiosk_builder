@@ -44,6 +44,8 @@ class QR_screen(QWidget):
         self.addCloseButton()
         self.setupQRCode()
         self.setupPreviewArea()
+        self.addPrintButton()
+        self.addHomeButton()
     
     def setupBackground(self):
         background_files = ["background/3.png", "background/3.jpg", "background/qr_bg.jpg"]
@@ -242,7 +244,37 @@ class QR_screen(QWidget):
         """)
         self.close_button.clicked.connect(self.main_window.closeApplication)
     
-    def mousePressEvent(self, event):
+    # 인쇄 버튼 추가
+    def addPrintButton(self):
+        self.print_button = QPushButton("인쇄", self)
+        self.print_button.setFixedSize(200, 80)
+        
+        # 화면 하단 중앙에 배치
+        x_pos = (self.screen_size[0] - 200) // 2
+        y_pos = self.screen_size[1] - 120  # 하단에서 약간 위로
+        
+        self.print_button.move(x_pos, y_pos)
+        self.print_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+                font-size: 24px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+            QPushButton:pressed {
+                background-color: #3e8e41;
+            }
+        """)
+        
+        # 버튼 클릭 이벤트 연결
+        self.print_button.clicked.connect(self.on_print_button_clicked)
+    
+    def on_print_button_clicked(self):
         # 미리보기 위젯의 이미지 지우기
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
@@ -250,3 +282,44 @@ class QR_screen(QWidget):
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
+    
+    # "처음으로" 버튼 추가
+    def addHomeButton(self):
+        self.home_button = QPushButton("처음으로", self)
+        self.home_button.setFixedSize(200, 80)
+        
+        # 화면 하단 왼쪽에 배치
+        x_pos = 50
+        y_pos = self.screen_size[1] - 120  # 하단에서 약간 위로
+        
+        self.home_button.move(x_pos, y_pos)
+        self.home_button.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+                font-size: 24px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+            QPushButton:pressed {
+                background-color: #1d6fa5;
+            }
+        """)
+        
+        # 버튼 클릭 이벤트 연결
+        self.home_button.clicked.connect(self.on_home_button_clicked)
+    
+    def on_home_button_clicked(self):
+        # 미리보기 위젯의 이미지 지우기
+        self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
+        self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
+        
+        # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
+        self.main_window.current_index = 0
+        
+        # 첫 화면으로 이동 (인덱스 0)
+        self.stack.setCurrentIndex(0)
