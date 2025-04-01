@@ -114,7 +114,7 @@ class ConfigHandler:
                 "y": 600
             },
             "splash": {
-                "font": "GmarketSansTTFMedium.ttf",
+                "font": "",
                 "phrase": "",
                 "font_size": 0,
                 "font_color": "black",
@@ -122,7 +122,7 @@ class ConfigHandler:
                 "y": 0
             },
             "process": {
-                "font": "GmarketSansTTFMedium.ttf",
+                "font": "",
                 "phrase": "",
                 "font_size": 0,
                 "font_color": "black",
@@ -131,7 +131,7 @@ class ConfigHandler:
                 "process_time": 3000
             },
             "complete": {
-                "font": "GmarketSansTTFMedium.ttf",
+                "font": "",
                 "phrase": "",
                 "font_size": 0,
                 "font_color": "black",
