@@ -15,7 +15,6 @@ class CameraScreen(QWidget):
     
     def setupUI(self):
         self.setupBackground()
-        self.addCloseButton()
         # preview_width는 widget의 너비이고 camera_width는 카메라 화질의 너비입니다
         # 프리뷰 크기가 카메라 전체 크기가 아니니 참고 바랍니다 (카메라 크기는 config.json에 있습니다)
         self.preview_width = config["frame"]["width"]
@@ -34,6 +33,7 @@ class CameraScreen(QWidget):
         self.webcam.setParent(self)
         self.webcam.setGeometry(config["frame"]["x"], config["frame"]["y"], self.preview_width, self.preview_height)
         self.webcam.photo_captured_signal.connect(self.onPhotoCaptured)
+        self.addCloseButton()
 
 
     
