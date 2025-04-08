@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QMessageBox
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap, QFont, Qt, QFontDatabase
 
@@ -79,6 +79,9 @@ class ProcessScreen(QWidget):
         if self.printer_thread is None or not self.printer_thread.isRunning():
             # 프린터 스레드 생성
             self.printer_thread = PrinterThread()
+            
+            # 에러 시그널을 팝업 메시지 표시 함수에 연결
+            self.printer_thread.error.connect(self.show_error_popup)
 
             # 기본 설정에서 컨텐츠 로드
             self.printer_thread.load_contents()
@@ -87,6 +90,10 @@ class ProcessScreen(QWidget):
             self.printer_thread.start()
         next_index = self.main_window.getNextScreenIndex()
         QTimer.singleShot(config["process"]["process_time"], lambda: self.stack.setCurrentIndex(next_index))
+        
+    def show_error_popup(self, error_message):
+        """프린터 에러 메시지를 팝업으로 표시"""
+        QMessageBox.critical(self, "프린터 오류", error_message)
 
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
