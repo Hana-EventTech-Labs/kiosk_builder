@@ -311,9 +311,9 @@ class ConfigEditor(QMainWindow):
         
         # 숫자 필드
         number_spin = QSpinBox()
-        number_spin.setRange(1, 10)
+        number_spin.setRange(0, 10)
         number_spin.setValue(self.config["camera_count"]["number"])
-        camera_count_layout.addRow("카메라 수:", number_spin)
+        camera_count_layout.addRow("카메라 카운트:", number_spin)
         self.camera_count_fields["number"] = number_spin
         
         # 폰트 크기
