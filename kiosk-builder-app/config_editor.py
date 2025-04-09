@@ -379,12 +379,12 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(position_group)
 
         # 텍스트 설정 (텍스트 입력 설정 뒤에 배치)
-        texts_group = QGroupBox("텍스트 입력 개수 설정")
+        texts_group = QGroupBox("고정 텍스트 설정")
         texts_layout = QVBoxLayout(texts_group)
         
         # 텍스트 개수 설정
         text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
+        text_count_label = QLabel("고정 텍스트 개수:")
         self.text_count_spinbox = QSpinBox()
         self.text_count_spinbox.setRange(0, 10)
         self.text_count_spinbox.setValue(self.config["texts"]["count"])
@@ -408,7 +408,7 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(texts_group)
         
         # 텍스트 입력 설정 (먼저 배치)
-        text_input_group = QGroupBox("텍스트 입력 설정")
+        text_input_group = QGroupBox("사용자 입력 필드 설정")
         text_input_layout = QVBoxLayout(text_input_group)
         
         # 텍스트 입력 기본 설정
@@ -433,7 +433,7 @@ class ConfigEditor(QMainWindow):
         
         # 텍스트 입력 개수 설정
         text_input_count_layout = QHBoxLayout()
-        text_input_count_label = QLabel("텍스트 입력 개수:")
+        text_input_count_label = QLabel("사용자 입력 필드 개수:")
         self.text_input_count_spinbox = QSpinBox()
         self.text_input_count_spinbox.setRange(0, 10)
         self.text_input_count_spinbox.setValue(self.config["text_input"]["count"])
@@ -834,13 +834,6 @@ class ConfigEditor(QMainWindow):
             QMessageBox.warning(self, "폰트 파일 누락", error_msg)
             return
         
-        # 텍스트 개수가 텍스트 입력 개수보다 적은지 확인
-        text_count = self.text_count_spinbox.value()
-        text_input_count = self.text_input_count_spinbox.value()
-        if text_count < text_input_count:
-            error_msg = f"텍스트 개수({text_count})가 텍스트 입력 개수({text_input_count})보다 적습니다.\n\n텍스트 개수가 더 많거나 같아야 합니다."
-            QMessageBox.warning(self, "텍스트 개수 부족", error_msg)
-            return
         
         # UI의 값들을 self.config에 업데이트
         if not self.update_config_from_ui():
@@ -1173,10 +1166,11 @@ class ConfigEditor(QMainWindow):
             for key, widget in fields.items():
                 if isinstance(widget, ColorPickerButton):
                     widget.update_color(self.config[section][key])
-                elif isinstance(widget, QSpinBox):
-                    widget.setValue(self.config[section][key])
                 else:
-                    widget.setText(self.config[section][key])
+                    if isinstance(widget, QSpinBox) or isinstance(widget, NumberLineEdit):
+                        widget.setValue(self.config[section][key])
+                    else:
+                        widget.setText(self.config[section][key])
     
     def load_config(self):
         """이전 버전과의 호환성을 위해 남겨둔 메소드"""
@@ -1695,6 +1689,9 @@ class ConfigEditor(QMainWindow):
                 if isinstance(widget, ColorPickerButton):
                     self.config[section][key] = widget.color
                 else:
-                    self.config[section][key] = widget.value() if isinstance(widget, QSpinBox) else widget.text()
+                    if isinstance(widget, QSpinBox) or isinstance(widget, NumberLineEdit):
+                        self.config[section][key] = widget.value()
+                    else:
+                        self.config[section][key] = widget.text()
         
         return True
