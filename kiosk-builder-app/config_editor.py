@@ -1147,6 +1147,10 @@ class ConfigEditor(QMainWindow):
                 fields["width"].setValue(item.get("width", 800))
                 fields["height"].setValue(item.get("height", 80))
                 fields["font_size"].setValue(item.get("font_size", 36))
+                # 출력용 폰트 설정 불러오기
+                fields["output_font"].setText(item.get("output_font", ""))
+                fields["output_font_size"].setValue(item.get("output_font_size", 16))
+                fields["output_font_color"].update_color(item.get("output_font_color", "#000000"))
         
         # 키보드 설정 업데이트
         # 위치 및 크기
@@ -1544,6 +1548,30 @@ class ConfigEditor(QMainWindow):
             item_layout.addRow("폰트 크기:", font_size_spin)
             item_fields["font_size"] = font_size_spin
             
+            # 출력용 폰트 설정 - 폰트 선택 레이아웃
+            output_font_layout = QHBoxLayout()
+            output_font_edit = QLineEdit(item_data.get("output_font", ""))
+            output_font_layout.addWidget(output_font_edit, 1)
+            item_fields["output_font"] = output_font_edit
+            
+            # 폰트 파일 선택 버튼 추가
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=output_font_edit: self.browse_font_file(edit))
+            output_font_layout.addWidget(browse_button)
+            
+            item_layout.addRow("출력용 폰트:", output_font_layout)
+            
+            # 출력용 폰트 크기
+            output_font_size_spin = NumberLineEdit()
+            output_font_size_spin.setValue(item_data.get("output_font_size", 16))
+            item_layout.addRow("출력용 폰트 크기:", output_font_size_spin)
+            item_fields["output_font_size"] = output_font_size_spin
+            
+            # 출력용 폰트 색상
+            output_font_color_button = ColorPickerButton(item_data.get("output_font_color", "#000000"))
+            item_layout.addRow("출력용 폰트 색상:", output_font_color_button)
+            item_fields["output_font_color"] = output_font_color_button
+            
             self.text_input_items_layout.addWidget(item_group)
             self.text_input_item_fields.append(item_fields)
         
@@ -1656,7 +1684,10 @@ class ConfigEditor(QMainWindow):
                 "y": fields["y"].value(),
                 "width": fields["width"].value(),
                 "height": fields["height"].value(),
-                "font_size": fields["font_size"].value()
+                "font_size": fields["font_size"].value(),
+                "output_font": fields["output_font"].text(),
+                "output_font_size": fields["output_font_size"].value(),
+                "output_font_color": fields["output_font_color"].color
             }
             self.config["text_input"]["items"].append(item)
         

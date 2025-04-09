@@ -105,6 +105,9 @@ class PrinterThread(QThread):
         # 고정 텍스트 추가 (config.json의 texts)
         for i, text_config in enumerate(text_items):
             content = text_config.get("content", "")
+            # 색상 형식 변환 (RGB → BGR)
+            font_color = text_config.get("font_color", "#000000")
+            
             self.add_text(
                 text=content,
                 x=text_config.get("x", 0),
@@ -113,7 +116,7 @@ class PrinterThread(QThread):
                 height=text_config.get("height", 300),
                 font_name=text_config.get("font", ""),
                 font_size=text_config.get("font_size", 32),
-                font_color=text_config.get("font_color", "#000000"),
+                font_color=font_color,
                 font_style=text_config.get("style", 0x01),
                 rotate=text_config.get("rotate", 0),
                 align=text_config.get("align", 0x01 | 0x10),
@@ -130,15 +133,18 @@ class PrinterThread(QThread):
                     # text_input 설정에서 해당 인덱스의 설정 가져오기
                     if "text_input" in config and "items" in config["text_input"] and index < len(config["text_input"]["items"]):
                         input_config = config["text_input"]["items"][index]
+                        # 색상 형식 변환 (RGB → BGR)
+                        font_color = input_config.get("output_font_color", "#000000")
+                        
                         self.add_text(
                             text=value,
                             x=input_config.get("x", 0),
                             y=input_config.get("y", 0),
                             width=input_config.get("width", 300),
                             height=input_config.get("height", 300),
-                            font_name=input_config.get("font", ""),
-                            font_size=input_config.get("font_size", 32),
-                            font_color=input_config.get("font_color", "#000000"),
+                            font_name=input_config.get("output_font", ""),
+                            font_size=input_config.get("output_font_size", 16),
+                            font_color=font_color,
                             font_style=input_config.get("style", 0x01),
                             rotate=input_config.get("rotate", 0),
                             align=input_config.get("align", 0x01 | 0x10),
@@ -146,6 +152,20 @@ class PrinterThread(QThread):
                         )
                 except (ValueError, KeyError) as e:
                     print(f"입력 텍스트 처리 중 오류 발생: {e}")
+    
+    def rgb_to_bgr(self, rgb_color):
+        """RGB 색상 코드를 BGR 형식으로 변환"""
+        if isinstance(rgb_color, str):
+            rgb = int(rgb_color.lstrip('#'), 16)
+        else:
+            rgb = rgb_color
+            
+        r = (rgb >> 16) & 0xFF
+        g = (rgb >> 8) & 0xFF
+        b = rgb & 0xFF
+        
+        # BGR 형식으로 재조합
+        return (b << 16) | (g << 8) | r
     
     def run(self):
         try:
@@ -197,9 +217,10 @@ class PrinterThread(QThread):
 
                     # 색상 변환 (문자열 -> 16진수 정수)
                     if isinstance(text_info["font_color"], str):
-                        font_color = int(text_info["font_color"].lstrip('#'), 16)
+                        # RGB 색상을 BGR 형식으로 변환
+                        font_color = self.rgb_to_bgr(text_info["font_color"])
                     else:
-                        font_color = text_info["font_color"]
+                        font_color = self.rgb_to_bgr(text_info["font_color"])
                         
                     result = draw_text2(
                         device_handle, PAGE_FRONT, PANELID_COLOR,
