@@ -276,7 +276,7 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(frame_group)
         
         # 실제 인쇄 영역 추가
-        crop_group = QGroupBox("실제 인쇄 영역")
+        crop_group = QGroupBox("실제 인쇄 영역(예시: 945, 1080, 487, 0)")
         crop_layout = QFormLayout(crop_group)
         
         self.crop_fields = {}
