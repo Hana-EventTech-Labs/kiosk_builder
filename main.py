@@ -1,7 +1,8 @@
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
+from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget, QMessageBox
 from PySide6.QtCore import Qt, QCoreApplication
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from screens.splash_screen import SplashScreen
 from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
@@ -11,6 +12,28 @@ from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
 from screens.QR_screen import QR_screen
+
+# 애플리케이션 중복 실행 방지 클래스
+class SingleApplication(QApplication):
+    def __init__(self, app_id, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.app_id = app_id
+        self.server = None
+        
+        # 이미 실행 중인지 확인
+        socket = QLocalSocket()
+        socket.connectToServer(self.app_id)
+        is_running = socket.waitForConnected(500)
+        
+        if is_running:
+            # 이미 실행 중인 경우
+            QMessageBox.warning(None, "이미 실행 중", "키오스크 프로그램이 이미 실행 중입니다.")
+            sys.exit(0)
+        else:
+            # 새로운 인스턴스인 경우, 서버 생성
+            self.server = QLocalServer()
+            self.server.listen(self.app_id)
+
 class KioskApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -92,7 +115,10 @@ class KioskApp(QMainWindow):
         event.accept()
             
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
+    # 애플리케이션 ID 지정
+    app_id = "kiosk_app_unique_id"
+    
+    app = SingleApplication(app_id, sys.argv)
     window = KioskApp()
     window.show()
     sys.exit(app.exec())
