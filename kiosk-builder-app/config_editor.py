@@ -17,6 +17,15 @@ class NumberLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setValidator(QIntValidator())
+    
+    def setValue(self, value):
+        self.setText(str(value))
+    
+    def value(self):
+        try:
+            return int(self.text())
+        except ValueError:
+            return 0
 
 class ColorPickerButton(QPushButton):
     def __init__(self, color="#000000", parent=None):
@@ -147,13 +156,11 @@ class ConfigEditor(QMainWindow):
         screen_group = QGroupBox("모니터 크기")
         screen_layout = QFormLayout(screen_group)
         
-        self.screen_width_edit = QSpinBox()
-        self.screen_width_edit.setRange(0, 10000)
+        self.screen_width_edit = NumberLineEdit()
         self.screen_width_edit.setValue(self.config["screen_size"]["width"])
         screen_layout.addRow("너비:", self.screen_width_edit)
         
-        self.screen_height_edit = QSpinBox()
-        self.screen_height_edit.setRange(0, 10000)
+        self.screen_height_edit = NumberLineEdit()
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
         screen_layout.addRow("높이:", self.screen_height_edit)
         
@@ -163,13 +170,11 @@ class ConfigEditor(QMainWindow):
         camera_group = QGroupBox("카메라 해상도")
         camera_layout = QFormLayout(camera_group)
         
-        self.camera_width_edit = QSpinBox()
-        self.camera_width_edit.setRange(0, 10000)
+        self.camera_width_edit = NumberLineEdit()
         self.camera_width_edit.setValue(self.config["camera_size"]["width"])
         camera_layout.addRow("너비:", self.camera_width_edit)
         
-        self.camera_height_edit = QSpinBox()
-        self.camera_height_edit.setRange(0, 10000)
+        self.camera_height_edit = NumberLineEdit()
         self.camera_height_edit.setValue(self.config["camera_size"]["height"])
         camera_layout.addRow("높이:", self.camera_height_edit)
         
@@ -271,18 +276,18 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(frame_group)
         
         # 실제 인쇄 영역 추가
-        crop_group = QGroupBox("실제 인쇄 영역")
+        crop_group = QGroupBox("실제 인쇄 영역(예시: 945, 1080, 487, 0)")
         crop_layout = QFormLayout(crop_group)
         
         self.crop_fields = {}
         
         for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 10000)
-            spin_box.setValue(self.config["crop_area"][key])
+            # QSpinBox 대신 NumberLineEdit 사용
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["crop_area"][key])
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            crop_layout.addRow(f"{label_text}:", spin_box)
-            self.crop_fields[key] = spin_box
+            crop_layout.addRow(f"{label_text}:", line_edit)
+            self.crop_fields[key] = line_edit
         
         content_layout.addWidget(crop_group)
         
@@ -294,12 +299,12 @@ class ConfigEditor(QMainWindow):
         
         # 위치 및 크기
         for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 3000)
-            spin_box.setValue(self.config["photo"][key])
+            # QSpinBox 대신 NumberLineEdit 사용
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["photo"][key])
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            photo_layout.addRow(f"{label_text}:", spin_box)
-            self.photo_fields[key] = spin_box
+            photo_layout.addRow(f"{label_text}:", line_edit)
+            self.photo_fields[key] = line_edit
         
         content_layout.addWidget(photo_group)
         
@@ -311,14 +316,13 @@ class ConfigEditor(QMainWindow):
         
         # 숫자 필드
         number_spin = QSpinBox()
-        number_spin.setRange(1, 10)
+        number_spin.setRange(0, 10)
         number_spin.setValue(self.config["camera_count"]["number"])
-        camera_count_layout.addRow("카메라 수:", number_spin)
+        camera_count_layout.addRow("카메라 카운트:", number_spin)
         self.camera_count_fields["number"] = number_spin
         
         # 폰트 크기
-        font_size_spin = QSpinBox()
-        font_size_spin.setRange(10, 500)
+        font_size_spin = NumberLineEdit()
         font_size_spin.setValue(self.config["camera_count"]["font_size"])
         camera_count_layout.addRow("폰트 크기:", font_size_spin)
         self.camera_count_fields["font_size"] = font_size_spin
@@ -365,22 +369,22 @@ class ConfigEditor(QMainWindow):
         self.keyboard_position_fields = {}
         
         for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 3000)
-            spin_box.setValue(self.config["keyboard"][key])
+            # QSpinBox 대신 NumberLineEdit 사용
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["keyboard"][key])
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            position_layout.addRow(f"{label_text}:", spin_box)
-            self.keyboard_position_fields[key] = spin_box
+            position_layout.addRow(f"{label_text}:", line_edit)
+            self.keyboard_position_fields[key] = line_edit
         
         content_layout.addWidget(position_group)
 
         # 텍스트 설정 (텍스트 입력 설정 뒤에 배치)
-        texts_group = QGroupBox("텍스트 입력 개수 설정")
+        texts_group = QGroupBox("고정 텍스트 설정")
         texts_layout = QVBoxLayout(texts_group)
         
         # 텍스트 개수 설정
         text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("텍스트 개수:")
+        text_count_label = QLabel("고정 텍스트 개수:")
         self.text_count_spinbox = QSpinBox()
         self.text_count_spinbox.setRange(0, 10)
         self.text_count_spinbox.setValue(self.config["texts"]["count"])
@@ -404,7 +408,7 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(texts_group)
         
         # 텍스트 입력 설정 (먼저 배치)
-        text_input_group = QGroupBox("텍스트 입력 설정")
+        text_input_group = QGroupBox("사용자 입력 필드 설정")
         text_input_layout = QVBoxLayout(text_input_group)
         
         # 텍스트 입력 기본 설정
@@ -420,17 +424,16 @@ class ConfigEditor(QMainWindow):
         }
         
         for key in ["margin_top", "margin_left", "margin_right", "spacing"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 2000)
-            spin_box.setValue(self.config["text_input"][key])
-            basic_settings_layout.addRow(f"{settings_map[key]}:", spin_box)
-            self.text_input_fields[key] = spin_box
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["text_input"][key])
+            basic_settings_layout.addRow(f"{settings_map[key]}:", line_edit)
+            self.text_input_fields[key] = line_edit
             
         text_input_layout.addLayout(basic_settings_layout)
         
         # 텍스트 입력 개수 설정
         text_input_count_layout = QHBoxLayout()
-        text_input_count_label = QLabel("텍스트 입력 개수:")
+        text_input_count_label = QLabel("사용자 입력 필드 개수:")
         self.text_input_count_spinbox = QSpinBox()
         self.text_input_count_spinbox.setRange(0, 10)
         self.text_input_count_spinbox.setValue(self.config["text_input"]["count"])
@@ -501,11 +504,10 @@ class ConfigEditor(QMainWindow):
         }
                        
         for key in number_keys:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 1000)
-            spin_box.setValue(self.config["keyboard"][key])
-            style_layout.addRow(f"{number_labels[key]}:", spin_box)
-            self.keyboard_style_fields[key] = spin_box
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["keyboard"][key])
+            style_layout.addRow(f"{number_labels[key]}:", line_edit)
+            self.keyboard_style_fields[key] = line_edit
         
         content_layout.addWidget(style_group)
         
@@ -544,29 +546,25 @@ class ConfigEditor(QMainWindow):
         self.qr_fields = {}
         
         # 미리보기 영역 위치 및 크기 설정
-        preview_width_spin = QSpinBox()
-        preview_width_spin.setRange(0, 1000)
-        preview_width_spin.setValue(self.config["qr"]["preview_width"])
-        qr_layout.addRow("미리보기 너비:", preview_width_spin)
-        self.qr_fields["preview_width"] = preview_width_spin
+        preview_width_edit = NumberLineEdit()
+        preview_width_edit.setValue(self.config["qr"]["preview_width"])
+        qr_layout.addRow("미리보기 너비:", preview_width_edit)
+        self.qr_fields["preview_width"] = preview_width_edit
         
-        preview_height_spin = QSpinBox()
-        preview_height_spin.setRange(0, 1000)
-        preview_height_spin.setValue(self.config["qr"]["preview_height"])
-        qr_layout.addRow("미리보기 높이:", preview_height_spin)
-        self.qr_fields["preview_height"] = preview_height_spin
+        preview_height_edit = NumberLineEdit()
+        preview_height_edit.setValue(self.config["qr"]["preview_height"])
+        qr_layout.addRow("미리보기 높이:", preview_height_edit)
+        self.qr_fields["preview_height"] = preview_height_edit
         
-        x_spin = QSpinBox()
-        x_spin.setRange(0, 3000)
-        x_spin.setValue(self.config["qr"]["x"])
-        qr_layout.addRow("X 위치:", x_spin)
-        self.qr_fields["x"] = x_spin
+        x_edit = NumberLineEdit()
+        x_edit.setValue(self.config["qr"]["x"])
+        qr_layout.addRow("X 위치:", x_edit)
+        self.qr_fields["x"] = x_edit
         
-        y_spin = QSpinBox()
-        y_spin.setRange(0, 3000)
-        y_spin.setValue(self.config["qr"]["y"])
-        qr_layout.addRow("Y 위치:", y_spin)
-        self.qr_fields["y"] = y_spin
+        y_edit = NumberLineEdit()
+        y_edit.setValue(self.config["qr"]["y"])
+        qr_layout.addRow("Y 위치:", y_edit)
+        self.qr_fields["y"] = y_edit
         
         content_layout.addWidget(qr_group)
         
@@ -578,12 +576,12 @@ class ConfigEditor(QMainWindow):
         
         # 이미지 위치 및 크기 설정
         for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 3000)
-            spin_box.setValue(self.config["qr_uploaded_image"][key])
+            # QSpinBox 대신 NumberLineEdit 사용
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["qr_uploaded_image"][key])
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            qr_uploaded_layout.addRow(f"{label_text}:", spin_box)
-            self.qr_uploaded_fields[key] = spin_box
+            qr_uploaded_layout.addRow(f"{label_text}:", line_edit)
+            self.qr_uploaded_fields[key] = line_edit
         
         content_layout.addWidget(qr_uploaded_group)
         
@@ -669,12 +667,12 @@ class ConfigEditor(QMainWindow):
         setattr(self, f"{config_key}_fields", fields)
         
         for key in ["width", "height", "x", "y"]:
-            spin_box = QSpinBox()
-            spin_box.setRange(0, 3000)
-            spin_box.setValue(self.config[config_key][key])
+            # QSpinBox 대신 NumberLineEdit 사용
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config[config_key][key])
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            layout.addRow(f"{label_text}:", spin_box)
-            fields[key] = spin_box
+            layout.addRow(f"{label_text}:", line_edit)
+            fields[key] = line_edit
         
         return group
 
@@ -703,8 +701,7 @@ class ConfigEditor(QMainWindow):
         layout.addRow("문구:", phrase_edit)
         fields["phrase"] = phrase_edit
         
-        font_size_edit = QSpinBox()
-        font_size_edit.setRange(0, 100)
+        font_size_edit = NumberLineEdit()
         font_size_edit.setValue(self.config[config_key]["font_size"])
         layout.addRow("폰트 크기:", font_size_edit)
         fields["font_size"] = font_size_edit
@@ -713,14 +710,12 @@ class ConfigEditor(QMainWindow):
         layout.addRow("폰트 색상:", font_color_button)
         fields["font_color"] = font_color_button
         
-        x_edit = QSpinBox()
-        x_edit.setRange(0, 3000)
+        x_edit = NumberLineEdit()
         x_edit.setValue(self.config[config_key]["x"])
         layout.addRow("X 위치:", x_edit)
         fields["x"] = x_edit
         
-        y_edit = QSpinBox()
-        y_edit.setRange(0, 3000)
+        y_edit = NumberLineEdit()
         y_edit.setValue(self.config[config_key]["y"])
         layout.addRow("Y 위치:", y_edit)
         fields["y"] = y_edit
@@ -728,8 +723,7 @@ class ConfigEditor(QMainWindow):
         # 시간 필드 (필요한 경우)
         if has_time:
             time_key = f"{config_key}_time"
-            time_edit = QSpinBox()
-            time_edit.setRange(0, 10000)
+            time_edit = NumberLineEdit()
             time_edit.setValue(self.config[config_key][time_key])
             layout.addRow(f"시간 (ms):", time_edit)
             fields[time_key] = time_edit
@@ -840,13 +834,6 @@ class ConfigEditor(QMainWindow):
             QMessageBox.warning(self, "폰트 파일 누락", error_msg)
             return
         
-        # 텍스트 개수가 텍스트 입력 개수보다 적은지 확인
-        text_count = self.text_count_spinbox.value()
-        text_input_count = self.text_input_count_spinbox.value()
-        if text_count < text_input_count:
-            error_msg = f"텍스트 개수({text_count})가 텍스트 입력 개수({text_input_count})보다 적습니다.\n\n텍스트 개수가 더 많거나 같아야 합니다."
-            QMessageBox.warning(self, "텍스트 개수 부족", error_msg)
-            return
         
         # UI의 값들을 self.config에 업데이트
         if not self.update_config_from_ui():
@@ -1160,6 +1147,10 @@ class ConfigEditor(QMainWindow):
                 fields["width"].setValue(item.get("width", 800))
                 fields["height"].setValue(item.get("height", 80))
                 fields["font_size"].setValue(item.get("font_size", 36))
+                # 출력용 폰트 설정 불러오기
+                fields["output_font"].setText(item.get("output_font", ""))
+                fields["output_font_size"].setValue(item.get("output_font_size", 16))
+                fields["output_font_color"].update_color(item.get("output_font_color", "#000000"))
         
         # 키보드 설정 업데이트
         # 위치 및 크기
@@ -1179,10 +1170,11 @@ class ConfigEditor(QMainWindow):
             for key, widget in fields.items():
                 if isinstance(widget, ColorPickerButton):
                     widget.update_color(self.config[section][key])
-                elif isinstance(widget, QSpinBox):
-                    widget.setValue(self.config[section][key])
                 else:
-                    widget.setText(self.config[section][key])
+                    if isinstance(widget, QSpinBox) or isinstance(widget, NumberLineEdit):
+                        widget.setValue(self.config[section][key])
+                    else:
+                        widget.setText(self.config[section][key])
     
     def load_config(self):
         """이전 버전과의 호환성을 위해 남겨둔 메소드"""
@@ -1325,12 +1317,12 @@ class ConfigEditor(QMainWindow):
             
             # 위치 및 크기
             for key in ["width", "height", "x", "y"]:
-                spin_box = QSpinBox()
-                spin_box.setRange(0, 3000)
-                spin_box.setValue(item_data.get(key, 0))
+                # QSpinBox 대신 NumberLineEdit 사용
+                line_edit = NumberLineEdit()
+                line_edit.setValue(item_data.get(key, 0))
                 label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", spin_box)
-                item_fields[key] = spin_box
+                item_layout.addRow(f"{label_text}:", line_edit)
+                item_fields[key] = line_edit
             
             self.image_items_layout.addWidget(item_group)
             self.image_item_fields.append(item_fields)
@@ -1456,12 +1448,12 @@ class ConfigEditor(QMainWindow):
             
             # 위치 및 크기
             for key in ["width", "height", "x", "y"]:
-                spin_box = QSpinBox()
-                spin_box.setRange(0, 3000)
-                spin_box.setValue(item_data[key])
+                # QSpinBox 대신 NumberLineEdit 사용
+                line_edit = NumberLineEdit()
+                line_edit.setValue(item_data[key])
                 label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", spin_box)
-                item_fields[key] = spin_box
+                item_layout.addRow(f"{label_text}:", line_edit)
+                item_fields[key] = line_edit
             
             # 폰트 선택 레이아웃
             font_layout = QHBoxLayout()
@@ -1477,8 +1469,7 @@ class ConfigEditor(QMainWindow):
             item_layout.addRow("폰트:", font_layout)
             
             # 폰트 크기
-            font_size_spin = QSpinBox()
-            font_size_spin.setRange(8, 100)
+            font_size_spin = NumberLineEdit()
             font_size_spin.setValue(item_data["font_size"])
             item_layout.addRow("폰트 크기:", font_size_spin)
             item_fields["font_size"] = font_size_spin
@@ -1544,19 +1535,42 @@ class ConfigEditor(QMainWindow):
             
             # 위치 및 크기
             for key in ["width", "height", "x", "y"]:
-                spin_box = QSpinBox()
-                spin_box.setRange(0, 3000)
-                spin_box.setValue(item_data.get(key, 0))
+                # QSpinBox 대신 NumberLineEdit 사용
+                line_edit = NumberLineEdit()
+                line_edit.setValue(item_data.get(key, 0))
                 label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", spin_box)
-                item_fields[key] = spin_box
+                item_layout.addRow(f"{label_text}:", line_edit)
+                item_fields[key] = line_edit
             
             # 폰트 크기
-            font_size_spin = QSpinBox()
-            font_size_spin.setRange(8, 100)
+            font_size_spin = NumberLineEdit()
             font_size_spin.setValue(item_data.get("font_size", 36))
             item_layout.addRow("폰트 크기:", font_size_spin)
             item_fields["font_size"] = font_size_spin
+            
+            # 출력용 폰트 설정 - 폰트 선택 레이아웃
+            output_font_layout = QHBoxLayout()
+            output_font_edit = QLineEdit(item_data.get("output_font", ""))
+            output_font_layout.addWidget(output_font_edit, 1)
+            item_fields["output_font"] = output_font_edit
+            
+            # 폰트 파일 선택 버튼 추가
+            browse_button = QPushButton("찾기...")
+            browse_button.clicked.connect(lambda checked, edit=output_font_edit: self.browse_font_file(edit))
+            output_font_layout.addWidget(browse_button)
+            
+            item_layout.addRow("출력용 폰트:", output_font_layout)
+            
+            # 출력용 폰트 크기
+            output_font_size_spin = NumberLineEdit()
+            output_font_size_spin.setValue(item_data.get("output_font_size", 16))
+            item_layout.addRow("출력용 폰트 크기:", output_font_size_spin)
+            item_fields["output_font_size"] = output_font_size_spin
+            
+            # 출력용 폰트 색상
+            output_font_color_button = ColorPickerButton(item_data.get("output_font_color", "#000000"))
+            item_layout.addRow("출력용 폰트 색상:", output_font_color_button)
+            item_fields["output_font_color"] = output_font_color_button
             
             self.text_input_items_layout.addWidget(item_group)
             self.text_input_item_fields.append(item_fields)
@@ -1670,7 +1684,10 @@ class ConfigEditor(QMainWindow):
                 "y": fields["y"].value(),
                 "width": fields["width"].value(),
                 "height": fields["height"].value(),
-                "font_size": fields["font_size"].value()
+                "font_size": fields["font_size"].value(),
+                "output_font": fields["output_font"].text(),
+                "output_font_size": fields["output_font_size"].value(),
+                "output_font_color": fields["output_font_color"].color
             }
             self.config["text_input"]["items"].append(item)
         
@@ -1703,6 +1720,9 @@ class ConfigEditor(QMainWindow):
                 if isinstance(widget, ColorPickerButton):
                     self.config[section][key] = widget.color
                 else:
-                    self.config[section][key] = widget.value() if isinstance(widget, QSpinBox) else widget.text()
+                    if isinstance(widget, QSpinBox) or isinstance(widget, NumberLineEdit):
+                        self.config[section][key] = widget.value()
+                    else:
+                        self.config[section][key] = widget.text()
         
         return True
