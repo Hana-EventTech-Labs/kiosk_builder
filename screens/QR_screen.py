@@ -8,6 +8,7 @@ import requests
 import json
 import threading
 import websocket
+import certifi
 from io import BytesIO
 import uuid
 import os
@@ -180,7 +181,9 @@ class QR_screen(QWidget):
             on_error=on_error,
             on_close=on_close
         )
-        threading.Thread(target=ws.run_forever, daemon=True).start()
+        
+        # certifi의 인증서 번들을 사용하여 웹소켓 연결
+        threading.Thread(target=lambda: ws.run_forever(sslopt={"ca_certs": certifi.where()}), daemon=True).start()
     
     def display_uploaded_image(self, image_url):
         try:
@@ -204,7 +207,14 @@ class QR_screen(QWidget):
             
             # 이미지 표시 관련 코드
             img = QImage.fromData(img_data.getvalue())
+            if img.isNull():
+                print("[이미지 로드 실패] 이미지가 null입니다.")
+                return
+                
             pixmap = QPixmap.fromImage(img)
+            if pixmap.isNull():
+                print("[픽스맵 변환 실패] 픽스맵이 null입니다.")
+                return
             
             # 이미지 크기 조정
             pixmap = pixmap.scaled(config["qr"]["preview_width"], config["qr"]["preview_height"], 
@@ -216,13 +226,16 @@ class QR_screen(QWidget):
             print("[이미지 표시 성공]")
 
             # 저장된 이미지 경로를 메인 윈도우에 저장해서 다른 화면에서도 접근 가능하게 함
-            self.main_window.uploaded_image_path = save_path
+            self.main_window.uploaded_image_path = os.path.abspath(save_path)
+            print(f"[이미지 경로 설정] {self.main_window.uploaded_image_path}")
 
             # 다음 화면으로 자동 이동
             # QTimer.singleShot(2000, lambda: self.stack.setCurrentIndex(self.main_window.getNextScreenIndex()))
 
         except Exception as e:
             print(f"[이미지 표시 및 저장 오류]: {e}")
+            import traceback
+            traceback.print_exc()
             
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
