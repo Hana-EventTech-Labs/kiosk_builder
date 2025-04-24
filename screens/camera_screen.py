@@ -21,18 +21,19 @@ class CameraScreen(QWidget):
         self.preview_height = config["frame"]["height"]
         self.camera_width = config["camera_size"]["width"]
         self.camera_height = config["camera_size"]["height"]
-        self.webcam = WebcamViewer(
-            preview_width=self.preview_width, 
-            preview_height=self.preview_height, 
-            camera_width=self.camera_width, 
-            camera_height=self.camera_height, 
-            x=config["frame"]["x"], 
-            y=config["frame"]["y"], 
-            countdown=config["camera_count"]["number"]
-        )
-        self.webcam.setParent(self)
-        self.webcam.setGeometry(config["frame"]["x"], config["frame"]["y"], self.preview_width, self.preview_height)
-        self.webcam.photo_captured_signal.connect(self.onPhotoCaptured)
+        if 1 in config["screen_order"]:
+            self.webcam = WebcamViewer(
+                preview_width=self.preview_width, 
+                preview_height=self.preview_height, 
+                camera_width=self.camera_width, 
+                camera_height=self.camera_height, 
+                x=config["frame"]["x"], 
+                y=config["frame"]["y"], 
+                countdown=config["camera_count"]["number"]
+            )
+            self.webcam.setParent(self)
+            self.webcam.setGeometry(config["frame"]["x"], config["frame"]["y"], self.preview_width, self.preview_height)
+            self.webcam.photo_captured_signal.connect(self.onPhotoCaptured)
         self.addCloseButton()
 
 
