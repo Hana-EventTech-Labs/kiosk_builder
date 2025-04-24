@@ -71,7 +71,7 @@ class QR_screen(QWidget):
         self.qr_label = QLabel(self)
         
         # QR 코드 위치와 크기 설정
-        qr_size = 350
+        qr_size = 600
         x_pos = (self.screen_size[0] - qr_size) // 2  # 왼쪽에 배치
         y_pos = (self.screen_size[1] - qr_size) // 2  # 화면 중앙
         self.qr_label.setGeometry(x_pos, y_pos, qr_size, qr_size)
@@ -87,14 +87,6 @@ class QR_screen(QWidget):
         # 미리보기 위치 설정 - 오른쪽에 배치
         x_pos = config["qr"]["x"]
         y_pos = config["qr"]["y"]
-        
-        # 미리보기 제목 라벨
-        self.preview_title = QLabel(self)
-        self.preview_title.setGeometry(x_pos, y_pos - 40, preview_width, 30)
-        self.preview_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_title.setStyleSheet("color: #333; font-size: 18px; font-weight: bold;")
-        self.preview_title.setText("업로드된 이미지")
-        self.preview_title.setVisible(False)  # 초기에는 숨김 상태로 설정
         
         # 미리보기 라벨 생성
         self.preview_label = QLabel(self)
@@ -226,7 +218,6 @@ class QR_screen(QWidget):
             # 미리보기 라벨에 이미지 표시
             self.preview_label.setPixmap(pixmap)
             self.preview_label.setVisible(True)  # 이미지가 업로드되면 라벨 표시
-            self.preview_title.setVisible(True)  # 이미지가 업로드되면 제목 라벨도 표시
             print("[이미지 표시 성공]")
 
             # 저장된 이미지 경로를 메인 윈도우에 저장해서 다른 화면에서도 접근 가능하게 함
@@ -296,7 +287,6 @@ class QR_screen(QWidget):
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
-        self.preview_title.setVisible(False)  # 제목 라벨 숨기기
         
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
@@ -337,7 +327,6 @@ class QR_screen(QWidget):
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
-        self.preview_title.setVisible(False)  # 제목 라벨 숨기기
         
         # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
         self.main_window.current_index = 0

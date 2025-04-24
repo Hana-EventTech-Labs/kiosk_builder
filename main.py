@@ -98,16 +98,16 @@ class KioskApp(QMainWindow):
                 if hasattr(self.photo_screen.webcam, 'camera'):
                     release_camera(self.photo_screen.webcam.camera)
 
-                #임시 이미지 파일 삭제
-                temp_files = [
-                    "resources/captured_image.jpg",
-                    "resources/qr_uploaded_image.jpg",
-                    "resources/input_texts.json"
-                ]
-                
-                for file_path in temp_files:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
+            #임시 이미지 파일 삭제
+            temp_files = [
+                "resources/captured_image.jpg",
+                "resources/qr_uploaded_image.jpg",
+                "resources/input_texts.json"
+            ]
+            
+            for file_path in temp_files:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
 
         except Exception as e:
             print(f"카메라 자원 해제 오류: {e}")
