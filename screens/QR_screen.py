@@ -42,11 +42,11 @@ class QR_screen(QWidget):
     
     def setupUI(self):
         self.setupBackground()
-        self.addCloseButton()
         self.setupQRCode()
         self.setupPreviewArea()
         self.addPrintButton()
         self.addHomeButton()
+        self.addCloseButton()
     
     def setupBackground(self):
         background_files = ["background/3.png", "background/3.jpg", "background/qr_bg.jpg"]
@@ -254,13 +254,21 @@ class QR_screen(QWidget):
     
     # 인쇄 버튼 추가
     def addPrintButton(self):
+        # QR 코드 위치 및 크기 가져오기
+        qr_size = 600
+        qr_x = (self.screen_size[0] - qr_size) // 2
+        qr_y = (self.screen_size[1] - qr_size) // 2
+        
+        # 버튼 위치 및 크기 설정
+        button_height = 80
+        button_width = qr_size // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
+        
+        # 인쇄 버튼 위치 (QR 코드 하단 오른쪽)
+        x_pos = qr_x + qr_size // 2 + 10
+        y_pos = qr_y + qr_size + 20  # QR 코드 아래 20px 여백
+        
         self.print_button = QPushButton("인쇄", self)
-        self.print_button.setFixedSize(200, 80)
-        
-        # 화면 하단 중앙에 배치
-        x_pos = (self.screen_size[0] - 200) // 2
-        y_pos = self.screen_size[1] - 120  # 하단에서 약간 위로
-        
+        self.print_button.setFixedSize(button_width, button_height)
         self.print_button.move(x_pos, y_pos)
         self.print_button.setStyleSheet("""
             QPushButton {
@@ -294,13 +302,21 @@ class QR_screen(QWidget):
     
     # "처음으로" 버튼 추가
     def addHomeButton(self):
+        # QR 코드 위치 및 크기 가져오기
+        qr_size = 600
+        qr_x = (self.screen_size[0] - qr_size) // 2
+        qr_y = (self.screen_size[1] - qr_size) // 2
+        
+        # 버튼 위치 및 크기 설정
+        button_height = 80
+        button_width = qr_size // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
+        
+        # 처음으로 버튼 위치 (QR 코드 하단 왼쪽)
+        x_pos = qr_x
+        y_pos = qr_y + qr_size + 20  # QR 코드 아래 20px 여백
+        
         self.home_button = QPushButton("처음으로", self)
-        self.home_button.setFixedSize(200, 80)
-        
-        # 화면 하단 왼쪽에 배치
-        x_pos = 50
-        y_pos = self.screen_size[1] - 120  # 하단에서 약간 위로
-        
+        self.home_button.setFixedSize(button_width, button_height)
         self.home_button.move(x_pos, y_pos)
         self.home_button.setStyleSheet("""
             QPushButton {
