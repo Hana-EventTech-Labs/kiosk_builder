@@ -46,7 +46,7 @@ class ConfigHandler:
                 "height": 720
             },
             "photo": {
-                "exists": False,
+                "exists": True,
                 "filename": "captured_image.jpg",
                 "x": 143,
                 "y": 314,
@@ -54,7 +54,7 @@ class ConfigHandler:
                 "height": 400
             },
             "qr_uploaded_image": {
-                "exists": False,
+                "exists": True,
                 "filename": "qr_uploaded_image.jpg",
                 "x": 143,
                 "y": 314,
@@ -108,10 +108,10 @@ class ConfigHandler:
                 "font_size": 30
             },
             "qr": {
-                "preview_width": 300,
-                "preview_height": 300,
-                "x": 800,
-                "y": 600
+                "preview_width": 600,
+                "preview_height": 600,
+                "x": 240,
+                "y": 660
             },
             "splash": {
                 "font": "",
