@@ -51,7 +51,8 @@ class ConfigHandler:
                 "x": 143,
                 "y": 314,
                 "width": 350,
-                "height": 400
+                "height": 400,
+                "background": ""
             },
             "qr_uploaded_image": {
                 "exists": True,
@@ -75,7 +76,8 @@ class ConfigHandler:
                 "margin_right": 0,
                 "spacing": 30,
                 "count": 0,
-                "items": []
+                "items": [],
+                "background": ""
             },
             "keyboard": {
                 "x": 320,
@@ -111,7 +113,8 @@ class ConfigHandler:
                 "preview_width": 600,
                 "preview_height": 600,
                 "x": 240,
-                "y": 660
+                "y": 660,
+                "background": ""
             },
             "splash": {
                 "font": "",
@@ -119,7 +122,8 @@ class ConfigHandler:
                 "font_size": 0,
                 "font_color": "black",
                 "x": 0,
-                "y": 0
+                "y": 0,
+                "background": ""
             },
             "process": {
                 "font": "",
@@ -128,7 +132,8 @@ class ConfigHandler:
                 "font_color": "black",
                 "x": 0,
                 "y": 0,
-                "process_time": 3000
+                "process_time": 3000,
+                "background": ""
             },
             "complete": {
                 "font": "",
@@ -137,7 +142,8 @@ class ConfigHandler:
                 "font_color": "black",
                 "x": 0,
                 "y": 0,
-                "complete_time": 2000
+                "complete_time": 2000,
+                "background": ""
             }
         }
         self.config = self.load_config()
