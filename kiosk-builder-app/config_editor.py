@@ -50,6 +50,9 @@ class ConfigEditor(QMainWindow):
         self.config_handler = ConfigHandler()
         self.config = copy.deepcopy(self.config_handler.config)
         
+        # 배경화면 표시 이름을 저장할 딕셔너리 추가
+        self.background_display_names = {}
+        
         self.init_ui()
         
         # config.json 파일 존재 여부에 따라 저장 버튼 상태 설정
@@ -296,6 +299,23 @@ class ConfigEditor(QMainWindow):
         unit_label.setStyleSheet("color: #555;")
         content_layout.addWidget(unit_label)
         
+        # 배경화면 설정
+        bg_group = QGroupBox("배경화면 설정")
+        bg_layout = QHBoxLayout(bg_group)
+        
+        # 파일명 대신 표시 이름 사용
+        bg_filename = self.config["photo"].get("background", "")
+        display_name = self.background_display_names.get(bg_filename, bg_filename)
+        self.capture_bg_edit = QLineEdit(display_name)
+        bg_layout.addWidget(self.capture_bg_edit, 1)
+        
+        # 배경화면 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked: self.browse_background_file(self.capture_bg_edit, "1"))
+        bg_layout.addWidget(browse_button)
+        
+        content_layout.addWidget(bg_group)
+        
         # 프레임 설정
         frame_group = self.create_position_size_group("카메라", "frame")
         content_layout.addWidget(frame_group)
@@ -386,7 +406,24 @@ class ConfigEditor(QMainWindow):
         unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다.")
         unit_label.setStyleSheet("color: #555;")
         content_layout.addWidget(unit_label)
-
+        
+        # 배경화면 설정
+        bg_group = QGroupBox("배경화면 설정")
+        bg_layout = QHBoxLayout(bg_group)
+        
+        # 파일명 대신 표시 이름 사용
+        bg_filename = self.config["text_input"].get("background", "")
+        display_name = self.background_display_names.get(bg_filename, bg_filename)
+        self.keyboard_bg_edit = QLineEdit(display_name)
+        bg_layout.addWidget(self.keyboard_bg_edit, 1)
+        
+        # 배경화면 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked: self.browse_background_file(self.keyboard_bg_edit, "2"))
+        bg_layout.addWidget(browse_button)
+        
+        content_layout.addWidget(bg_group)
+        
         # 키보드 위치 및 크기
         position_group = QGroupBox("키보드 위치 및 크기")
         position_layout = QFormLayout(position_group)
@@ -564,6 +601,23 @@ class ConfigEditor(QMainWindow):
         unit_label.setStyleSheet("color: #555;")
         content_layout.addWidget(unit_label)
         
+        # 배경화면 설정
+        bg_group = QGroupBox("배경화면 설정")
+        bg_layout = QHBoxLayout(bg_group)
+        
+        # 파일명 대신 표시 이름 사용
+        bg_filename = self.config["qr"].get("background", "")
+        display_name = self.background_display_names.get(bg_filename, bg_filename)
+        self.qr_bg_edit = QLineEdit(display_name)
+        bg_layout.addWidget(self.qr_bg_edit, 1)
+        
+        # 배경화면 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked: self.browse_background_file(self.qr_bg_edit, "3"))
+        bg_layout.addWidget(browse_button)
+        
+        content_layout.addWidget(bg_group)
+        
         # QR 코드 설정 그룹
         qr_group = QGroupBox("QR 코드 설정")
         qr_layout = QFormLayout(qr_group)
@@ -708,6 +762,22 @@ class ConfigEditor(QMainWindow):
         fields = {}
         setattr(self, f"{config_key}_fields", fields)
         
+        # 배경화면 선택 레이아웃 추가
+        background_layout = QHBoxLayout()
+        # 파일명 대신 표시 이름 사용
+        bg_filename = self.config[config_key].get("background", "")
+        display_name = self.background_display_names.get(bg_filename, bg_filename)
+        background_edit = QLineEdit(display_name)
+        background_layout.addWidget(background_edit, 1)
+        fields["background"] = background_edit
+        
+        # 배경화면 파일 선택 버튼 추가
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda checked, edit=background_edit, key=config_key: self.browse_background_file(edit, key))
+        background_layout.addWidget(browse_button)
+        
+        layout.addRow("배경화면:", background_layout)
+        
         # 기본 필드
         # 폰트 선택 레이아웃 추가
         font_layout = QHBoxLayout()
@@ -754,6 +824,108 @@ class ConfigEditor(QMainWindow):
             fields[time_key] = time_edit
         
         return group
+        
+    def browse_background_file(self, line_edit, screen_key):
+        """배경화면 이미지 파일 선택 다이얼로그를 띄우고 처리합니다."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "배경화면 이미지 선택", 
+            "resources/background", 
+            "이미지 파일 (*.png *.jpg *.jpeg *.bmp)"
+        )
+        
+        if file_path:
+            # resources/background 폴더 경로 확인
+            resources_background_path = os.path.abspath("resources/background")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_path = os.path.normpath(resources_background_path)
+            
+            # 화면 번호별 이름으로 복사 (1:카메라, 2:키보드, 3:QR, 4:발급중, 5:발급완료)
+            screen_index = screen_key
+            if isinstance(screen_key, str) and screen_key in ["splash", "process", "complete"]:
+                screen_index = {"splash": 0, "process": 4, "complete": 5}.get(screen_key, 0)
+            
+            target_filename = f"{screen_index}.jpg"
+            
+            # 원본 파일명에서 확장자를 제외한 이름 가져오기
+            original_name = os.path.basename(file_path)
+            display_name = os.path.splitext(original_name)[0]
+            
+            # 파일이 리소스 폴더 외부에 있는 경우 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_path):
+                target_path = os.path.join(resources_background_path, target_filename)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    self, 
+                    "배경화면 파일 복사", 
+                    f"선택한 배경화면을 resources/background/{target_filename}으로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"배경화면이 resources/background/{target_filename}로 복사되었습니다."
+                        )
+                        
+                        # 설정에는 숫자.jpg 형식으로 저장하고, 표시는 원본 이름으로
+                        self.background_display_names[target_filename] = display_name
+                        line_edit.setText(display_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"배경화면 파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                else:
+                    # 복사하지 않는 경우 복사 필요 안내
+                    QMessageBox.warning(
+                        self, 
+                        "수동 복사 필요", 
+                        f"배경화면으로 사용하려면 해당 파일을 resources/background/{target_filename}으로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우, 적절한 이름으로 복사
+                file_ext = os.path.splitext(file_path)[1]
+                target_path = os.path.join(resources_background_path, target_filename)
+                
+                # 파일 확장자가 다른 경우에도 적절히 처리
+                if file_path != target_path:
+                    try:
+                        shutil.copy2(file_path, target_path)
+                        QMessageBox.information(
+                            self,
+                            "파일 복사 완료",
+                            f"배경화면이 resources/background/{target_filename}로 복사되었습니다."
+                        )
+                    except Exception as e:
+                        QMessageBox.critical(
+                            self,
+                            "파일 복사 실패",
+                            f"배경화면 파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                
+                # 설정에는 숫자.jpg 형식으로 저장하고, 표시는 원본 이름으로
+                self.background_display_names[target_filename] = display_name
+                line_edit.setText(display_name)
 
     def browse_font_file(self, line_edit):
         """폰트 파일 선택 다이얼로그를 띄우고 선택된 파일명을 입력란에 설정합니다."""
@@ -1074,9 +1246,37 @@ class ConfigEditor(QMainWindow):
     def reload_config(self):
         """설정을 다시 로드하고 UI를 업데이트합니다."""
         self.config = copy.deepcopy(self.config_handler.load_config())
+        
+        # 배경화면 표시 이름 초기화
+        self.load_background_display_names()
+        
         self.update_ui_from_config()
         QMessageBox.information(self, "설정 로드", "설정이 다시 로드되었습니다.")
     
+    def load_background_display_names(self):
+        """기존 배경화면 파일들의 표시 이름을 로드합니다."""
+        # background_display_names 사전을 초기화
+        self.background_display_names = {}
+        
+        # 각 화면의 배경화면 설정을 확인하고 표시 이름 적용
+        for section, screen_index in [("splash", "0"), ("photo", "1"), ("text_input", "2"), 
+                                      ("qr", "3"), ("process", "4"), ("complete", "5")]:
+            if section in self.config and "background" in self.config[section]:
+                filename = self.config[section]["background"]
+                if filename and not filename in self.background_display_names:
+                    # 파일이 실제로 존재하는지 확인
+                    file_path = os.path.join("resources/background", filename)
+                    if os.path.exists(file_path):
+                        # 기본적으로 파일명에서 확장자를 제외한 이름을 사용
+                        display_name = os.path.splitext(filename)[0]
+                        
+                        # 파일명이 숫자로만 되어 있으면 원본 파일 이름을 찾아봄
+                        if display_name.isdigit():
+                            # 원본 이름을 알 수 없으므로 기본 이름 사용
+                            display_name = f"배경화면 {display_name}"
+                        
+                        self.background_display_names[filename] = display_name
+        
     def update_ui_from_config(self):
         """현재 설정에 따라 UI 요소들을 업데이트합니다."""
         # 기본 설정 업데이트
@@ -1774,11 +1974,32 @@ class ConfigEditor(QMainWindow):
         for key in ["x", "y", "width", "height"]:
             self.config["qr_uploaded_image"][key] = self.qr_uploaded_fields[key].value()
         
+        # 화면별 배경화면 설정 및 실제 파일명으로 변환
+        # 촬영 화면 배경화면 저장
+        display_name = self.capture_bg_edit.text()
+        actual_filename = self.get_actual_filename_from_display(display_name, "1")
+        self.config["photo"]["background"] = actual_filename
+        
+        # 키보드 화면 배경화면 저장
+        display_name = self.keyboard_bg_edit.text()
+        actual_filename = self.get_actual_filename_from_display(display_name, "2")
+        self.config["text_input"]["background"] = actual_filename
+        
+        # QR 화면 배경화면 저장
+        display_name = self.qr_bg_edit.text()
+        actual_filename = self.get_actual_filename_from_display(display_name, "3")
+        self.config["qr"]["background"] = actual_filename
+        
         # 화면 설정 저장
         for section in ["splash", "process", "complete"]:
             fields = getattr(self, f"{section}_fields")
             for key, widget in fields.items():
-                if isinstance(widget, ColorPickerButton):
+                if key == "background":
+                    display_name = widget.text()
+                    screen_index = {"splash": "0", "process": "4", "complete": "5"}.get(section, "0")
+                    actual_filename = self.get_actual_filename_from_display(display_name, screen_index)
+                    self.config[section][key] = actual_filename
+                elif isinstance(widget, ColorPickerButton):
                     self.config[section][key] = widget.color
                 else:
                     if isinstance(widget, QSpinBox) or isinstance(widget, NumberLineEdit):
@@ -1787,6 +2008,24 @@ class ConfigEditor(QMainWindow):
                         self.config[section][key] = widget.text()
         
         return True
+    
+    def get_actual_filename_from_display(self, display_name, screen_index):
+        """표시 이름에서 실제 파일명(숫자.jpg)으로 변환"""
+        # 빈 문자열이면 그대로 반환
+        if not display_name.strip():
+            return ""
+            
+        # 표시 이름이 이미 숫자.jpg 형식이면 그대로 사용
+        if display_name.endswith(".jpg") and display_name.split(".")[0].isdigit():
+            return display_name
+            
+        # 반대로 변환: 표시 이름 -> 실제 파일명
+        for filename, name in self.background_display_names.items():
+            if name == display_name and filename.startswith(f"{screen_index}."):
+                return filename
+        
+        # 일치하는 항목이 없으면 기본 파일명 반환
+        return f"{screen_index}.jpg"
 
     def update_save_button_state(self):
         """config.json 파일 존재 여부에 따라 저장 버튼 활성화/비활성화"""
