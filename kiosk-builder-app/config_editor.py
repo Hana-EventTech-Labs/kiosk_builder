@@ -52,6 +52,9 @@ class ConfigEditor(QMainWindow):
         
         self.init_ui()
         
+        # config.json 파일 존재 여부에 따라 저장 버튼 상태 설정
+        self.update_save_button_state()
+        
     def init_ui(self):
         self.setWindowTitle("슈퍼 키오스크 프로그램")
         self.setMinimumSize(800, 600)
@@ -101,9 +104,9 @@ class ConfigEditor(QMainWindow):
         button_layout.addWidget(build_button)
         
         # 저장 버튼
-        save_button = QPushButton("저장")
-        save_button.clicked.connect(self.save_config)
-        button_layout.addWidget(save_button)
+        self.save_button = QPushButton("저장")
+        self.save_button.clicked.connect(self.save_config)
+        button_layout.addWidget(self.save_button)
                 
         # 다시 로드 버튼
         reload_button = QPushButton("다시 로드")
@@ -843,6 +846,8 @@ class ConfigEditor(QMainWindow):
         # 설정 저장
         if self.config_handler.save_config(self.config):
             QMessageBox.information(self, "저장 완료", "설정이 저장되었습니다.")
+            # 저장 버튼 상태 업데이트
+            self.update_save_button_state()
         else:
             QMessageBox.warning(self, "저장 실패", "설정 저장 중 오류가 발생했습니다.")
 
@@ -906,6 +911,9 @@ class ConfigEditor(QMainWindow):
             target_config_path = os.path.join(target_dir, "config.json")
             with open(target_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=4)
+            
+            # config.json 생성 후 저장 버튼 상태 업데이트
+            self.update_save_button_state()
             
             # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
             resources_path = os.path.join(base_path, "resources")
@@ -1726,3 +1734,10 @@ class ConfigEditor(QMainWindow):
                         self.config[section][key] = widget.text()
         
         return True
+
+    def update_save_button_state(self):
+        """config.json 파일 존재 여부에 따라 저장 버튼 활성화/비활성화"""
+        if os.path.exists(self.config_handler.config_path):
+            self.save_button.setEnabled(True)
+        else:
+            self.save_button.setEnabled(False)
