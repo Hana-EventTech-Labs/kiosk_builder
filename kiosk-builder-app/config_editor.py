@@ -569,7 +569,7 @@ class ConfigEditor(QMainWindow):
         content_layout.addWidget(qr_group)
         
         # 업로드 이미지 설정 그룹박스 추가
-        qr_uploaded_group = QGroupBox("업로드 이미지 설정")
+        qr_uploaded_group = QGroupBox("이미지 인쇄 설정")
         qr_uploaded_layout = QFormLayout(qr_uploaded_group)
         
         self.qr_uploaded_fields = {}
