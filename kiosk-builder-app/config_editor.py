@@ -548,12 +548,12 @@ class ConfigEditor(QMainWindow):
         # 미리보기 영역 위치 및 크기 설정
         preview_width_edit = NumberLineEdit()
         preview_width_edit.setValue(self.config["qr"]["preview_width"])
-        qr_layout.addRow("미리보기 너비:", preview_width_edit)
+        qr_layout.addRow("너비:", preview_width_edit)
         self.qr_fields["preview_width"] = preview_width_edit
         
         preview_height_edit = NumberLineEdit()
         preview_height_edit.setValue(self.config["qr"]["preview_height"])
-        qr_layout.addRow("미리보기 높이:", preview_height_edit)
+        qr_layout.addRow("높이:", preview_height_edit)
         self.qr_fields["preview_height"] = preview_height_edit
         
         x_edit = NumberLineEdit()
