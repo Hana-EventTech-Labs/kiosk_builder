@@ -71,10 +71,11 @@ class QR_screen(QWidget):
         self.qr_label = QLabel(self)
         
         # QR 코드 위치와 크기 설정
-        qr_size = 600
-        x_pos = (self.screen_size[0] - qr_size) // 2  # 왼쪽에 배치
-        y_pos = (self.screen_size[1] - qr_size) // 2  # 화면 중앙
-        self.qr_label.setGeometry(x_pos, y_pos, qr_size, qr_size)
+        qr_width = config["qr"]["preview_width"]
+        qr_height = config["qr"]["preview_height"]
+        x_pos = config["qr"]["x"]
+        y_pos = config["qr"]["y"]
+        self.qr_label.setGeometry(x_pos, y_pos, qr_width, qr_height)
         self.qr_label.setStyleSheet("background-color: white; border: 2px solid #ddd;")
         self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.qr_label.setText("QR 코드 생성 중...")
@@ -255,21 +256,22 @@ class QR_screen(QWidget):
     # 인쇄 버튼 추가
     def addPrintButton(self):
         # QR 코드 위치 및 크기 가져오기
-        qr_size = 600
-        qr_x = (self.screen_size[0] - qr_size) // 2
-        qr_y = (self.screen_size[1] - qr_size) // 2
+        qr_width = config["qr"]["preview_width"]
+        qr_height = config["qr"]["preview_height"]
+        qr_x = config["qr"]["x"]
+        qr_y = config["qr"]["y"]
         
         # 버튼 위치 및 크기 설정
         button_height = 80
-        button_width = qr_size // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
+        button_width = qr_width // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
         
         # 인쇄 버튼 위치 (QR 코드 하단 오른쪽)
-        x_pos = qr_x + qr_size // 2 + 10
-        y_pos = qr_y + qr_size + 20  # QR 코드 아래 20px 여백
+        button_x = qr_x + qr_width // 2 + 10
+        button_y = qr_y + qr_height + 20  # QR 코드 아래 20px 여백
         
         self.print_button = QPushButton("인쇄", self)
         self.print_button.setFixedSize(button_width, button_height)
-        self.print_button.move(x_pos, y_pos)
+        self.print_button.move(button_x, button_y)
         self.print_button.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
@@ -303,21 +305,22 @@ class QR_screen(QWidget):
     # "처음으로" 버튼 추가
     def addHomeButton(self):
         # QR 코드 위치 및 크기 가져오기
-        qr_size = 600
-        qr_x = (self.screen_size[0] - qr_size) // 2
-        qr_y = (self.screen_size[1] - qr_size) // 2
+        qr_width = config["qr"]["preview_width"]
+        qr_height = config["qr"]["preview_height"]
+        qr_x = config["qr"]["x"]
+        qr_y = config["qr"]["y"]
         
         # 버튼 위치 및 크기 설정
         button_height = 80
-        button_width = qr_size // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
+        button_width = qr_width // 2 - 10  # QR 코드 너비의 절반에서 여백 제외
         
         # 처음으로 버튼 위치 (QR 코드 하단 왼쪽)
-        x_pos = qr_x
-        y_pos = qr_y + qr_size + 20  # QR 코드 아래 20px 여백
+        button_x = qr_x
+        button_y = qr_y + qr_height + 20  # QR 코드 아래 20px 여백
         
         self.home_button = QPushButton("처음으로", self)
         self.home_button.setFixedSize(button_width, button_height)
-        self.home_button.move(x_pos, y_pos)
+        self.home_button.move(button_x, button_y)
         self.home_button.setStyleSheet("""
             QPushButton {
                 background-color: #3498db;
