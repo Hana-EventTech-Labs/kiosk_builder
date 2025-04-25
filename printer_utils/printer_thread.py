@@ -262,13 +262,13 @@ class PrinterThread(QThread):
                     self.error.emit("미리보기 비트맵 가져오기 실패")
                     return
                 
-                # # 이미지 인쇄
+                # 이미지 인쇄
                 # result = print_image(device_handle)
                 # if result != 0:
                 #     self.error.emit("이미지 인쇄 실패")
                 #     return
                     
-                # self.finished.emit()
+                self.finished.emit()
             finally:
                 # 장치 닫기 (항상 실행)
                 close_device(device_handle)
