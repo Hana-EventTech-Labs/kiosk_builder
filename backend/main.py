@@ -161,43 +161,72 @@ async def websocket_mobile_endpoint(websocket: WebSocket, client_id: str, event_
     except WebSocketDisconnect:
         await manager.disconnect_mobile(client_id)
 
-# 이미지 업로드 API
+# 이미지에 4:3 비율 맞춰 여백 추가 (pad 방식)
+def pad_to_4_3(image: Image.Image, background_color=(255, 255, 255)) -> Image.Image:
+    target_ratio = 4 / 3
+    width, height = image.size
+    current_ratio = width / height
+
+    if current_ratio > target_ratio:
+        # 가로가 더 긴 경우 → 높이를 기준으로 캔버스 크기 설정
+        new_height = height
+        new_width = int(height * target_ratio)
+    else:
+        # 세로가 더 긴 경우 → 너비를 기준으로 캔버스 크기 설정
+        new_width = width
+        new_height = int(width / target_ratio)
+
+    # 새 캔버스 생성
+    canvas = Image.new("RGB", (new_width, new_height), background_color)
+
+    # 이미지 중앙 배치
+    offset_x = (new_width - width) // 2
+    offset_y = (new_height - height) // 2
+    canvas.paste(image, (offset_x, offset_y))
+
+    return canvas
+
+
 @app.post("/api/images/upload/{event_id}/{client_id}")
 async def upload_image(event_id: str, client_id: str, file: UploadFile = File(...)):
     try:
-        # 이벤트 폴더 확인
         event_dir = UPLOAD_DIR / event_id
         if not event_dir.exists():
             event_dir.mkdir(parents=True)
-        
-        # 파일 이름 생성 (UUID 사용)
+
         filename = f"{uuid.uuid4()}.jpg"
         file_path = event_dir / filename
-        
-        # 파일 저장
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # 웹소켓을 통해 키오스크에 업로드 알림
+
+        # 이미지 열기
+        image = Image.open(file.file).convert("RGB")
+
+        # 여백을 추가해 4:3 비율로 맞추기
+        padded_image = pad_to_4_3(image)
+
+        # 저장 (고화질 JPEG)
+        padded_image.save(file_path, format="JPEG", quality=95)
+
+        # WebSocket 알림 보내기
         await manager.send_to_kiosk(event_id, {
             "type": "image_uploaded",
             "client_id": client_id,
             "image_url": f"/images/{event_id}/{filename}"
         })
-        
-        # 모바일 클라이언트에 성공 알림
+
         await manager.send_to_mobile(client_id, {
             "type": "upload_success",
             "image_url": f"/images/{event_id}/{filename}"
         })
-        
+
         return {
             "success": True,
             "filename": filename,
             "image_url": f"/images/{event_id}/{filename}"
         }
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # 이벤트 페이지 - 모바일 사용자가 QR 코드 스캔 후 접속하는 페이지
 @app.get("/event/{event_id}", response_class=HTMLResponse)
