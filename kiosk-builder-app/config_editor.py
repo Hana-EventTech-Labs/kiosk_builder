@@ -4,7 +4,7 @@
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, QHBoxLayout, 
                               QFormLayout, QLineEdit, QSpinBox, QColorDialog, QPushButton, 
                               QLabel, QListWidget, QMessageBox, QGroupBox, QScrollArea, QSizePolicy,
-                              QFileDialog)
+                              QFileDialog, QComboBox)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor, QIntValidator, QFont
 import json
@@ -173,13 +173,35 @@ class ConfigEditor(QMainWindow):
         camera_group = QGroupBox("카메라 해상도")
         camera_layout = QFormLayout(camera_group)
         
-        self.camera_width_edit = NumberLineEdit()
-        self.camera_width_edit.setValue(self.config["camera_size"]["width"])
-        camera_layout.addRow("너비:", self.camera_width_edit)
+        # 카메라 해상도 콤보박스 생성
+        self.camera_resolution_combo = QComboBox()
+        self.camera_resolution_combo.addItem("2560 X 1440", (2560, 1440))
+        self.camera_resolution_combo.addItem("1920 X 1080", (1920, 1080))
+        self.camera_resolution_combo.addItem("1080 X 720", (1080, 720))
         
-        self.camera_height_edit = NumberLineEdit()
-        self.camera_height_edit.setValue(self.config["camera_size"]["height"])
-        camera_layout.addRow("높이:", self.camera_height_edit)
+        # 현재 해상도 선택
+        current_width = self.config["camera_size"]["width"]
+        current_height = self.config["camera_size"]["height"]
+        current_resolution = (current_width, current_height)
+        
+        # 콤보박스에서 현재 해상도와 일치하는 항목을 찾아 선택
+        found = False
+        for i in range(self.camera_resolution_combo.count()):
+            if self.camera_resolution_combo.itemData(i) == current_resolution:
+                self.camera_resolution_combo.setCurrentIndex(i)
+                found = True
+                break
+        
+        # 일치하는 항목이 없으면 사용자 정의 항목 추가
+        if not found:
+            user_resolution = f"{current_width} X {current_height}"
+            self.camera_resolution_combo.addItem(user_resolution, current_resolution)
+            self.camera_resolution_combo.setCurrentIndex(self.camera_resolution_combo.count() - 1)
+        
+        # 해상도 변경 시 이벤트 연결
+        self.camera_resolution_combo.currentIndexChanged.connect(self.on_camera_resolution_changed)
+        
+        camera_layout.addRow("해상도:", self.camera_resolution_combo)
         
         content_layout.addWidget(camera_group)
         
@@ -1061,8 +1083,35 @@ class ConfigEditor(QMainWindow):
         self.app_name_edit.setText(self.config["app_name"])
         self.screen_width_edit.setValue(self.config["screen_size"]["width"])
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
-        self.camera_width_edit.setValue(self.config["camera_size"]["width"])
-        self.camera_height_edit.setValue(self.config["camera_size"]["height"])
+        
+        # 카메라 해상도 콤보박스 업데이트
+        current_width = self.config["camera_size"]["width"]
+        current_height = self.config["camera_size"]["height"]
+        current_resolution = (current_width, current_height)
+        
+        # 일치하는 항목 찾기
+        found = False
+        for i in range(self.camera_resolution_combo.count()):
+            if self.camera_resolution_combo.itemData(i) == current_resolution:
+                self.camera_resolution_combo.setCurrentIndex(i)
+                found = True
+                break
+        
+        # 일치하는 항목이 없으면 새 항목 추가
+        if not found:
+            user_resolution = f"{current_width} X {current_height}"
+            # 이미 사용자 정의 항목이 있는지 확인
+            for i in range(self.camera_resolution_combo.count()):
+                if self.camera_resolution_combo.itemText(i) == user_resolution:
+                    self.camera_resolution_combo.setItemData(i, current_resolution)
+                    self.camera_resolution_combo.setCurrentIndex(i)
+                    found = True
+                    break
+            
+            # 사용자 정의 항목이 없으면 새로 추가
+            if not found:
+                self.camera_resolution_combo.addItem(user_resolution, current_resolution)
+                self.camera_resolution_combo.setCurrentIndex(self.camera_resolution_combo.count() - 1)
         
         # 크롭 영역 설정 업데이트
         for key, widget in self.crop_fields.items():
@@ -1592,8 +1641,12 @@ class ConfigEditor(QMainWindow):
         self.config["app_name"] = self.app_name_edit.text()
         self.config["screen_size"]["width"] = self.screen_width_edit.value()
         self.config["screen_size"]["height"] = self.screen_height_edit.value()
-        self.config["camera_size"]["width"] = self.camera_width_edit.value()
-        self.config["camera_size"]["height"] = self.camera_height_edit.value()
+        
+        # 카메라 해상도 설정 (콤보박스에서 가져오기)
+        selected_resolution = self.camera_resolution_combo.currentData()
+        if selected_resolution:
+            self.config["camera_size"]["width"] = selected_resolution[0]
+            self.config["camera_size"]["height"] = selected_resolution[1]
         
         # 크롭 영역 설정 저장
         for key, widget in self.crop_fields.items():
@@ -1741,3 +1794,13 @@ class ConfigEditor(QMainWindow):
             self.save_button.setEnabled(True)
         else:
             self.save_button.setEnabled(False)
+
+    # 카메라 해상도 변경 처리 함수 추가
+    def on_camera_resolution_changed(self, index):
+        """카메라 해상도 선택이 변경되었을 때 호출되는 메소드"""
+        selected_resolution = self.camera_resolution_combo.itemData(index)
+        
+        if selected_resolution:
+            width, height = selected_resolution
+            self.config["camera_size"]["width"] = width
+            self.config["camera_size"]["height"] = height
