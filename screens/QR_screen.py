@@ -47,6 +47,19 @@ class QR_screen(QWidget):
         self.addPrintButton()
         self.addHomeButton()
         self.addCloseButton()
+        
+        # 초기에는 인쇄 버튼 비활성화 (이미지가 없으므로)
+        self.print_button.setEnabled(False)
+        self.print_button.setStyleSheet("""
+            QPushButton {
+                background-color: #cccccc;
+                color: #888888;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+                font-size: 24px;
+            }
+        """)
     
     def setupBackground(self):
         background_files = ["background/3.png", "background/3.jpg", "background/qr_bg.jpg"]
@@ -219,6 +232,26 @@ class QR_screen(QWidget):
             # 미리보기 라벨에 이미지 표시
             self.preview_label.setPixmap(pixmap)
             self.preview_label.setVisible(True)  # 이미지가 업로드되면 라벨 표시
+            
+            # 인쇄 버튼 활성화 및 스타일 변경
+            self.print_button.setEnabled(True)
+            self.print_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 24px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                }
+                QPushButton:pressed {
+                    background-color: #3e8e41;
+                }
+            """)
+            
             print("[이미지 표시 성공]")
 
             # 저장된 이미지 경로를 메인 윈도우에 저장해서 다른 화면에서도 접근 가능하게 함
@@ -272,22 +305,7 @@ class QR_screen(QWidget):
         self.print_button = QPushButton("인쇄", self)
         self.print_button.setFixedSize(button_width, button_height)
         self.print_button.move(button_x, button_y)
-        self.print_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                border: none;
-                border-radius: 10px;
-                font-size: 24px;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-            QPushButton:pressed {
-                background-color: #3e8e41;
-            }
-        """)
+        # 스타일은 setupUI에서 설정
         
         # 버튼 클릭 이벤트 연결
         self.print_button.clicked.connect(self.on_print_button_clicked)
