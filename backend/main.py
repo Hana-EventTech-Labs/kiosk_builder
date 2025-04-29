@@ -10,10 +10,6 @@ import json
 from pathlib import Path
 import datetime
 from pathlib import Path
-from pydantic import BaseModel
-import mysql.connector
-from mysql.connector import pooling
-from fastapi import Depends, Body
 
 
 # uploads 폴더가 없으면 자동으로 생성
