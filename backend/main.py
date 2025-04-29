@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import datetime
 from pathlib import Path
+from PIL import Image
 
 
 # uploads 폴더가 없으면 자동으로 생성
