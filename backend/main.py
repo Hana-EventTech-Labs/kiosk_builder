@@ -148,19 +148,26 @@ async def register_event(event_name: str):
     }
 
 
-# 웹소켓 엔드포인트 - 키오스크용
+import asyncio
+
 @app.websocket("/ws/kiosk/{event_id}")
 async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
     await manager.connect_kiosk(websocket, event_id)
     try:
         while True:
-            data = await websocket.receive_json()
-            # 키오스크로부터 메시지 처리
-            if data["type"] == "send_to_mobile" and "client_id" in data:
-                await manager.send_to_mobile(data["client_id"], {
-                    "type": "message_from_kiosk",
-                    "content": data.get("content", "")
-                })
+            try:
+                # 10분 동안 아무 메시지가 없어도 끊지 않도록 처리
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=600)
+                json_data = json.loads(data)
+                if json_data["type"] == "send_to_mobile" and "client_id" in json_data:
+                    await manager.send_to_mobile(json_data["client_id"], {
+                        "type": "message_from_kiosk",
+                        "content": json_data.get("content", "")
+                    })
+            except asyncio.TimeoutError:
+                # 메시지는 없지만 연결은 유지됨
+                print(f"[INFO] 키오스크({event_id})에서 메시지 없음 (유지 중)")
+                continue
     except WebSocketDisconnect:
         await manager.disconnect_kiosk(event_id)
 
