@@ -10,7 +10,25 @@ import json
 from pathlib import Path
 import datetime
 from pathlib import Path
-from PIL import Image
+from PIL import Image,ExifTags
+
+def apply_exif_orientation(image: Image.Image) -> Image.Image:
+    try:
+        exif = image._getexif()
+        if exif is not None:
+            for tag, value in exif.items():
+                tag_name = ExifTags.TAGS.get(tag, None)
+                if tag_name == "Orientation":
+                    if value == 3:
+                        image = image.rotate(180, expand=True)
+                    elif value == 6:
+                        image = image.rotate(270, expand=True)
+                    elif value == 8:
+                        image = image.rotate(90, expand=True)
+                    break
+    except Exception as e:
+        print(f"EXIF 회전 정보 처리 중 오류: {e}")
+    return image
 
 
 # uploads 폴더가 없으면 자동으로 생성
@@ -200,7 +218,9 @@ async def upload_image(event_id: str, client_id: str, file: UploadFile = File(..
         file_path = event_dir / filename
 
         # 이미지 열기
-        image = Image.open(file.file).convert("RGB")
+        image = Image.open(file.file)
+        image = apply_exif_orientation(image).convert("RGB")
+
 
         # 여백을 추가해 4:3 비율로 맞추기
         padded_image = pad_to_4_3(image)
