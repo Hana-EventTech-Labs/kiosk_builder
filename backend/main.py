@@ -169,10 +169,23 @@ import asyncio
 @app.websocket("/ws/kiosk/{event_id}")
 async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
     await manager.connect_kiosk(websocket, event_id)
+
+    # 🟡 Ping 루프: 30초마다 ping 메시지 보내기
+    async def ping_loop():
+        while True:
+            try:
+                await websocket.send_json({"type": "ping"})
+                await asyncio.sleep(5)
+            except Exception as e:
+                print(f"[PING ERROR] {e}")
+                break
+
+    # Ping 루프 시작
+    asyncio.create_task(ping_loop())
+
     try:
         while True:
             try:
-                # 10분 동안 아무 메시지가 없어도 끊지 않도록 처리
                 data = await asyncio.wait_for(websocket.receive_text(), timeout=600)
                 json_data = json.loads(data)
                 if json_data["type"] == "send_to_mobile" and "client_id" in json_data:
@@ -181,7 +194,6 @@ async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
                         "content": json_data.get("content", "")
                     })
             except asyncio.TimeoutError:
-                # 메시지는 없지만 연결은 유지됨
                 print(f"[INFO] 키오스크({event_id})에서 메시지 없음 (유지 중)")
                 continue
     except WebSocketDisconnect:
