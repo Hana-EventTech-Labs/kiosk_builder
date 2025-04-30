@@ -181,33 +181,6 @@ async def websocket_mobile_endpoint(websocket: WebSocket, client_id: str, event_
     except WebSocketDisconnect:
         await manager.disconnect_mobile(client_id)
 
-# 이미지에 4:3 비율 맞춰 여백 추가 (pad 방식)
-def pad_to_4_3(image: Image.Image, background_color=(255, 255, 255)) -> Image.Image:
-    target_ratio = 4 / 3
-    width, height = image.size
-    current_ratio = width / height
-
-    # 캔버스 크기 결정: 원본 이미지가 캔버스 안에 그대로 들어가게
-    if current_ratio > target_ratio:
-        # 가로가 더 긴 경우 → 가로 기준으로 높이를 늘린다
-        canvas_width = width
-        canvas_height = int(width / target_ratio)
-    else:
-        # 세로가 더 긴 경우 → 세로 기준으로 너비를 늘린다
-        canvas_height = height
-        canvas_width = int(height * target_ratio)
-
-    # 새 캔버스 생성 (배경은 흰색)
-    canvas = Image.new("RGB", (canvas_width, canvas_height), background_color)
-
-    # 중앙에 이미지 배치
-    offset_x = (canvas_width - width) // 2
-    offset_y = (canvas_height - height) // 2
-    canvas.paste(image, (offset_x, offset_y))
-
-    return canvas
-
-
 @app.post("/api/images/upload/{event_id}/{client_id}")
 async def upload_image(event_id: str, client_id: str, file: UploadFile = File(...)):
     try:
@@ -220,14 +193,12 @@ async def upload_image(event_id: str, client_id: str, file: UploadFile = File(..
 
         # 이미지 열기
         image = Image.open(file.file)
+        
+        # EXIF 방향 정보에 따라 이미지 회전만 적용 (비율 변경 없음)
         image = apply_exif_orientation(image).convert("RGB")
 
-
-        # 여백을 추가해 4:3 비율로 맞추기
-        padded_image = pad_to_4_3(image)
-
-        # 저장 (고화질 JPEG)
-        padded_image.save(file_path, format="JPEG", quality=95)
+        # 원본 비율 그대로 저장 (고화질 JPEG)
+        image.save(file_path, format="JPEG", quality=95)
 
         # WebSocket 알림 보내기
         await manager.send_to_kiosk(event_id, {
