@@ -227,14 +227,25 @@ async def upload_image(event_id: str, client_id: str, file: UploadFile = File(..
 async def get_event_page(event_id: str):
     # 이벤트 폴더 확인
     event_dir = UPLOAD_DIR / event_id
+    
+    # 이벤트가 없으면 자동으로 생성
     if not event_dir.exists():
-        raise HTTPException(status_code=404, detail="Event not found")
+        print(f"이벤트 {event_id}가 없어 자동으로 생성합니다")
+        event_dir.mkdir(parents=True, exist_ok=True)
+        
+        # 기본 정보 파일 생성
+        with open(event_dir / "info.json", "w") as f:
+            json.dump({
+                "event_id": event_id,
+                "event_name": "Auto Generated Event",
+                "created_at": str(datetime.datetime.now())
+            }, f)
     
     # 서버 도메인 가져오기
     from config import settings
     server_domain = settings.DOMAIN
     
-    # 웹소켓 프로토콜 설정 (https -> wss, http -> ws)
+    # 웹소켓 프로토콜 설정
     ws_protocol = "wss" if server_domain.startswith("https") else "ws"
     ws_domain = server_domain.replace("https://", "").replace("http://", "")
     
