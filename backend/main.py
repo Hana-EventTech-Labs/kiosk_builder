@@ -187,22 +187,22 @@ def pad_to_4_3(image: Image.Image, background_color=(255, 255, 255)) -> Image.Im
     width, height = image.size
     current_ratio = width / height
 
-    # 캔버스 크기 결정 (원본보다 작지 않도록 보장)
+    # 캔버스 크기 결정: 원본 이미지가 캔버스 안에 그대로 들어가게
     if current_ratio > target_ratio:
-        # 가로가 더 넓은 경우, 높이를 늘려 4:3 비율 맞춤
-        new_height = int(width / target_ratio)
-        new_width = width
+        # 가로가 더 긴 경우 → 가로 기준으로 높이를 늘린다
+        canvas_width = width
+        canvas_height = int(width / target_ratio)
     else:
-        # 세로가 더 긴 경우, 너비를 늘려 4:3 비율 맞춤
-        new_width = int(height * target_ratio)
-        new_height = height
+        # 세로가 더 긴 경우 → 세로 기준으로 너비를 늘린다
+        canvas_height = height
+        canvas_width = int(height * target_ratio)
 
-    # 새 캔버스 생성
-    canvas = Image.new("RGB", (new_width, new_height), background_color)
+    # 새 캔버스 생성 (배경은 흰색)
+    canvas = Image.new("RGB", (canvas_width, canvas_height), background_color)
 
-    # 이미지 중앙 배치
-    offset_x = (new_width - width) // 2
-    offset_y = (new_height - height) // 2
+    # 중앙에 이미지 배치
+    offset_x = (canvas_width - width) // 2
+    offset_y = (canvas_height - height) // 2
     canvas.paste(image, (offset_x, offset_y))
 
     return canvas
