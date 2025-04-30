@@ -11,7 +11,7 @@ from pathlib import Path
 import datetime
 from pathlib import Path
 from PIL import Image,ExifTags
-from pillow_heif import register_heif_opener
+
 
 def apply_exif_orientation(image: Image.Image) -> Image.Image:
     try:
@@ -37,6 +37,8 @@ Path("uploads").mkdir(exist_ok=True)
 
 # 앱 생성
 app = FastAPI(title="QR Code Image Server")
+from pillow_heif import register_heif_opener
+register_heif_opener()
 
 # 이미지 접근을 위한 StaticFiles 마운트
 from fastapi.staticfiles import StaticFiles
