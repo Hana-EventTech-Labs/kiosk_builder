@@ -72,15 +72,31 @@ class ConnectionManager:
     
     async def connect_mobile(self, websocket: WebSocket, client_id: str, event_id: str):
         await websocket.accept()
+    
+        # 동일 client_id 연결이 있다면 먼저 끊기
+        if client_id in self.mobile_connections:
+            old_websocket, _ = self.mobile_connections[client_id]
+            try:
+                await old_websocket.close(code=1000)
+                print(f"[INFO] 기존 모바일 클라이언트 {client_id} 연결 종료")
+            except Exception as e:
+                print(f"[WARN] 이전 연결 종료 실패: {e}")
+        
+        # (선택적) 동일 event_id의 다른 client_id도 모두 끊기
+        to_remove = [cid for cid, (_, eid) in self.mobile_connections.items() if eid == event_id and cid != client_id]
+        for cid in to_remove:
+            await self.disconnect_mobile(cid)
+    
+        # 새 연결 등록
         self.mobile_connections[client_id] = (websocket, event_id)
         print(f"Mobile client {client_id} connected for event: {event_id}")
-        
-        # 연결된 키오스크에 모바일 연결 알림
+    
         if event_id in self.kiosk_connections:
             await self.kiosk_connections[event_id].send_json({
                 "type": "client_connected",
                 "client_id": client_id
             })
+
     
     async def disconnect_kiosk(self, event_id: str):
         if event_id in self.kiosk_connections:
