@@ -11,6 +11,7 @@ from pathlib import Path
 import datetime
 from pathlib import Path
 from PIL import Image,ExifTags
+import asyncio
 
 
 def apply_exif_orientation(image: Image.Image) -> Image.Image:
@@ -126,8 +127,12 @@ class ConnectionManager:
 
     async def send_to_mobile(self, client_id: str, message: dict):
         if client_id in self.mobile_connections:
-            websocket, _ = self.mobile_connections[client_id]
-            await websocket.send_json(message)
+            try:
+                websocket, _ = self.mobile_connections[client_id]
+                await websocket.send_json(message)
+            except Exception as e:
+                print(f"[ERROR] WebSocket 전송 실패 (mobile, {client_id}): {e}")
+                await self.disconnect_mobile(client_id)
 
 # 연결 관리자 인스턴스 생성
 manager = ConnectionManager()
@@ -164,13 +169,11 @@ async def register_event(event_name: str):
     }
 
 
-import asyncio
-
 @app.websocket("/ws/kiosk/{event_id}")
 async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
     await manager.connect_kiosk(websocket, event_id)
 
-    # 🟡 Ping 루프: 30초마다 ping 메시지 보내기
+    # Ping 루프: 30초마다 ping 메시지 보내기
     async def ping_loop():
         while True:
             try:
@@ -181,7 +184,7 @@ async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
                 break
 
     # Ping 루프 시작
-    asyncio.create_task(ping_loop())
+    ping_task = asyncio.create_task(ping_loop())
 
     try:
         while True:
@@ -196,31 +199,84 @@ async def websocket_kiosk_endpoint(websocket: WebSocket, event_id: str):
             except asyncio.TimeoutError:
                 print(f"[INFO] 키오스크({event_id})에서 메시지 없음 (유지 중)")
                 continue
+            except Exception as e:
+                print(f"[ERROR] 키오스크({event_id}) 메시지 처리 오류: {e}")
+                break
     except WebSocketDisconnect:
+        print(f"[INFO] 키오스크({event_id}) WebSocketDisconnect 발생")
+    except Exception as e:
+        print(f"[ERROR] 키오스크({event_id}) 웹소켓 오류: {e}")
+    finally:
+        ping_task.cancel()
         await manager.disconnect_kiosk(event_id)
 
-# 웹소켓 엔드포인트 - 모바일용
+# 웹소켓 엔드포인트 - 모바일용 (개선됨)
 @app.websocket("/ws/mobile/{client_id}/{event_id}")
 async def websocket_mobile_endpoint(websocket: WebSocket, client_id: str, event_id: str):
     await manager.connect_mobile(websocket, client_id, event_id)
+    
+    # Ping 루프: 30초마다 ping 메시지 보내기
+    async def ping_loop():
+        while True:
+            try:
+                await websocket.send_json({"type": "ping"})
+                await asyncio.sleep(30)  # 30초마다 ping
+            except Exception as e:
+                print(f"[PING ERROR] Mobile({client_id}): {e}")
+                break
+    
+    # Ping 루프 시작
+    ping_task = asyncio.create_task(ping_loop())
+    
     try:
         while True:
-            data = await websocket.receive_json()
-            # 모바일에서 이미지 선택 메시지 처리
-            if data["type"] == "image_selected":
-                await manager.send_to_kiosk(event_id, {
-                    "type": "image_selected",
-                    "client_id": client_id,
-                    "image_id": data.get("image_id", "")
-                })
-            # 모바일에서 업로드 완료 메시지 처리
-            elif data["type"] == "upload_confirmed":
-                await manager.send_to_kiosk(event_id, {
-                    "type": "upload_confirmed",
-                    "client_id": client_id,
-                    "image_id": data.get("image_id", "")
-                })
+            try:
+                # 타임아웃 설정 (10분)
+                data = await asyncio.wait_for(websocket.receive_json(), timeout=600)
+                
+                # 기존 메시지 처리 로직
+                if data["type"] == "image_selected":
+                    await manager.send_to_kiosk(event_id, {
+                        "type": "image_selected",
+                        "client_id": client_id,
+                        "image_id": data.get("image_id", "")
+                    })
+                elif data["type"] == "upload_confirmed":
+                    await manager.send_to_kiosk(event_id, {
+                        "type": "upload_confirmed",
+                        "client_id": client_id,
+                        "image_id": data.get("image_id", "")
+                    })
+                # 새로운 메시지 타입 처리
+                elif data["type"] == "reconnected":
+                    print(f"[INFO] 클라이언트 {client_id} 재연결 (상태: {data.get('upload_status', 'unknown')})")
+                    # 키오스크에 모바일 재연결 알림
+                    await manager.send_to_kiosk(event_id, {
+                        "type": "client_reconnected", 
+                        "client_id": client_id,
+                        "image_id": data.get("image_id", ""),
+                        "upload_status": data.get("upload_status", "unknown")
+                    })
+                elif data["type"] == "pong":
+                    # 클라이언트 pong 응답은 로깅만
+                    print(f"[DEBUG] 클라이언트 {client_id} pong 응답")
+                    pass
+                
+            except asyncio.TimeoutError:
+                print(f"[INFO] 모바일({client_id})에서 메시지 없음 (유지 중)")
+                continue
+            except Exception as e:
+                print(f"[ERROR] 모바일({client_id}) 메시지 처리 오류: {e}")
+                # 예외 발생 시 연결 종료
+                break
+                
     except WebSocketDisconnect:
+        print(f"[INFO] 모바일({client_id}) WebSocketDisconnect 발생")
+    except Exception as e:
+        print(f"[ERROR] 모바일({client_id}) 웹소켓 오류: {e}")
+    finally:
+        # 최종 정리
+        ping_task.cancel()
         await manager.disconnect_mobile(client_id)
 
 @app.post("/api/images/upload/{event_id}/{client_id}")
@@ -408,18 +464,44 @@ async def get_event_page(event_id: str):
                 const wsProtocol = document.getElementById('ws-protocol').getAttribute('content');
                 const wsDomain = document.getElementById('ws-domain').getAttribute('content');
                 
+                // 전역 변수 추가
                 let socket;
                 let selectedImageId;
+                let selectedFile = null;
+                let isUploading = false;
+                let reconnectAttempts = 0;
+                let maxReconnectAttempts = 10;
+                let reconnectDelay = 2000;
+                let uploadAttempted = false;
+                let lastUploadStatus = null;
                 
-                // 웹소켓 연결
+                // 웹소켓 연결 함수 개선
                 function connectWebSocket() {{
                     // 서버 도메인 기반으로 웹소켓 연결
                     const wsUrl = `${{wsProtocol}}://${{wsDomain}}/ws/mobile/${{clientId}}/${{eventId}}`;
                     socket = new WebSocket(wsUrl);
                     console.log(`연결 중: ${{wsUrl}}`);
                     
+                    document.getElementById('connectionStatus').textContent = '연결 중...';
+                    
                     socket.onopen = function(e) {{
                         document.getElementById('connectionStatus').textContent = '연결됨';
+                        reconnectAttempts = 0; // 연결 성공 시 재시도 카운터 초기화
+                        
+                        // 연결 복구 시 마지막 상태 복원
+                        if (selectedImageId && uploadAttempted) {{
+                            // 재연결 시 서버에 현재 상태 알림
+                            socket.send(JSON.stringify({{
+                                type: 'reconnected',
+                                image_id: selectedImageId,
+                                upload_status: lastUploadStatus
+                            }}));
+                            
+                            // 업로드 중이었다면 업로드 재시도
+                            if (isUploading && selectedFile) {{
+                                uploadImage(selectedFile);
+                            }}
+                        }}
                     }};
                     
                     socket.onmessage = function(event) {{
@@ -432,18 +514,87 @@ async def get_event_page(event_id: str):
                             document.getElementById('finalImage').src = imageUrl;
                             document.getElementById('step2').classList.add('hidden');
                             document.getElementById('step3').classList.remove('hidden');
+                            isUploading = false;
+                            lastUploadStatus = 'completed';
+                        }} else if (data.type === 'ping') {{
+                            // 서버의 ping에 응답
+                            socket.send(JSON.stringify({{
+                                type: 'pong'
+                            }}));
                         }}
                     }};
                     
                     socket.onclose = function(event) {{
-                        document.getElementById('connectionStatus').textContent = '연결 끊김. 재연결 중...';
-                        setTimeout(connectWebSocket, 2000);
+                        console.log('WebSocket 연결 종료:', event);
+                        
+                        if (reconnectAttempts < maxReconnectAttempts) {{
+                            reconnectAttempts++;
+                            const waitTime = reconnectDelay * Math.min(reconnectAttempts, 5); // 지수 백오프
+                            document.getElementById('connectionStatus').textContent = `연결 끊김. ${{waitTime/1000}}초 후 재연결 시도 (${{reconnectAttempts}}/${{maxReconnectAttempts}})`;
+                            setTimeout(connectWebSocket, waitTime);
+                        }} else {{
+                            document.getElementById('connectionStatus').textContent = '재연결 실패. 페이지를 새로고침해 주세요.';
+                        }}
                     }};
                     
                     socket.onerror = function(error) {{
                         console.error('WebSocket 오류:', error);
                         document.getElementById('connectionStatus').textContent = '연결 오류';
                     }};
+                }}
+                
+                // 이미지 업로드 함수 (분리하여 재사용 가능하게)
+                function uploadImage(file) {{
+                    if (!file) return;
+                    
+                    isUploading = true;
+                    document.getElementById('uploadButton').disabled = true;
+                    document.getElementById('uploadButton').textContent = '업로드 중...';
+                    
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    // 업로드 상태 표시 추가
+                    document.getElementById('connectionStatus').textContent = '이미지 업로드 중...';
+                    uploadAttempted = true;
+                    lastUploadStatus = 'uploading';
+                    
+                    // 서버 도메인 포함한 전체 URL 사용
+                    fetch(`${{serverDomain}}/api/images/upload/${{eventId}}/${{clientId}}`, {{
+                        method: 'POST',
+                        body: formData,
+                        // 타임아웃 설정 (브라우저 fetch API는 기본 타임아웃이 없으므로 AbortController로 구현 필요)
+                    }})
+                    .then(response => {{
+                        if (!response.ok) {{
+                            throw new Error(`HTTP error! Status: ${{response.status}}`);
+                        }}
+                        return response.json();
+                    }})
+                    .then(data => {{
+                        console.log('Upload success:', data);
+                        document.getElementById('connectionStatus').textContent = '업로드 완료, 처리 중...';
+                        lastUploadStatus = 'uploaded';
+                        
+                        // 업로드 확인 알림
+                        if (socket && socket.readyState === WebSocket.OPEN) {{
+                            socket.send(JSON.stringify({{
+                                type: 'upload_confirmed',
+                                image_id: selectedImageId
+                            }}));
+                        }} else {{
+                            console.warn('WebSocket 연결이 없어 확인 메시지를 보낼 수 없습니다.');
+                            document.getElementById('connectionStatus').textContent = '연결 복구 중... 업로드는 완료되었습니다.';
+                        }}
+                    }})
+                    .catch(error => {{
+                        console.error('Upload error:', error);
+                        document.getElementById('connectionStatus').textContent = '업로드 실패. 다시 시도해 주세요.';
+                        document.getElementById('uploadButton').disabled = false;
+                        document.getElementById('uploadButton').textContent = '다시 시도';
+                        isUploading = false;
+                        lastUploadStatus = 'failed';
+                    }});
                 }}
                 
                 // 초기화
@@ -462,7 +613,7 @@ async def get_event_page(event_id: str):
                     // 파일 선택 처리
                     document.getElementById('fileInput').addEventListener('change', function(e) {{
                         if (e.target.files && e.target.files[0]) {{
-                            const file = e.target.files[0];
+                            selectedFile = e.target.files[0];
                             const reader = new FileReader();
                             
                             reader.onload = function(e) {{
@@ -472,43 +623,26 @@ async def get_event_page(event_id: str):
                                 
                                 // 이미지 선택 알림
                                 selectedImageId = new Date().getTime().toString();
-                                socket.send(JSON.stringify({{
-                                    type: 'image_selected',
-                                    image_id: selectedImageId
-                                }}));
+                                
+                                // 웹소켓이 열려 있는 경우에만 메시지 전송
+                                if (socket && socket.readyState === WebSocket.OPEN) {{
+                                    socket.send(JSON.stringify({{
+                                        type: 'image_selected',
+                                        image_id: selectedImageId
+                                    }}));
+                                }} else {{
+                                    console.warn('웹소켓 연결이 없어 이미지 선택 메시지를 보낼 수 없습니다.');
+                                    document.getElementById('connectionStatus').textContent = '연결 복구 중... 이미지는 선택되었습니다.';
+                                }}
                             }};
                             
-                            reader.readAsDataURL(file);
+                            reader.readAsDataURL(selectedFile);
                         }}
                     }});
                     
                     // 업로드 버튼 처리
                     document.getElementById('uploadButton').addEventListener('click', function() {{
-                        const fileInput = document.getElementById('fileInput');
-                        if (fileInput.files && fileInput.files[0]) {{
-                            const formData = new FormData();
-                            formData.append('file', fileInput.files[0]);
-                            
-                            // 서버 도메인 포함한 전체 URL 사용
-                            fetch(`${{serverDomain}}/api/images/upload/${{eventId}}/${{clientId}}`, {{
-                                method: 'POST',
-                                body: formData
-                            }})
-                            .then(response => response.json())
-                            .then(data => {{
-                                console.log('Upload success:', data);
-                                
-                                // 업로드 확인 알림
-                                socket.send(JSON.stringify({{
-                                    type: 'upload_confirmed',
-                                    image_id: selectedImageId
-                                }}));
-                            }})
-                            .catch(error => {{
-                                console.error('Upload error:', error);
-                                alert('업로드 중 오류가 발생했습니다.');
-                            }});
-                        }}
+                        uploadImage(selectedFile);
                     }});
                     
                     // 취소 버튼 처리
@@ -516,6 +650,8 @@ async def get_event_page(event_id: str):
                         document.getElementById('step2').classList.add('hidden');
                         document.getElementById('step1').classList.remove('hidden');
                         document.getElementById('fileInput').value = '';
+                        selectedFile = null;
+                        uploadAttempted = false;
                     }});
                     
                     // 새 업로드 버튼 처리
@@ -523,6 +659,8 @@ async def get_event_page(event_id: str):
                         document.getElementById('step3').classList.add('hidden');
                         document.getElementById('step1').classList.remove('hidden');
                         document.getElementById('fileInput').value = '';
+                        selectedFile = null;
+                        uploadAttempted = false;
                     }});
                 }});
             </script>
