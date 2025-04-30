@@ -7,7 +7,6 @@ import uuid
 import os
 import shutil
 import json
-from pathlib import Path
 import datetime
 from pathlib import Path
 from PIL import Image,ExifTags
