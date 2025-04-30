@@ -187,14 +187,15 @@ def pad_to_4_3(image: Image.Image, background_color=(255, 255, 255)) -> Image.Im
     width, height = image.size
     current_ratio = width / height
 
+    # 캔버스 크기 결정 (원본보다 작지 않도록 보장)
     if current_ratio > target_ratio:
-        # 가로가 더 긴 경우 → 높이를 기준으로 캔버스 크기 설정
-        new_height = height
-        new_width = int(height * target_ratio)
-    else:
-        # 세로가 더 긴 경우 → 너비를 기준으로 캔버스 크기 설정
-        new_width = width
+        # 가로가 더 넓은 경우, 높이를 늘려 4:3 비율 맞춤
         new_height = int(width / target_ratio)
+        new_width = width
+    else:
+        # 세로가 더 긴 경우, 너비를 늘려 4:3 비율 맞춤
+        new_width = int(height * target_ratio)
+        new_height = height
 
     # 새 캔버스 생성
     canvas = Image.new("RGB", (new_width, new_height), background_color)
