@@ -461,11 +461,11 @@ async def get_event_page(event_id: str):
         </body>
     </html>
     """
-@app.delete("/api/events/{event_id}")
-async def delete_event(event_id: str):
-    event_dir = UPLOAD_DIR / event_id
-    if event_dir.exists():
-        shutil.rmtree(event_dir)  # 폴더 통째로 삭제
-        print(f"Deleted event folder: {event_dir}")
-        return {"success": True, "message": "Event data deleted."}
-    raise HTTPException(status_code=404, detail="Event not found")
+# @app.delete("/api/events/{event_id}")
+# async def delete_event(event_id: str):
+#     event_dir = UPLOAD_DIR / event_id
+#     if event_dir.exists():
+#         shutil.rmtree(event_dir)  # 폴더 통째로 삭제
+#         print(f"Deleted event folder: {event_dir}")
+#         return {"success": True, "message": "Event data deleted."}
+#     raise HTTPException(status_code=404, detail="Event not found")
