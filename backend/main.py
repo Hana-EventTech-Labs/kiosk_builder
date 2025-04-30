@@ -11,6 +11,7 @@ from pathlib import Path
 import datetime
 from pathlib import Path
 from PIL import Image,ExifTags
+from pillow_heif import register_heif_opener
 
 def apply_exif_orientation(image: Image.Image) -> Image.Image:
     try:
@@ -99,8 +100,12 @@ class ConnectionManager:
     
     async def send_to_kiosk(self, event_id: str, message: dict):
         if event_id in self.kiosk_connections:
-            await self.kiosk_connections[event_id].send_json(message)
-    
+            try:
+                await self.kiosk_connections[event_id].send_json(message)
+            except Exception as e:
+                print(f"[ERROR] WebSocket 전송 실패 (kiosk): {e}")
+                await self.disconnect_kiosk(event_id)
+
     async def send_to_mobile(self, client_id: str, message: dict):
         if client_id in self.mobile_connections:
             websocket, _ = self.mobile_connections[client_id]
@@ -191,26 +196,38 @@ async def upload_image(event_id: str, client_id: str, file: UploadFile = File(..
         filename = f"{uuid.uuid4()}.jpg"
         file_path = event_dir / filename
 
-        # 이미지 열기
-        image = Image.open(file.file)
-        
-        # EXIF 방향 정보에 따라 이미지 회전만 적용 (비율 변경 없음)
-        image = apply_exif_orientation(image).convert("RGB")
+        # 이미지 열기 시도
+        try:
+            image = Image.open(file.file)
+            image = apply_exif_orientation(image).convert("RGB")
+        except Exception as e:
+            print(f"[ERROR] 이미지 열기 실패: {e}")
+            raise HTTPException(status_code=400, detail="이미지 처리 실패 (지원되지 않는 형식)")
 
-        # 원본 비율 그대로 저장 (고화질 JPEG)
-        image.save(file_path, format="JPEG", quality=95)
+        # 저장 시도
+        try:
+            image.save(file_path, format="JPEG", quality=95)
+        except Exception as e:
+            print(f"[ERROR] 이미지 저장 실패: {e}")
+            raise HTTPException(status_code=500, detail="이미지 저장 실패")
 
-        # WebSocket 알림 보내기
-        await manager.send_to_kiosk(event_id, {
-            "type": "image_uploaded",
-            "client_id": client_id,
-            "image_url": f"/images/{event_id}/{filename}"
-        })
+        # WebSocket 알림 (개별 try로 감싸기)
+        try:
+            await manager.send_to_kiosk(event_id, {
+                "type": "image_uploaded",
+                "client_id": client_id,
+                "image_url": f"/images/{event_id}/{filename}"
+            })
+        except Exception as e:
+            print(f"[ERROR] WebSocket to kiosk failed: {e}")
 
-        await manager.send_to_mobile(client_id, {
-            "type": "upload_success",
-            "image_url": f"/images/{event_id}/{filename}"
-        })
+        try:
+            await manager.send_to_mobile(client_id, {
+                "type": "upload_success",
+                "image_url": f"/images/{event_id}/{filename}"
+            })
+        except Exception as e:
+            print(f"[ERROR] WebSocket to mobile failed: {e}")
 
         return {
             "success": True,
@@ -218,8 +235,11 @@ async def upload_image(event_id: str, client_id: str, file: UploadFile = File(..
             "image_url": f"/images/{event_id}/{filename}"
         }
 
+    except HTTPException as e:
+        raise e  # FastAPI에 전달
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"[FATAL] 예상치 못한 오류: {e}")
+        raise HTTPException(status_code=500, detail="서버 내부 오류 발생")
 
 
 # 이벤트 페이지 - 모바일 사용자가 QR 코드 스캔 후 접속하는 페이지
