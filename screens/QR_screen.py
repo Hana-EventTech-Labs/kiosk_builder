@@ -32,6 +32,9 @@ class QR_screen(QWidget):
         self.event_name = None
         self.qr_url = None
         
+        # 웹소켓 객체 변수
+        self.ws = None 
+        
         # 이미지 업로드 시그널 연결
         self.image_uploaded_signal.connect(self.display_uploaded_image)
         
@@ -164,7 +167,7 @@ class QR_screen(QWidget):
     
     def start_kiosk_websocket(self):
         ws_url = f"{SERVER_URL.replace('https', 'wss')}/ws/kiosk/{self.event_id}"
-
+    
         def on_message(ws, message):
             data = json.loads(message)
             print("[WebSocket] 수신:", data)
@@ -172,17 +175,17 @@ class QR_screen(QWidget):
                 image_url = f"{SERVER_URL}{data['image_url']}"
                 # GUI 스레드에서 이미지 표시를 위해 시그널 사용
                 self.image_uploaded_signal.emit(image_url)
-
+    
         def on_open(ws):
             print("웹소켓 연결됨")
-
+    
         def on_error(ws, error):
             print("웹소켓 오류:", error)
-
+    
         def on_close(ws, close_status_code, close_msg):
             print("웹소켓 종료")
-
-        ws = websocket.WebSocketApp(
+    
+        self.ws = websocket.WebSocketApp(  # 여기서 self.ws에 저장!
             ws_url,
             on_message=on_message,
             on_open=on_open,
@@ -191,7 +194,7 @@ class QR_screen(QWidget):
         )
         
         # certifi의 인증서 번들을 사용하여 웹소켓 연결
-        threading.Thread(target=lambda: ws.run_forever(sslopt={"ca_certs": certifi.where()}), daemon=True).start()
+        threading.Thread(target=lambda: self.ws.run_forever(sslopt={"ca_certs": certifi.where()}), daemon=True).start()
     
     def display_uploaded_image(self, image_url):
         try:
@@ -315,7 +318,9 @@ class QR_screen(QWidget):
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
-        
+        if self.ws:
+            self.ws.close()
+            # print("웹소켓 닫힘 - 인쇄 버튼")
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
@@ -364,6 +369,10 @@ class QR_screen(QWidget):
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
+
+        if self.ws:
+            self.ws.close()
+            print("웹소켓 닫힘 - 홈 버튼")
         
         # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
         self.main_window.current_index = 0
