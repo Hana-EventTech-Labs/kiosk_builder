@@ -35,6 +35,9 @@ class QR_screen(QWidget):
         # 웹소켓 객체 변수
         self.ws = None 
         
+        # 핑 타이머 변수 추가
+        self.ping_timer = None
+        
         # 이미지 업로드 시그널 연결
         self.image_uploaded_signal.connect(self.display_uploaded_image)
         
@@ -165,6 +168,37 @@ class QR_screen(QWidget):
         except Exception as e:
             print(f"QR 코드 생성 중 오류 발생: {str(e)}")
     
+    def start_ping_timer(self):
+        """웹소켓 연결 유지를 위한 핑 타이머 시작"""
+        if self.ping_timer is None:
+            self.ping_timer = QTimer()
+            self.ping_timer.timeout.connect(self.send_ping)
+            self.ping_timer.start(30000)  # 30초마다 실행
+            print("핑 타이머 시작됨")
+    
+    def send_ping(self):
+        """웹소켓으로 핑 메시지 전송"""
+        if self.ws:
+            try:
+                self.ws.send(json.dumps({"type": "ping"}))
+                print("핑 메시지 전송")
+            except Exception as e:
+                print(f"핑 전송 오류: {e}")
+                # 연결 끊어진 경우 재연결 시도
+                self.reconnect_websocket()
+    
+    def reconnect_websocket(self):
+        """웹소켓 연결이 끊어진 경우 재연결 시도"""
+        if self.ws:
+            try:
+                self.ws.close()
+            except:
+                pass
+            self.ws = None
+        
+        print("웹소켓 재연결 시도")
+        self.start_kiosk_websocket()
+    
     def start_kiosk_websocket(self):
         ws_url = f"{SERVER_URL.replace('https', 'wss')}/ws/kiosk/{self.event_id}"
     
@@ -178,6 +212,8 @@ class QR_screen(QWidget):
     
         def on_open(ws):
             print("웹소켓 연결됨")
+            # 연결 성공 후 핑 타이머 시작
+            self.start_ping_timer()
     
         def on_error(ws, error):
             print("웹소켓 오류:", error)
@@ -185,7 +221,7 @@ class QR_screen(QWidget):
         def on_close(ws, close_status_code, close_msg):
             print("웹소켓 종료")
     
-        self.ws = websocket.WebSocketApp(  # 여기서 self.ws에 저장!
+        self.ws = websocket.WebSocketApp(
             ws_url,
             on_message=on_message,
             on_open=on_open,
@@ -318,9 +354,18 @@ class QR_screen(QWidget):
         self.preview_label.setPixmap(QPixmap())  # 먼저 이미지 제거
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
+        
+        # 타이머 정리
+        if self.ping_timer:
+            self.ping_timer.stop()
+            self.ping_timer = None
+        
+        # 웹소켓 닫기
         if self.ws:
             self.ws.close()
-            # print("웹소켓 닫힘 - 인쇄 버튼")
+            self.ws = None
+            print("웹소켓 닫힘 - 인쇄 버튼")
+        
         # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
@@ -370,8 +415,15 @@ class QR_screen(QWidget):
         self.preview_label.setText("아직 업로드된 이미지가 없습니다")  # 그 다음 텍스트 설정
         self.preview_label.setVisible(False)  # 라벨 숨기기
 
+        # 타이머 정리
+        if self.ping_timer:
+            self.ping_timer.stop()
+            self.ping_timer = None
+        
+        # 웹소켓 닫기
         if self.ws:
             self.ws.close()
+            self.ws = None
             print("웹소켓 닫힘 - 홈 버튼")
         
         # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
@@ -379,3 +431,18 @@ class QR_screen(QWidget):
         
         # 첫 화면으로 이동 (인덱스 0)
         self.stack.setCurrentIndex(0)
+
+    # 화면이 닫힐 때 이벤트 처리 (예: 앱 종료 시)
+    def hideEvent(self, event):
+        # 타이머 정리
+        if self.ping_timer:
+            self.ping_timer.stop()
+            self.ping_timer = None
+        
+        # 웹소켓 닫기
+        if self.ws:
+            self.ws.close()
+            self.ws = None
+            print("웹소켓 닫힘 - 화면 숨김")
+        
+        super().hideEvent(event)
