@@ -226,14 +226,45 @@ class ConfigEditor(QMainWindow):
             self.save_button.setEnabled(True)
         else:
             self.save_button.setEnabled(False)
-    
     def create_distribution(self):
         """배포용 파일 생성 및 복사"""
+        # 배포용 파일 처리
         try:
+            import subprocess
             import sys
             
-            # 설정 업데이트
-            self.update_config_from_tabs()
+            # 재귀적 복사 함수 추가
+            def copy_resources_recursive(source_dir, target_dir):
+                """리소스 폴더와 모든 하위 폴더/파일을 재귀적으로 복사"""
+                if not os.path.exists(source_dir):
+                    print(f"소스 폴더를 찾을 수 없음: {source_dir}")
+                    return []
+                
+                copied_files = []
+                
+                # 대상 폴더가 없으면 생성
+                if not os.path.exists(target_dir):
+                    os.makedirs(target_dir, exist_ok=True)
+                
+                # 소스 폴더의 모든 항목 순회
+                for item in os.listdir(source_dir):
+                    source_item = os.path.join(source_dir, item)
+                    target_item = os.path.join(target_dir, item)
+                    
+                    if os.path.isdir(source_item):
+                        # 디렉토리인 경우 재귀적으로 복사
+                        sub_copied = copy_resources_recursive(source_item, target_item)
+                        copied_files.extend(sub_copied)
+                    else:
+                        # 파일인 경우 복사
+                        try:
+                            shutil.copy2(source_item, target_item)
+                            copied_files.append(os.path.relpath(target_item, target_dir))
+                            print(f"파일 복사됨: {os.path.relpath(target_item, target_dir)}")
+                        except Exception as e:
+                            print(f"파일 복사 실패: {item} - {e}")
+                
+                return copied_files
             
             # 앱 이름으로 폴더 생성
             app_name = self.basic_tab.app_name_edit.text()
@@ -243,7 +274,7 @@ class ConfigEditor(QMainWindow):
             # 특수문자 및 공백 처리
             app_folder_name = app_name.replace(" ", "_").replace(".", "_")
             
-            # 현재 실행 파일 경로 확인
+            # 실행 파일 경로 확인 (PyInstaller)
             if getattr(sys, 'frozen', False):
                 # PyInstaller로 패키징된 경우
                 base_path = sys._MEIPASS
@@ -255,6 +286,10 @@ class ConfigEditor(QMainWindow):
             
             # 앱 폴더 경로
             target_dir = os.path.join(parent_dir, app_folder_name)
+            
+            # "저장" 버튼과 동일한 기능 수행하지만, 외부 config.json에는 저장하지 않음
+            # 설정 업데이트 (모든 UI 항목의 값들을 self.config에 업데이트)
+            self.update_config_from_tabs()
             
             # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
             if os.path.exists(target_dir):
@@ -282,49 +317,120 @@ class ConfigEditor(QMainWindow):
             
             # 폴더 구조 생성
             os.makedirs(os.path.join(target_dir, "bin"), exist_ok=True)
-            os.makedirs(os.path.join(target_dir, "resources", "background"), exist_ok=True)
-            os.makedirs(os.path.join(target_dir, "resources", "font"), exist_ok=True)
+            os.makedirs(os.path.join(target_dir, "bin", "resources", "background"), exist_ok=True)
+            os.makedirs(os.path.join(target_dir, "bin", "resources", "font"), exist_ok=True)
             os.makedirs(os.path.join(target_dir, "config"), exist_ok=True)
-            
-            # 설정 파일 저장
-            config_path = os.path.join(target_dir, "config", "config.json")
-            with open(config_path, 'w', encoding='utf-8') as f:
+
+            # 배포 폴더 내에 config.json 파일 생성
+            target_config_path = os.path.join(target_dir, "config", "config.json")
+            with open(target_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=4)
             
-            # 실행 파일 복사
-            exe_files = ["kiosk_preview.exe", "kiosk_print.exe"]
-            for exe_file in exe_files:
-                source_path = os.path.join(base_path, exe_file)
+            # config.json 생성 후 저장 버튼 상태 업데이트
+            self.update_save_button_state()
+            
+            # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
+            resources_path = os.path.join(base_path, "resources")
+            font_path = os.path.join(resources_path, "font")
+            background_path = os.path.join(resources_path, "background")
+            
+            # 폴더 생성 여부를 저장할 변수
+            created_dirs = []
+            
+            # font 폴더가 없으면 생성
+            if not os.path.exists(font_path):
+                os.makedirs(font_path, exist_ok=True)
+                created_dirs.append("resources/font")
+                print(f"resources/font 폴더를 생성했습니다: {font_path}")
+            
+            # background 폴더가 없으면 생성
+            if not os.path.exists(background_path):
+                os.makedirs(background_path, exist_ok=True)
+                created_dirs.append("resources/background")
+                print(f"resources/background 폴더를 생성했습니다: {background_path}")
+            
+            
+            # json-reader.exe 파일 찾기 및 복사
+            json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
+            super_kiosk_program_copied = False
+
+            if os.path.exists(json_reader_exe):
+                # json-reader.exe 파일을 대상 폴더로 복사하면서 이름 변경
+                shutil.copy2(json_reader_exe, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                super_kiosk_program_copied = True
+                print(f"json-reader.exe 파일을 super-kiosk-program.exe로 복사했습니다.")
+            else:
+                # 다른 경로에서 json-reader.exe 찾기
+                possible_paths = [
+                    os.path.join(parent_dir, "dist", "json-reader.exe"),
+                    os.path.join(parent_dir, "build", "json-reader.exe"),
+                    os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                ]
+                
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        shutil.copy2(path, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                        super_kiosk_program_copied = True
+                        print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
+                        break
+            
+            # 필요한 파일들 목록
+            required_files = [
+                {"name": "kiosk_preview.exe", "source": os.path.join(base_path, "kiosk_preview.exe")},
+                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")}
+            ]
+            
+            # 폴더 목록
+            required_folders = [
+                {"name": "resources", "source": os.path.join(base_path, "resources")}
+            ]
+            
+            # 파일들을 대상 폴더로 복사
+            copied_files = []
+            missing_files = []
+            
+            for file_info in required_files:
+                source_path = file_info["source"]
+                target_path = os.path.join(target_dir, "bin", file_info["name"])
+                
                 if os.path.exists(source_path):
-                    shutil.copy2(source_path, os.path.join(target_dir, "bin", exe_file))
-                    print(f"복사 완료: {exe_file}")
+                    shutil.copy2(source_path, target_path)
+                    copied_files.append(file_info["name"])
                 else:
-                    print(f"파일을 찾을 수 없음: {source_path}")
+                    missing_files.append(file_info["name"])
             
-            # 메인 실행 파일(json-reader.exe)을 bin 폴더에 super-kiosk-program.exe로 복사
-            if getattr(sys, 'frozen', False):
-                # 패키징된 경우 현재 실행 파일 복사
-                shutil.copy2(sys.executable, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
-            
-            # 리소스 폴더 복사
-            resource_src = os.path.join(base_path, "resources")
-            resource_dest = os.path.join(target_dir, "resources")
-            
-            # 배경 이미지 복사
-            bg_src = os.path.join(resource_src, "background")
-            bg_dest = os.path.join(resource_dest, "background")
-            if os.path.exists(bg_src):
-                for file in os.listdir(bg_src):
-                    if file.endswith((".jpg", ".jpeg", ".png", ".bmp")):
-                        shutil.copy2(os.path.join(bg_src, file), os.path.join(bg_dest, file))
-            
-            # 폰트 파일 복사
-            font_src = os.path.join(resource_src, "font")
-            font_dest = os.path.join(resource_dest, "font")
-            if os.path.exists(font_src):
-                for file in os.listdir(font_src):
-                    if file.endswith((".ttf", ".otf")):
-                        shutil.copy2(os.path.join(font_src, file), os.path.join(font_dest, file))
+            # 폴더들을 대상 폴더로 복사 (재귀적으로)
+            copied_folders = []
+            missing_folders = []
+            copied_resource_files = []
+
+            for folder_info in required_folders:
+                source_path = folder_info["source"]
+                # 리소스 폴더를 bin 폴더 안에 복사
+                target_path = os.path.join(target_dir, "bin", folder_info["name"])
+                
+                if os.path.exists(source_path):
+                    # 대상 폴더가 존재하면 삭제 후 복사
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+                    
+                    # 재귀적 복사 함수 사용
+                    copied_files_list = copy_resources_recursive(source_path, target_path)
+                    if copied_files_list:
+                        copied_folders.append(folder_info["name"])
+                        copied_resource_files = copied_files_list
+                        
+                        # DLL과 폰트 파일 확인
+                        dll_files = [f for f in copied_files_list if f.endswith(".dll")]
+                        font_files = [f for f in copied_files_list if f.endswith((".ttf", ".otf"))]
+                        
+                        if dll_files:
+                            print(f"DLL 파일 {len(dll_files)}개 복사됨: {', '.join(dll_files)}")
+                        
+                        if font_files:
+                            print(f"폰트 파일 {len(font_files)}개 복사됨: {', '.join(font_files)}")
+                else:
+                    missing_folders.append(folder_info["name"])
             
             # 실행 배치 파일 생성
             batch_path = os.path.join(target_dir, "run_kiosk.bat")
@@ -333,17 +439,60 @@ class ConfigEditor(QMainWindow):
                 f.write("cd bin\n")
                 f.write("start super-kiosk-program.exe\n")
             
-            # 성공 메시지 표시
-            QMessageBox.information(
-                self, 
-                "배포 완료", 
-                f"배포 패키지가 '{app_folder_name}' 폴더에 생성되었습니다.\n\n"
-                f"폴더 구조:\n"
-                f"- bin/ (실행 파일)\n"
-                f"- resources/ (리소스 파일)\n"
-                f"- config/ (설정 파일)\n\n"
-                f"실행 방법: {app_folder_name}/run_kiosk.bat 파일을 실행하세요."
-            )
+            # 결과 메시지 구성
+            result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
             
+            # 폴더 생성 메시지 추가
+            if created_dirs:
+                result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
+            
+            if copied_files or copied_folders or super_kiosk_program_copied:
+                result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                
+                if super_kiosk_program_copied:
+                    result_message += "실행 파일:\n- super-kiosk-program.exe\n\n"
+                
+                if copied_files:
+                    result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
+                
+                if copied_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
+                    
+                    # DLL 및 폰트 파일 정보 추가
+                    dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
+                    font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
+                    
+                    if dll_files:
+                        result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
+                    
+                    if font_files:
+                        result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
+            
+            if not super_kiosk_program_copied:
+                result_message += "super-kiosk-program.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
+            
+            if missing_files or missing_folders:
+                result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
+                
+                if missing_files:
+                    result_message += "파일:\n- " + "\n- ".join(missing_files) + "\n\n"
+                
+                if missing_folders:
+                    result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
+            
+            # 사용자에게 결과 알림
+            if copied_files or copied_folders or super_kiosk_program_copied:
+                QMessageBox.information(
+                    self, 
+                    "배포용 파일 생성 완료", 
+                    result_message
+                )
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "배포용 파일 생성 실패", 
+                    result_message + "필요한 파일을 찾을 수 없습니다."
+                )
+                    
         except Exception as e:
             QMessageBox.warning(self, "오류", f"배포용 파일 처리 중 오류가 발생했습니다: {str(e)}")
