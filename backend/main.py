@@ -13,6 +13,7 @@ from PIL import Image,ExifTags
 import asyncio
 from pydantic import BaseModel
 import pymysql
+import traceback
 
 def apply_exif_orientation(image: Image.Image) -> Image.Image:
     try:
@@ -717,6 +718,7 @@ async def login(request: LoginRequest):
 
     except Exception as e:
         print(f"[LOGIN ERROR] {e}")
+        traceback.print_exc()  # ← 여기가 핵심
         raise HTTPException(status_code=500, detail="서버 내부 오류")
 
 
