@@ -6,7 +6,7 @@ import sys
 import os
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
-from login_window import LoginWindow
+from ui.screens.login_screen import LoginScreen as LoginWindow
 
 # 애플리케이션 중복 실행 방지 클래스
 class SingleApplication(QApplication):
