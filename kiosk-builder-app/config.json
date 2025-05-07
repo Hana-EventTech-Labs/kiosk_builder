@@ -36,7 +36,8 @@
         "x": 143,
         "y": 314,
         "width": 350,
-        "height": 400
+        "height": 400,
+        "background": ""
     },
     "qr_uploaded_image": {
         "exists": false,
@@ -60,7 +61,8 @@
         "margin_right": 0,
         "spacing": 30,
         "count": 0,
-        "items": []
+        "items": [],
+        "background": ""
     },
     "keyboard": {
         "x": 320,
@@ -96,7 +98,8 @@
         "preview_width": 300,
         "preview_height": 300,
         "x": 800,
-        "y": 600
+        "y": 600,
+        "background": ""
     },
     "splash": {
         "font": "",
@@ -104,7 +107,8 @@
         "font_size": 32,
         "font_color": "red",
         "x": 0,
-        "y": 0
+        "y": 0,
+        "background": ""
     },
     "process": {
         "font": "",
@@ -113,7 +117,8 @@
         "font_color": "#a4ff5e",
         "x": 0,
         "y": 0,
-        "process_time": 3000
+        "process_time": 3000,
+        "background": ""
     },
     "complete": {
         "font": "",
@@ -122,6 +127,7 @@
         "font_color": "green",
         "x": 0,
         "y": 0,
-        "complete_time": 2000
+        "complete_time": 2000,
+        "background": ""
     }
 }

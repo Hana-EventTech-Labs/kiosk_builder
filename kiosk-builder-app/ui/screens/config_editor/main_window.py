@@ -1,11 +1,13 @@
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, 
-                              QHBoxLayout, QPushButton, QMessageBox)
+                             QHBoxLayout, QPushButton, QMessageBox, QLabel)
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont, QIcon
 import json
 import copy
 import os
 import shutil
 from utils.config_handler import ConfigHandler
+from ui.styles.colors import COLORS  # 경로 수정됨
 from .basic_tab import BasicTab
 from .splash_tab import SplashTab
 from .capture_tab import CaptureTab
@@ -26,18 +28,122 @@ class ConfigEditor(QMainWindow):
         self.update_save_button_state()
         
     def init_ui(self):
-        self.setWindowTitle("슈퍼 키오스크 프로그램")
-        self.setMinimumSize(800, 600)
+        self.setWindowTitle("S.K Program - 설정 편집기")
+        self.setMinimumSize(1250, 900)
         
+        # 탭 위젯 스타일 수정 부분
+        self.setStyleSheet(f"""
+            QMainWindow {{
+                background-color: {COLORS['background']};
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }}
+            QTabWidget::pane {{
+                border: none;
+                background-color: {COLORS['background_light']};
+                border-radius: 10px;
+                padding: 10px;
+                margin-top: 0px;
+            }}
+            QTabWidget {{
+                background: transparent;
+                border: none;
+            }}
+            QTabBar {{
+                border-top: none;
+                border-bottom: none;
+            }}
+            QTabWidget::tab-bar {{
+                alignment: left;
+                border-top: none;
+                border-bottom: none;
+            }}
+            QTabBar::tab {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_muted']};
+                border: 1px solid {COLORS['border']};  /* 기본 테두리 */
+                padding: 10px 20px;
+                margin: 0 4px 0 0;
+                font-size: 13px;
+                font-weight: bold;
+                min-width: 120px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }}
+
+            QTabBar::tab:selected {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text_light']};
+                font-weight: bold;
+                border: 2px solid {COLORS['primary_dark']};
+                border-bottom: none;
+            }}
+            QTabBar::tab:!selected:hover {{
+                background-color: {COLORS['background_light']};
+                color: {COLORS['text_dark']};
+            }}
+            QTabBar::tab:disabled {{
+                color: {COLORS['disabled_text']};
+                background-color: {COLORS['disabled']};
+                opacity: 0.7;
+            }}
+            QGroupBox {{
+                border: 1px solid {COLORS['border']};
+                border-radius: 8px;
+                margin-top: 1.5ex;
+                padding-top: 1.5ex;
+                background-color: {COLORS['background']};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 10px;
+                color: {COLORS['text_dark']};
+                font-weight: bold;
+            }}
+            QScrollArea {{
+                border: none;
+                background-color: transparent;
+            }}
+        """)
         # 중앙 위젯 설정
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
         # 메인 레이아웃
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+        
+        # 헤더 추가
+        header_layout = QHBoxLayout()
+        
+        # 앱 타이틀
+        app_title = QLabel("프로그램 화면 설정")
+        app_title.setStyleSheet(f"""
+            color: {COLORS['primary']};
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        """)
+        header_layout.addWidget(app_title)
+        
+        # 헤더에 여백 추가
+        header_layout.addStretch()
+        main_layout.addLayout(header_layout)
+        
+        # 설명 레이블 추가
+        description = QLabel("키오스크 애플리케이션 설정을 편집하세요. 각 탭에서 특정 화면과 관련된 설정을 변경할 수 있습니다.")
+        description.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 13px; margin-bottom: 0px;")
+
+        main_layout.addWidget(description)
         
         # 탭 위젯 생성
         self.tab_widget = QTabWidget()
+        # self.tab_widget.setDocumentMode(True)  # 모던한 탭 스타일
+        self.tab_widget.setTabPosition(QTabWidget.North)  # 탭을 상단에 배치
+        self.tab_widget.setElideMode(Qt.ElideNone)  # 탭 텍스트 줄임 없음
+        self.tab_widget.setMovable(False)  # 탭 이동 불가
+        self.tab_widget.setUsesScrollButtons(True)  # 필요시 스크롤 버튼 사용
         main_layout.addWidget(self.tab_widget)
         
         # 탭 생성
@@ -67,22 +173,68 @@ class ConfigEditor(QMainWindow):
         
         # 버튼 레이아웃
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 15, 0, 0)
         main_layout.addLayout(button_layout)
         
+        # 버튼 스타일 정의
+        btn_style = f"""
+            QPushButton {{
+                background-color: {COLORS['primary']};
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 12px 20px;
+                font-weight: bold;
+                font-size: 16px;
+                min-width: 120px;
+                height: 45px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['primary_dark']};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLORS['primary_darker']};
+            }}
+            QPushButton:disabled {{
+                background-color: {COLORS['disabled']};
+                color: {COLORS['disabled_text']};
+            }}
+        """
+        
         # 배포용 생성 버튼
-        build_button = QPushButton("배포용 생성")
-        build_button.clicked.connect(self.create_distribution)
-        button_layout.addWidget(build_button)
+        self.build_button = QPushButton("배포용 생성")
+        self.build_button.setStyleSheet(btn_style)
+        self.build_button.clicked.connect(self.create_distribution)
+        button_layout.addWidget(self.build_button)
+        
+        # 버튼 사이 간격
+        button_layout.addSpacing(10)
         
         # 저장 버튼
         self.save_button = QPushButton("저장")
+        self.save_button.setStyleSheet(btn_style)
         self.save_button.clicked.connect(self.save_config)
         button_layout.addWidget(self.save_button)
-                
+        
+        # 버튼 사이 간격
+        button_layout.addSpacing(10)
+        
         # 다시 로드 버튼
-        reload_button = QPushButton("다시 로드")
-        reload_button.clicked.connect(self.reload_config)
-        button_layout.addWidget(reload_button)
+        self.reload_button = QPushButton("다시 로드")
+        self.reload_button.setStyleSheet(btn_style)
+        self.reload_button.clicked.connect(self.reload_config)
+        button_layout.addWidget(self.reload_button)
+        
+        # 상태 바 설정
+        status_bar = self.statusBar()
+        status_bar.setStyleSheet(f"""
+            QStatusBar {{
+                background-color: {COLORS['background_light']};
+                color: {COLORS['text_muted']};
+                border-top: 1px solid {COLORS['border']};
+            }}
+        """)
+        status_bar.showMessage("슈퍼 키오스크 설정 프로그램이 준비되었습니다.")
         
     def update_tab_enabled_states(self):
         """현재 screen_order 설정에 따라 탭 활성화/비활성화 상태를 업데이트"""
@@ -139,16 +291,19 @@ class ConfigEditor(QMainWindow):
         
         if missing_fonts:
             error_msg = "다음 폰트 파일을 찾을 수 없습니다:\n\n" + "\n".join(missing_fonts)
-            QMessageBox.warning(self, "폰트 파일 누락", error_msg)
+            self.show_message_box("폰트 파일 누락", error_msg, QMessageBox.Warning)
             return
         
         # 설정 저장
         if self.config_handler.save_config(self.config):
-            QMessageBox.information(self, "저장 완료", "설정이 저장되었습니다.")
+            self.show_message_box("저장 완료", "설정이 저장되었습니다.", QMessageBox.Information)
+            # 상태 메시지 업데이트
+            self.statusBar().showMessage("설정이 성공적으로 저장되었습니다.")
             # 저장 버튼 상태 업데이트
             self.update_save_button_state()
         else:
-            QMessageBox.warning(self, "저장 실패", "설정 저장 중 오류가 발생했습니다.")
+            self.show_message_box("저장 실패", "설정 저장 중 오류가 발생했습니다.", QMessageBox.Warning)
+            self.statusBar().showMessage("설정 저장 중 오류가 발생했습니다.")
     
     def update_config_from_tabs(self):
         """각 탭에서 설정 값을 가져와 self.config를 업데이트"""
@@ -204,7 +359,8 @@ class ConfigEditor(QMainWindow):
         """설정을 다시 로드하고 UI를 업데이트합니다."""
         self.config = copy.deepcopy(self.config_handler.load_config())
         self.update_ui_from_config()
-        QMessageBox.information(self, "설정 로드", "설정이 다시 로드되었습니다.")
+        self.show_message_box("설정 로드", "설정이 다시 로드되었습니다.", QMessageBox.Information)
+        self.statusBar().showMessage("설정이 다시 로드되었습니다.")
     
     def update_ui_from_config(self):
         """현재 설정에 따라 UI 요소들을 업데이트합니다."""
@@ -226,6 +382,49 @@ class ConfigEditor(QMainWindow):
             self.save_button.setEnabled(True)
         else:
             self.save_button.setEnabled(False)
+
+    def show_message_box(self, title, message, icon=QMessageBox.Information):
+        """스타일이 적용된 메시지 박스 표시"""
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setIcon(icon)
+        
+        # 메시지 박스 너비 설정
+        msg_box.setMinimumWidth(400)
+        
+        # 메시지 박스 스타일 설정
+        msg_box.setStyleSheet(f"""
+            QMessageBox {{
+                background-color: {COLORS['background']};
+                font-family: 'Segoe UI', Arial, sans-serif;
+            }}
+            QLabel {{
+                color: {COLORS['text_dark']};
+                font-size: 12px;
+                padding: 10px;
+                qproperty-alignment: AlignLeft;
+            }}
+            QPushButton {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text_light']};
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                min-width: 80px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['primary_dark']};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLORS['primary_darker']};
+            }}
+        """)
+        
+        return msg_box.exec_()
+        
+    
     def create_distribution(self):
         """배포용 파일 생성 및 복사"""
         # 배포용 파일 처리
@@ -319,10 +518,7 @@ class ConfigEditor(QMainWindow):
             os.makedirs(os.path.join(target_dir, "bin"), exist_ok=True)
             os.makedirs(os.path.join(target_dir, "bin", "resources", "background"), exist_ok=True)
             os.makedirs(os.path.join(target_dir, "bin", "resources", "font"), exist_ok=True)
-            # target_config_path = os.path.join(target_dir, "bin", "config.json")
-            # with open(target_config_path, 'w', encoding='utf-8') as f:
-            #     json.dump(self.config, f, ensure_ascii=False, indent=4)
-
+            
             # 배포 폴더 내에 config.json 파일 생성
             target_config_path = os.path.join(target_dir, "bin", "config.json")
             with open(target_config_path, 'w', encoding='utf-8') as f:
