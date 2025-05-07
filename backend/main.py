@@ -691,17 +691,23 @@ async def login(request: LoginRequest):
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM users WHERE login_id = %s AND is_active = 1", (request.login_id,))
             user = cursor.fetchone()
-
+        
             if not user:
                 raise HTTPException(status_code=401, detail="존재하지 않는 사용자입니다.")
-                
-            # ✅ 사용 기한 만료 체크
-            if user["usage_period"] and user["usage_period"] < datetime.date.today():
-                raise HTTPException(status_code=403, detail="계정 사용 기간이 만료되었습니다.")
-                
-            if request.password != user["password"]:  # 실제 서비스에서는 bcrypt 비교 필요
+            
+            # 날짜 타입 체크 및 변환
+            if user["usage_period"]:
+                if isinstance(user["usage_period"], str):
+                    user["usage_period"] = datetime.datetime.strptime(user["usage_period"], "%Y-%m-%d").date()
+                elif isinstance(user["usage_period"], datetime.datetime):
+                    user["usage_period"] = user["usage_period"].date()
+        
+                if user["usage_period"] < datetime.date.today():
+                    raise HTTPException(status_code=403, detail="계정 사용 기간이 만료되었습니다.")
+            
+            if request.password != user["password"]:
                 raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다.")
-
+            
             return {
                 "success": True,
                 "user_id": user["user_id"],
