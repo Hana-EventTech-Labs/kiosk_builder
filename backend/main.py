@@ -676,6 +676,9 @@ class LoginRequest(BaseModel):
     login_id: str
     password: str
 
+from fastapi import HTTPException
+import traceback
+
 @app.post("/api/auth/login")
 async def login(request: LoginRequest):
     try:
@@ -702,7 +705,7 @@ async def login(request: LoginRequest):
                     user["usage_period"] = datetime.datetime.strptime(user["usage_period"], "%Y-%m-%d").date()
                 elif isinstance(user["usage_period"], datetime.datetime):
                     user["usage_period"] = user["usage_period"].date()
-        
+
                 if user["usage_period"] < datetime.date.today():
                     raise HTTPException(status_code=403, detail="계정 사용 기간이 만료되었습니다.")
             
@@ -716,11 +719,12 @@ async def login(request: LoginRequest):
                 "role": user["role"]
             }
 
+    except HTTPException as e:
+        raise e  # 👈 FastAPI가 처리할 수 있게 그대로 전달
     except Exception as e:
         print(f"[LOGIN ERROR] {e}")
-        traceback.print_exc()  # ← 여기가 핵심
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="서버 내부 오류")
-
 
 # @app.delete("/api/events/{event_id}")
 # async def delete_event(event_id: str):
