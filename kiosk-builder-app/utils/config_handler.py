@@ -13,6 +13,7 @@ class ConfigHandler:
             "config.json",                    # 현재 폴더
             "config/config.json",             # config 폴더
             "../config/config.json",          # 상위 폴더의 config 폴더
+            "bin/config.json",                # bin 폴더 (배포용)
         ]
         self.config_path = self.find_config_file()
         self.default_config = {

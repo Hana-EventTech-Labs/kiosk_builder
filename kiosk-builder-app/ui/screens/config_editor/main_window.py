@@ -319,10 +319,12 @@ class ConfigEditor(QMainWindow):
             os.makedirs(os.path.join(target_dir, "bin"), exist_ok=True)
             os.makedirs(os.path.join(target_dir, "bin", "resources", "background"), exist_ok=True)
             os.makedirs(os.path.join(target_dir, "bin", "resources", "font"), exist_ok=True)
-            os.makedirs(os.path.join(target_dir, "config"), exist_ok=True)
+            # target_config_path = os.path.join(target_dir, "bin", "config.json")
+            # with open(target_config_path, 'w', encoding='utf-8') as f:
+            #     json.dump(self.config, f, ensure_ascii=False, indent=4)
 
             # 배포 폴더 내에 config.json 파일 생성
-            target_config_path = os.path.join(target_dir, "config", "config.json")
+            target_config_path = os.path.join(target_dir, "bin", "config.json")
             with open(target_config_path, 'w', encoding='utf-8') as f:
                 json.dump(self.config, f, ensure_ascii=False, indent=4)
             
