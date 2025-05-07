@@ -50,6 +50,19 @@ class NumberLineEdit(QLineEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setValidator(QIntValidator())
+        self.setMinimumHeight(35)
+        self.setStyleSheet(f"""
+            QLineEdit {{
+                border: 2px solid {COLORS['border']};
+                border-radius: 6px;
+                padding: 5px 8px;
+                background-color: {COLORS['background_light']};
+                color: {COLORS['text_dark']};
+            }}
+            QLineEdit:focus {{
+                border: 2px solid {COLORS['primary']};
+            }}
+        """)
     
     def setValue(self, value):
         self.setText(str(value))
