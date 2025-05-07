@@ -11,7 +11,8 @@ import datetime
 from pathlib import Path
 from PIL import Image,ExifTags
 import asyncio
-
+from pydantic import BaseModel
+import pymysql
 
 def apply_exif_orientation(image: Image.Image) -> Image.Image:
     try:
@@ -666,6 +667,49 @@ async def get_event_page(event_id: str):
         </body>
     </html>
     """
+
+
+
+# 요청 모델 정의
+class LoginRequest(BaseModel):
+    login_id: str
+    password: str
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    try:
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db=os.getenv("DB_NAME"),
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM users WHERE login_id = %s AND is_active = 1", (request.login_id,))
+            user = cursor.fetchone()
+
+            if not user:
+                raise HTTPException(status_code=401, detail="존재하지 않는 사용자입니다.")
+
+            if request.password != user["password"]:  # 실제 서비스에서는 bcrypt 비교 필요
+                raise HTTPException(status_code=401, detail="비밀번호가 일치하지 않습니다.")
+
+            return {
+                "success": True,
+                "user_id": user["user_id"],
+                "username": user["username"],
+                "role": user["role"]
+            }
+
+    except Exception as e:
+        print(f"[LOGIN ERROR] {e}")
+        raise HTTPException(status_code=500, detail="서버 내부 오류")
+
+
 # @app.delete("/api/events/{event_id}")
 # async def delete_event(event_id: str):
 #     event_dir = UPLOAD_DIR / event_id
