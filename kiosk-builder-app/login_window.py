@@ -32,12 +32,12 @@ class LoginWindow(QWidget):
         password = self.pw_input.text()
 
         try:
-            success = login(login_id, password)
+            success, message = login(login_id, password)
             if success:
                 self.close()
                 if self.on_login_success:
                     self.on_login_success()
             else:
-                QMessageBox.warning(self, "로그인 실패", "아이디 또는 비밀번호가 올바르지 않습니다.")
+                QMessageBox.warning(self, "로그인 실패", message)
         except Exception as e:
-            QMessageBox.critical(self, "오류", f"로그인 중 오류 발생: {e}")
+            QMessageBox.critical(self, "오류", f"로그인 중 예외 발생: {e}")
