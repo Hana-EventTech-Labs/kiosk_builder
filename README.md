@@ -151,5 +151,5 @@ pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-
 
 ### kiosk-builder-app 용 pyinstaller 명령어 (2번)
 ```
-pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --add-data "kiosk_preview.exe;." --add-data "kiosk_print.exe;." --name json-reader main.py
+pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --add-data "kiosk_preview.exe;." --add-data "kiosk_print.exe;." --name json-reader run_gui.py
 ```

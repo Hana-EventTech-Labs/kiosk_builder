@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLineEdit, QLabel, QHBoxLayout
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QPixmap
+from PySide6.QtGui import QFont, QPixmap, QIntValidator
 import os
 from ..styles.colors import COLORS
 
@@ -44,3 +44,18 @@ class ModernLineEdit(QLineEdit):
             # 아이콘 레이아웃에 추가
             self.icon_layout.addWidget(self.icon_label)
             self.icon_layout.addStretch()
+
+
+class NumberLineEdit(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setValidator(QIntValidator())
+    
+    def setValue(self, value):
+        self.setText(str(value))
+    
+    def value(self):
+        try:
+            return int(self.text())
+        except ValueError:
+            return 0
