@@ -1,0 +1,21 @@
+# 앱 전체에서 사용할 색상 정의
+COLORS = {
+    'primary': '#00A8FF',
+    'primary_dark': '#0086CC',
+    'primary_darker': '#005F8F',
+    'secondary': '#6C757D',
+    'success': '#28A745',
+    'danger': '#DC3545',
+    'warning': '#FFC107',
+    'info': '#17A2B8',
+    'light': '#F8F9FA',
+    'dark': '#343A40',
+    'background': '#FFFFFF',
+    'background_light': '#FAFAFA',
+    'text_dark': '#333333',
+    'text_light': '#FFFFFF',
+    'text_muted': '#777777',
+    'border': '#DBDBDB',
+    'disabled': '#CCCCCC',
+    'disabled_text': '#888888',
+}

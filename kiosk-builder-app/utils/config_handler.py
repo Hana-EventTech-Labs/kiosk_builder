@@ -9,7 +9,13 @@ from tkinter import messagebox
 
 class ConfigHandler:
     def __init__(self):
-        self.config_path = "config.json"
+        self.config_paths = [
+            "config.json",                    # 현재 폴더
+            "config/config.json",             # config 폴더
+            "../config/config.json",          # 상위 폴더의 config 폴더
+            "bin/config.json",                # bin 폴더 (배포용)
+        ]
+        self.config_path = self.find_config_file()
         self.default_config = {
             "app_name": "Kiosk App",
             "screen_size": {
@@ -148,6 +154,15 @@ class ConfigHandler:
         }
         self.config = self.load_config()
 
+    def find_config_file(self):
+        """사용 가능한 설정 파일 찾기"""
+        for path in self.config_paths:
+            if os.path.exists(path):
+                return path
+        
+        # 설정 파일이 없으면 기본 경로 반환
+        return self.config_paths[0]
+
     def load_config(self):
         """기존 config.json 파일을 로드하거나 없으면 기본 설정을 반환"""
         if os.path.exists(self.config_path):
@@ -209,9 +224,14 @@ class ConfigHandler:
     def save_config(self, config_data):
         """설정을 JSON 파일로 저장"""
         try:
+            # 폴더가 존재하는지 확인하고 필요하면 생성
+            directory = os.path.dirname(self.config_path)
+            if directory and not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(config_data, f, ensure_ascii=False, indent=4)
             return True
         except Exception as e:
             print(f"설정 파일 저장 오류: {e}")
-            return False 
+            return False
