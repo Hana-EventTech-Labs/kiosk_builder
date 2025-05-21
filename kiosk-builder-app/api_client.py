@@ -14,6 +14,8 @@ def login(login_id: str, password: str) -> tuple[bool, str, int]:
     Returns:
         tuple: (성공 여부, 메시지, 사용자 ID)
     """
+
+def login(login_id: str, password: str) -> tuple[bool, str]:
     url = f"{BASE_URL}/api/auth/login"
     payload = {"login_id": login_id, "password": password}
     try:

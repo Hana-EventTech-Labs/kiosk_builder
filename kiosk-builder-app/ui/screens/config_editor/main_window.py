@@ -475,7 +475,7 @@ class ConfigEditor(QMainWindow):
                             print(f"파일 복사됨: {os.path.relpath(target_item, target_dir)}")
                         except Exception as e:
                             print(f"파일 복사 실패: {item} - {e}")
-                    
+
                 return copied_files
             
             # 앱 이름으로 폴더 생성
@@ -483,7 +483,7 @@ class ConfigEditor(QMainWindow):
             if not app_name:
                 self.show_message_box("경고", "앱 이름을 입력해주세요.", QMessageBox.Warning)
                 return
-            
+
             # 특수문자 및 공백 처리
             app_folder_name = app_name.replace(" ", "_").replace(".", "_")
             
