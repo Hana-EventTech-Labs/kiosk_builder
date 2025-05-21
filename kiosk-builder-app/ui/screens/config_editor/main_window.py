@@ -31,7 +31,7 @@ class ConfigEditor(QMainWindow):
         self.setWindowTitle("S.K Program - 설정 편집기")
         self.setMinimumSize(1250, 900)
         
-        # 탭 위젯 스타일 수정 부분
+        # 탭 위젯 스타일
         self.setStyleSheet(f"""
             QMainWindow {{
                 background-color: {COLORS['background']};
@@ -84,6 +84,8 @@ class ConfigEditor(QMainWindow):
             QTabBar::tab:disabled {{
                 color: {COLORS['disabled_text']};
                 background-color: {COLORS['disabled']};
+                border-color: {COLORS['disabled']};
+                font-style: italic;
                 opacity: 0.7;
             }}
             QGroupBox {{
@@ -151,22 +153,22 @@ class ConfigEditor(QMainWindow):
         self.tab_widget.addTab(self.basic_tab, "기본 설정")
         
         self.splash_tab = SplashTab(self.config)
-        self.tab_widget.addTab(self.splash_tab, "스플래쉬 화면")
+        self.tab_widget.addTab(self.splash_tab, "스플래쉬 화면(0)")
         
         self.capture_tab = CaptureTab(self.config)
-        self.tab_widget.addTab(self.capture_tab, "촬영 화면")
+        self.tab_widget.addTab(self.capture_tab, "촬영 화면(1)")
         
         self.keyboard_tab = KeyboardTab(self.config)
-        self.tab_widget.addTab(self.keyboard_tab, "키보드 화면")
+        self.tab_widget.addTab(self.keyboard_tab, "키보드 화면(2)")
         
         self.qr_tab = QRTab(self.config)
-        self.tab_widget.addTab(self.qr_tab, "QR코드 화면")
+        self.tab_widget.addTab(self.qr_tab, "QR코드 화면(3)")
         
         self.processing_tab = ProcessingTab(self.config)
-        self.tab_widget.addTab(self.processing_tab, "발급중 화면")
+        self.tab_widget.addTab(self.processing_tab, "발급중 화면(4)")
         
         self.complete_tab = CompleteTab(self.config)
-        self.tab_widget.addTab(self.complete_tab, "발급완료 화면")
+        self.tab_widget.addTab(self.complete_tab, "발급완료 화면(5)")
         
         # 화면 순서에 따라 탭 활성화/비활성화 설정
         self.update_tab_enabled_states()
@@ -241,7 +243,21 @@ class ConfigEditor(QMainWindow):
         try:
             # 화면 순서 가져오기 - 기본 탭에서 화면 순서 텍스트를 가져옴
             screen_order_text = self.basic_tab.screen_order_edit.text()
-            screen_order = [int(x.strip()) for x in screen_order_text.split(",")]
+            
+            if not screen_order_text.strip():
+                # 텍스트가 비어있으면 기본 config 값 사용
+                screen_order = self.config["screen_order"]
+            else:
+                try:
+                    # 텍스트에서 화면 순서 파싱
+                    screen_order = [int(x.strip()) for x in screen_order_text.split(",")]
+                except ValueError:
+                    # 변환할 수 없는 값이 있으면 모든 탭 활성화
+                    for i in range(1, 7):
+                        self.tab_widget.setTabEnabled(i, True)
+                    # 탭 스타일 업데이트
+                    self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
+                    return
             
             # 탭 인덱스 매핑
             tab_indices = {
@@ -253,7 +269,7 @@ class ConfigEditor(QMainWindow):
                 5: 6   # 화면 타입 5 (발급완료) -> 탭 인덱스 6
             }
             
-            # 모든 화면 탭 비활성화
+            # 먼저 모든 화면 탭 비활성화
             for i in range(1, 7):  # 1부터 6까지 (기본 설정 탭 제외)
                 self.tab_widget.setTabEnabled(i, False)
             
@@ -263,25 +279,22 @@ class ConfigEditor(QMainWindow):
                     tab_index = tab_indices.get(screen_type)
                     if tab_index is not None:
                         self.tab_widget.setTabEnabled(tab_index, True)
-                        
-            # 탭 활성화 상태에 따라 시각적 표시 업데이트
-            for i in range(1, 7):
-                tab_text = self.tab_widget.tabText(i)
-                if not self.tab_widget.isTabEnabled(i):
-                    if not tab_text.startswith("[비활성] "):
-                        self.tab_widget.setTabText(i, f"[비활성] {tab_text}")
-                else:
-                    if tab_text.startswith("[비활성] "):
-                        self.tab_widget.setTabText(i, tab_text[6:])
-                        
-        except ValueError:
-            # 숫자로 변환할 수 없는 값이 있으면 모든 탭 활성화
+            
+            # 탭 스타일 업데이트 - CSS가 적용되도록 스타일시트 리프레시
+            self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
+            
+            # 상태 바 업데이트
+            self.statusBar().showMessage(f"화면 순서가 업데이트되었습니다: {', '.join(map(str, screen_order))}")
+            
+        except Exception as e:
+            print(f"탭 활성화 상태 업데이트 중 오류 발생: {e}")
+            # 오류가 발생하면 모든 탭 활성화
             for i in range(1, 7):
                 self.tab_widget.setTabEnabled(i, True)
-                tab_text = self.tab_widget.tabText(i)
-                if tab_text.startswith("[비활성] "):
-                    self.tab_widget.setTabText(i, tab_text[6:])
-    
+            # 탭 스타일 업데이트
+            self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
+            
+            
     def save_config(self):
         # 각 탭에서 설정 값 가져오기
         self.update_config_from_tabs()

@@ -21,6 +21,9 @@
     },
     "screen_order": [
         0,
+        1,
+        2,
+        3,
         4,
         5
     ],
@@ -31,7 +34,7 @@
         "height": 720
     },
     "photo": {
-        "exists": false,
+        "exists": true,
         "filename": "captured_image.jpg",
         "x": 143,
         "y": 314,
@@ -40,7 +43,7 @@
         "background": ""
     },
     "qr_uploaded_image": {
-        "exists": false,
+        "exists": true,
         "filename": "qr_uploaded_image.jpg",
         "x": 143,
         "y": 314,

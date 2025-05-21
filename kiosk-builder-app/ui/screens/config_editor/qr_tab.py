@@ -15,6 +15,7 @@ class QRTab(BaseTab):
         
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
+        self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
         
         # 원본 파일명 표시
@@ -30,6 +31,7 @@ class QRTab(BaseTab):
         
         # QR 코드 설정 그룹
         qr_group = QGroupBox("QR 코드 설정")
+        self.apply_left_aligned_group_style(qr_group)
         qr_layout = QFormLayout(qr_group)
         
         self.qr_fields = {}
@@ -59,6 +61,7 @@ class QRTab(BaseTab):
         
         # 업로드 이미지 설정 그룹박스 추가
         qr_uploaded_group = QGroupBox("이미지 인쇄 설정")
+        self.apply_left_aligned_group_style(qr_uploaded_group)
         qr_uploaded_layout = QFormLayout(qr_uploaded_group)
         
         self.qr_uploaded_fields = {}

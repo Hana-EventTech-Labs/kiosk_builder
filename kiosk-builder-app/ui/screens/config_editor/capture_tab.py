@@ -16,6 +16,7 @@ class CaptureTab(BaseTab):
         
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
+        self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
         
         # 원본 파일명 표시
@@ -31,6 +32,8 @@ class CaptureTab(BaseTab):
         
         # 프레임 설정
         frame_group = QGroupBox("카메라 위치 및 크기")
+        self.apply_left_aligned_group_style(frame_group)
+
         frame_layout = QFormLayout(frame_group)
         
         self.frame_fields = {}
@@ -47,6 +50,7 @@ class CaptureTab(BaseTab):
         
         # 사진 설정 추가 (photo)
         photo_group = QGroupBox("촬영 사진 설정")
+        self.apply_left_aligned_group_style(photo_group)
         photo_layout = QFormLayout(photo_group)
         
         self.photo_fields = {}
@@ -64,6 +68,7 @@ class CaptureTab(BaseTab):
         
         # 카메라 카운트 설정
         camera_count_group = QGroupBox("카메라 카운트 설정")
+        self.apply_left_aligned_group_style(camera_count_group)
         camera_count_layout = QFormLayout(camera_count_group)
         
         self.camera_count_fields = {}

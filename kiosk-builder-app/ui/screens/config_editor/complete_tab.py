@@ -16,6 +16,7 @@ class CompleteTab(BaseTab):
         
         # 발급완료 화면 설정
         complete_group = QGroupBox("발급완료 화면 설정")
+        self.apply_left_aligned_group_style(complete_group)
         complete_layout = QFormLayout(complete_group)
         
         # 필드 저장을 위한 딕셔너리

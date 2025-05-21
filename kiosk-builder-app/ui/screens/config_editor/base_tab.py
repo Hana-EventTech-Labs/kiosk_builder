@@ -1,6 +1,8 @@
+#모든 설정 탭의 기본 클래스(부모 클래스)
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel
 from PySide6.QtCore import Qt
-from ui.styles.colors import COLORS  # 경로 수정됨
+from ui.styles.colors import COLORS
 
 class BaseTab(QWidget):
     def __init__(self, config):
@@ -50,3 +52,20 @@ class BaseTab(QWidget):
     def update_config(self, config):
         """UI 내용을 config에 업데이트 (하위 클래스에서 구현)"""
         pass
+    
+    # BaseTab 클래스에 추가할 메서드
+    def apply_left_aligned_group_style(self, group_box):
+        """그룹박스 제목을 왼쪽 정렬로 설정"""
+        group_box.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 14px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding-left: 5px;
+                padding-right: 5px;
+            }
+        """)
+        return group_box

@@ -16,6 +16,7 @@ class ProcessingTab(BaseTab):
         
         # 발급중 화면 설정
         process_group = QGroupBox("발급중 화면 설정")
+        self.apply_left_aligned_group_style(process_group)
         process_layout = QFormLayout(process_group)
         
         # 필드 저장을 위한 딕셔너리

@@ -16,6 +16,7 @@ class KeyboardTab(BaseTab):
         
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
+        self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
         
         # 원본 파일명 표시
@@ -31,6 +32,7 @@ class KeyboardTab(BaseTab):
         
         # 키보드 위치 및 크기
         position_group = QGroupBox("키보드 위치 및 크기")
+        self.apply_left_aligned_group_style(position_group)
         position_layout = QFormLayout(position_group)
         
         self.keyboard_position_fields = {}
@@ -47,6 +49,7 @@ class KeyboardTab(BaseTab):
         
         # 텍스트 입력 설정
         text_input_group = QGroupBox("사용자 입력 필드 설정")
+        self.apply_left_aligned_group_style(text_input_group)
         text_input_layout = QVBoxLayout(text_input_group)
         
         # 텍스트 입력 기본 설정
@@ -96,16 +99,17 @@ class KeyboardTab(BaseTab):
         
         # 텍스트 설정
         texts_group = QGroupBox("고정 텍스트 설정")
+        self.apply_left_aligned_group_style(texts_group)
         texts_layout = QVBoxLayout(texts_group)
         
         # 텍스트 개수 설정
         text_count_layout = QHBoxLayout()
-        text_count_label = QLabel("고정 텍스트 개수:")
+        # text_count_label = QLabel("고정 텍스트 개수:")
         self.text_count_spinbox = QSpinBox()
         self.text_count_spinbox.setRange(0, 10)
         self.text_count_spinbox.setValue(self.config["texts"]["count"])
         self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        text_count_layout.addWidget(text_count_label)
+        # text_count_layout.addWidget(text_count_label)
         text_count_layout.addWidget(self.text_count_spinbox)
         text_count_layout.addStretch()
         
@@ -125,6 +129,7 @@ class KeyboardTab(BaseTab):
         
         # 키보드 스타일
         style_group = QGroupBox("키보드 스타일")
+        self.apply_left_aligned_group_style(style_group)
         style_layout = QFormLayout(style_group)
         
         self.keyboard_style_fields = {}

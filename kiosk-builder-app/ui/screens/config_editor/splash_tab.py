@@ -16,6 +16,7 @@ class SplashTab(BaseTab):
         
         # 스플래시 화면 설정
         splash_group = QGroupBox("스플래쉬 화면 설정")
+        self.apply_left_aligned_group_style(splash_group)
         splash_layout = QFormLayout(splash_group)
         
         # 필드 저장을 위한 딕셔너리

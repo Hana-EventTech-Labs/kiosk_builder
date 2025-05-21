@@ -1,6 +1,9 @@
+#BaseTab을 상속받은 구체적인 탭 클래스
+
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                              QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox)
-from ui.components.inputs import NumberLineEdit
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox)
+from PySide6.QtCore import Qt  # Qt 모듈 추가
+from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -13,33 +16,65 @@ class BasicTab(BaseTab):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
         content_layout = self.create_tab_with_scroll()
         
-        # 폼 레이아웃
-        form_layout = QFormLayout()
-        content_layout.addLayout(form_layout)
-        
-        # 앱 이름
-        self.app_name_edit = QLineEdit(self.config["app_name"])
-        form_layout.addRow("앱 이름:", self.app_name_edit)
+        # 앱 이름 그룹박스 추가
+        app_name_group = QGroupBox("앱 이름")
+        self.apply_left_aligned_group_style(app_name_group)
+        app_name_layout = QFormLayout(app_name_group)
+
+        # 정렬 설정
+        app_name_layout.setLabelAlignment(Qt.AlignVCenter | Qt.AlignRight)
+        app_name_layout.setFormAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+
+        # 앱 이름 입력 필드 - ModernLineEdit 사용
+        from ui.components.inputs import ModernLineEdit
+        self.app_name_edit = ModernLineEdit(placeholder="앱 이름을 입력하세요")
+
+        # 높이 설정으로 정렬 조정
+        self.app_name_edit.setFixedHeight(35)  # 다른 입력 필드와 동일한 높이로 조정
+
+        self.app_name_edit.setText(self.config["app_name"])
+        app_name_layout.addRow(self.app_name_edit)
+
+        # 그룹박스를 레이아웃에 추가
+        content_layout.addWidget(app_name_group)
         
         # 화면 순서
-        screen_order_group = QGroupBox("화면 순서")
+        screen_order_group = QGroupBox("화면 순서( 쉼표 구분 )")
+        self.apply_left_aligned_group_style(screen_order_group)
         screen_order_layout = QVBoxLayout(screen_order_group)
-        
-        screen_order_label = QLabel("화면 순서 (쉼표로 구분):")
-        screen_order_layout.addWidget(screen_order_label)
-        
-        self.screen_order_edit = QLineEdit(",".join(map(str, self.config["screen_order"])))
+
+        # 레이블과 입력 필드를 포함할 폼 레이아웃 생성
+        screen_order_form = QFormLayout()
+        screen_order_form.setLabelAlignment(Qt.AlignVCenter | Qt.AlignRight)
+        screen_order_form.setFormAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+
+        # ModernLineEdit 사용하도록 변경
+        self.screen_order_edit = ModernLineEdit(placeholder="예: 0,1,2,3,4,5")
+
+        # 높이 설정으로 정렬 조정
+        self.screen_order_edit.setFixedHeight(35)  # 다른 입력 필드와 동일한 높이로 조정
+
+        self.screen_order_edit.setText(",".join(map(str, self.config["screen_order"])))
         self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
-        screen_order_layout.addWidget(self.screen_order_edit)
-        
+
+        # 폼 레이아웃에 레이블과 입력 필드 추가
+        screen_order_form.addRow(self.screen_order_edit)
+
+        # 폼 레이아웃을 메인 레이아웃에 추가
+        screen_order_layout.addLayout(screen_order_form)
+
+        # 설명 레이블 추가
         screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
         screen_order_info.setStyleSheet("color: gray;")
         screen_order_layout.addWidget(screen_order_info)
-        
+
         content_layout.addWidget(screen_order_group)
+
         
         # 모니터 크기
         screen_group = QGroupBox("모니터 크기")
+        self.apply_left_aligned_group_style(screen_group)
+
         screen_layout = QFormLayout(screen_group)
         
         self.screen_width_edit = NumberLineEdit()
@@ -54,6 +89,7 @@ class BasicTab(BaseTab):
         
         # 카메라 해상도
         camera_group = QGroupBox("카메라 해상도")
+        self.apply_left_aligned_group_style(camera_group)
         camera_layout = QFormLayout(camera_group)
         
         # 카메라 해상도 콤보박스 생성
@@ -90,6 +126,7 @@ class BasicTab(BaseTab):
         
         # 실제 인쇄 영역
         crop_group = QGroupBox("실제 인쇄 영역(예시: 945, 1080, 487, 0)")
+        self.apply_left_aligned_group_style(crop_group)
         crop_layout = QFormLayout(crop_group)
         
         self.crop_fields = {}
@@ -114,16 +151,17 @@ class BasicTab(BaseTab):
         """이미지 설정 초기화"""
         # 이미지 설정 그룹
         images_group = QGroupBox("이미지 설정")
+        self.apply_left_aligned_group_style(images_group)
         images_layout = QVBoxLayout(images_group)
         
         # 이미지 개수 설정
         image_count_layout = QHBoxLayout()
-        image_count_label = QLabel("이미지 개수:")
+        # image_count_label = QLabel("이미지 개수:")
         self.image_count_spinbox = QSpinBox()
         self.image_count_spinbox.setRange(0, 10)
         self.image_count_spinbox.setValue(self.config["images"]["count"])
         self.image_count_spinbox.valueChanged.connect(self.update_image_items)
-        image_count_layout.addWidget(image_count_label)
+        # image_count_layout.addWidget(image_count_label)
         image_count_layout.addWidget(self.image_count_spinbox)
         image_count_layout.addStretch()
         
@@ -224,8 +262,27 @@ class BasicTab(BaseTab):
     
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
-        # 메인 윈도우에서 처리할 것이므로 여기서는 구현하지 않음
-        pass
+        try:
+            # 입력된 화면 순서 가져오기
+            screen_order_text = self.screen_order_edit.text()
+            
+            # 입력값이 비어있지 않고 유효한 형식인지 확인
+            if screen_order_text.strip():
+                # 변경된 값을 config에 업데이트
+                try:
+                    screen_order = [int(x.strip()) for x in screen_order_text.split(",")]
+                    self.config["screen_order"] = screen_order
+                    
+                    # 메인 윈도우의 update_tab_enabled_states 메서드 호출
+                    # self가 BasicTab 인스턴스이므로 부모 윈도우를 찾아야 함
+                    main_window = self.window()
+                    if hasattr(main_window, 'update_tab_enabled_states'):
+                        main_window.update_tab_enabled_states()
+                except ValueError:
+                    # 변환할 수 없는 값이 있으면 무시
+                    pass
+        except Exception as e:
+            print(f"화면 순서 변경 중 오류 발생: {e}")
     
     def on_camera_resolution_changed(self, index):
         """카메라 해상도 선택이 변경되었을 때 호출되는 메소드"""
@@ -237,67 +294,67 @@ class BasicTab(BaseTab):
             self.config["camera_size"]["height"] = height
     
     def update_ui(self, config):
-            """설정에 따라 UI 업데이트"""
-            self.config = config
-            self.app_name_edit.setText(config["app_name"])
-            self.screen_width_edit.setValue(config["screen_size"]["width"])
-            self.screen_height_edit.setValue(config["screen_size"]["height"])
-            
-            # 화면 순서 업데이트
-            screen_order_text = ",".join(map(str, config["screen_order"]))
-            if self.screen_order_edit.text() != screen_order_text:
-                self.screen_order_edit.setText(screen_order_text)
-            
-            # 카메라 해상도 업데이트
-            current_width = config["camera_size"]["width"]
-            current_height = config["camera_size"]["height"]
-            current_resolution = (current_width, current_height)
-            
-            # 일치하는 항목 찾기
-            found = False
+        """설정에 따라 UI 업데이트"""
+        self.config = config
+        self.app_name_edit.setText(config["app_name"])
+        self.screen_width_edit.setValue(config["screen_size"]["width"])
+        self.screen_height_edit.setValue(config["screen_size"]["height"])
+        
+        # 화면 순서 업데이트
+        screen_order_text = ",".join(map(str, config["screen_order"]))
+        if self.screen_order_edit.text() != screen_order_text:
+            self.screen_order_edit.setText(screen_order_text)
+        
+        # 카메라 해상도 업데이트
+        current_width = config["camera_size"]["width"]
+        current_height = config["camera_size"]["height"]
+        current_resolution = (current_width, current_height)
+        
+        # 일치하는 항목 찾기
+        found = False
+        for i in range(self.camera_resolution_combo.count()):
+            if self.camera_resolution_combo.itemData(i) == current_resolution:
+                self.camera_resolution_combo.setCurrentIndex(i)
+                found = True
+                break
+        
+        # 일치하는 항목이 없으면 새 항목 추가
+        if not found:
+            user_resolution = f"{current_width} X {current_height}"
+            # 이미 사용자 정의 항목이 있는지 확인
             for i in range(self.camera_resolution_combo.count()):
-                if self.camera_resolution_combo.itemData(i) == current_resolution:
+                if self.camera_resolution_combo.itemText(i) == user_resolution:
+                    self.camera_resolution_combo.setItemData(i, current_resolution)
                     self.camera_resolution_combo.setCurrentIndex(i)
                     found = True
                     break
             
-            # 일치하는 항목이 없으면 새 항목 추가
+            # 사용자 정의 항목이 없으면 새로 추가
             if not found:
-                user_resolution = f"{current_width} X {current_height}"
-                # 이미 사용자 정의 항목이 있는지 확인
-                for i in range(self.camera_resolution_combo.count()):
-                    if self.camera_resolution_combo.itemText(i) == user_resolution:
-                        self.camera_resolution_combo.setItemData(i, current_resolution)
-                        self.camera_resolution_combo.setCurrentIndex(i)
-                        found = True
-                        break
-                
-                # 사용자 정의 항목이 없으면 새로 추가
-                if not found:
-                    self.camera_resolution_combo.addItem(user_resolution, current_resolution)
-                    self.camera_resolution_combo.setCurrentIndex(self.camera_resolution_combo.count() - 1)
-            
-            # 크롭 영역 업데이트
-            for key, widget in self.crop_fields.items():
-                widget.setValue(config["crop_area"][key])
-            
-            # 이미지 개수 업데이트
-            if self.image_count_spinbox.value() != config["images"]["count"]:
-                self.image_count_spinbox.setValue(config["images"]["count"])
-            else:
-                # 이미지 항목 업데이트
-                self.update_image_items(config["images"]["count"])
-                
-                # 각 항목의 데이터도 업데이트
-                for i, fields in enumerate(self.image_item_fields):
-                    if i < len(config["images"]["items"]):
-                        item = config["images"]["items"][i]
-                        fields["filename"].setText(item["filename"])
-                        fields["x"].setValue(item["x"])
-                        fields["y"].setValue(item["y"])
-                        fields["width"].setValue(item["width"])
-                        fields["height"].setValue(item["height"])
+                self.camera_resolution_combo.addItem(user_resolution, current_resolution)
+                self.camera_resolution_combo.setCurrentIndex(self.camera_resolution_combo.count() - 1)
         
+        # 크롭 영역 업데이트
+        for key, widget in self.crop_fields.items():
+            widget.setValue(config["crop_area"][key])
+        
+        # 이미지 개수 업데이트
+        if self.image_count_spinbox.value() != config["images"]["count"]:
+            self.image_count_spinbox.setValue(config["images"]["count"])
+        else:
+            # 이미지 항목 업데이트
+            self.update_image_items(config["images"]["count"])
+            
+            # 각 항목의 데이터도 업데이트
+            for i, fields in enumerate(self.image_item_fields):
+                if i < len(config["images"]["items"]):
+                    item = config["images"]["items"][i]
+                    fields["filename"].setText(item["filename"])
+                    fields["x"].setValue(item["x"])
+                    fields["y"].setValue(item["y"])
+                    fields["width"].setValue(item["width"])
+                    fields["height"].setValue(item["height"])
+                    
     def update_config(self, config):
         """UI 값을 config에 반영"""
         config["app_name"] = self.app_name_edit.text()
