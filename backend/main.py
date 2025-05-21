@@ -676,6 +676,12 @@ class LoginRequest(BaseModel):
     login_id: str
     password: str
 
+# 로그 요청 모델 정의
+class LogRequest(BaseModel):
+    user_id: int
+    app_name: str = None
+    action: str = "button_click"
+
 from fastapi import HTTPException
 import traceback
 
@@ -720,9 +726,97 @@ async def login(request: LoginRequest):
             }
 
     except HTTPException as e:
-        raise e  # 👈 FastAPI가 처리할 수 있게 그대로 전달
+        raise e  # FastAPI가 처리할 수 있게 그대로 전달
     except Exception as e:
         print(f"[LOGIN ERROR] {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="서버 내부 오류")
+
+# 로그 기록 API 엔드포인트
+@app.post("/api/logs/create")
+async def create_log(request: LogRequest):
+    try:
+        # 사용자 ID 검증
+        if request.user_id <= 0:
+            raise HTTPException(status_code=400, detail="유효하지 않은 사용자 ID")
+        
+        # 데이터베이스 연결
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db=os.getenv("DB_NAME"),
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            # 현재 시간 가져오기
+            now = datetime.datetime.now()
+            
+            # 로그 저장
+            sql = """
+            INSERT INTO sk_builder.usage_logs 
+            (user_id, app_name, action, created_at) 
+            VALUES (%s, %s, %s, %s)
+            """
+            cursor.execute(sql, (request.user_id, request.app_name, request.action, now))
+            conn.commit()
+            
+            # 해당 유저와 앱 이름에 대한 사용 횟수 조회 (선택적)
+            count_sql = """
+            SELECT COUNT(*) as count 
+            FROM sk_builder.usage_logs 
+            WHERE user_id = %s AND app_name = %s AND action = %s
+            """
+            cursor.execute(count_sql, (request.user_id, request.app_name, request.action))
+            count_result = cursor.fetchone()
+            count = count_result["count"] if count_result else 0
+            
+        return {
+            "success": True, 
+            "message": "로그가 성공적으로 기록되었습니다.",
+            "count": count
+        }
+        
+    except HTTPException as e:
+        raise e  # FastAPI가 처리할 수 있게 그대로 전달
+    except Exception as e:
+        print(f"[LOG ERROR] {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="서버 내부 오류")
+
+# 사용 횟수 조회 API 엔드포인트 (선택적)
+@app.get("/api/logs/count/{user_id}/{app_name}")
+async def get_app_usage_count(user_id: int, app_name: str, action: str = "button_click"):
+    try:
+        # 데이터베이스 연결
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db=os.getenv("DB_NAME"),
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            # 해당 유저와 앱 이름에 대한 사용 횟수 조회
+            sql = """
+            SELECT COUNT(*) as count 
+            FROM sk_builder.usage_logs 
+            WHERE user_id = %s AND app_name = %s AND action = %s
+            """
+            cursor.execute(sql, (user_id, app_name, action))
+            result = cursor.fetchone()
+            count = result["count"] if result else 0
+            
+        return {"user_id": user_id, "app_name": app_name, "action": action, "count": count}
+        
+    except Exception as e:
+        print(f"[LOG COUNT ERROR] {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="서버 내부 오류")
 
