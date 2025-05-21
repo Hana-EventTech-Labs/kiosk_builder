@@ -263,10 +263,10 @@ class PrinterThread(QThread):
                     return
                 
                 # 이미지 인쇄
-                # result = print_image(device_handle)
-                # if result != 0:
-                #     self.error.emit("이미지 인쇄 실패")
-                #     return
+#                 result = print_image(device_handle)
+#                 if result != 0:
+#                     self.error.emit("이미지 인쇄 실패")
+#                     return
                     
                 self.finished.emit()
             finally:
