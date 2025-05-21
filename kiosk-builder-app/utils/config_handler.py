@@ -17,7 +17,7 @@ class ConfigHandler:
         ]
         self.config_path = self.find_config_file()
         self.default_config = {
-            "app_name": "Kiosk App",
+            "app_name": "",
             "screen_size": {
                 "width": 1920,
                 "height": 1080

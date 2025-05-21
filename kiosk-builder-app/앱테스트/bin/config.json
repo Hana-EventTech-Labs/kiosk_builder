@@ -1,12 +1,12 @@
 {
-    "app_name": "",
+    "app_name": "앱테스트",
     "screen_size": {
         "width": 1920,
         "height": 1080
     },
     "camera_size": {
-        "width": 1920,
-        "height": 1080
+        "width": 2560,
+        "height": 1440
     },
     "crop_area": {
         "width": 1920,

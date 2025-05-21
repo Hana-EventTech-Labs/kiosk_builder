@@ -475,13 +475,14 @@ class ConfigEditor(QMainWindow):
                             print(f"파일 복사됨: {os.path.relpath(target_item, target_dir)}")
                         except Exception as e:
                             print(f"파일 복사 실패: {item} - {e}")
-                
+                    
                 return copied_files
             
             # 앱 이름으로 폴더 생성
             app_name = self.basic_tab.app_name_edit.text()
             if not app_name:
-                app_name = "Kiosk_App"  # 기본 이름
+                self.show_message_box("경고", "앱 이름을 입력해주세요.", QMessageBox.Warning)
+                return
             
             # 특수문자 및 공백 처리
             app_folder_name = app_name.replace(" ", "_").replace(".", "_")
@@ -698,6 +699,25 @@ class ConfigEditor(QMainWindow):
                     "배포용 파일 생성 완료", 
                     result_message
                 )
+                
+                # 배포용 생성 성공 시 로그 기록
+                try:
+                    # 전역 변수에서 사용자 ID 가져오기
+                    import builtins
+                    user_id = getattr(builtins, 'CURRENT_USER_ID', 0)
+                    
+                    if user_id > 0:
+                        # api_client의 로그 기록 함수 호출
+                        from api_client import log_distribution_creation
+                        success, message = log_distribution_creation(user_id, app_name)
+                        
+                        if not success:
+                            print(f"로그 기록 실패: {message}")
+                    else:
+                        print("사용자 ID가 없어 로그를 기록할 수 없습니다.")
+                except Exception as e:
+                    print(f"로그 기록 중 오류 발생: {e}")
+                    
             else:
                 QMessageBox.warning(
                     self, 

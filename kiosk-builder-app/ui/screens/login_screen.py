@@ -158,8 +158,12 @@ class LoginScreen(QWidget):
         
         # 로그인 처리 (원래 코드와 같이 try-except 사용)
         try:
-            success, message = login(login_id, password)
+            success, message, user_id = login(login_id, password)
             if success:
+                # 로그인 성공 시 사용자 ID를 전역 변수에 저장
+                import builtins
+                builtins.CURRENT_USER_ID = user_id  # 전역 변수에 사용자 ID 저장
+                
                 self.close()
                 if self.on_login_success:
                     self.on_login_success()
@@ -171,7 +175,7 @@ class LoginScreen(QWidget):
             self.show_error_message("오류", f"로그인 중 예외 발생: {e}")
             # 버튼 상태 초기화
             self.login_button.set_loading(False)
-    
+            
     def show_error_message(self, title, message):
         """스타일이 적용된 오류 메시지 표시"""
         error_box = QMessageBox(self)
