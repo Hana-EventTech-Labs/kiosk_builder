@@ -1,4 +1,3 @@
-### run_gui.py
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
@@ -6,6 +5,7 @@ import sys
 import os
 from PySide6.QtWidgets import QApplication, QMessageBox
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
+from PySide6.QtGui import QIcon
 from ui.screens.login_screen import LoginScreen as LoginWindow
 
 # 애플리케이션 중복 실행 방지 클래스
@@ -39,6 +39,12 @@ def show_settings_window():
         
         from config_editor import ConfigEditor
         settings_window = ConfigEditor()
+        
+        # 설정 창에도 아이콘 적용
+        icon_path = "Hana.ico"  # 또는 "Hana.ico"
+        if os.path.exists(icon_path):
+            settings_window.setWindowIcon(QIcon(icon_path))
+        
         settings_window.show()
         
         # 윈도우 객체가 가비지 컬렉션되지 않도록 전역 변수로 저장
@@ -63,8 +69,21 @@ def show_settings_window():
 if __name__ == "__main__":
     app_id = "kiosk_builder_app_unique_id"
     app = SingleApplication(app_id, sys.argv)
+    
+    # 애플리케이션 전체에 아이콘 설정
+    icon_path = "Hana.png"  # 또는 "Hana.ico"
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    
+    # 애플리케이션 이름 설정 (작업 표시줄에 표시됨)
+    app.setApplicationName("슈퍼 키오스크")
 
     login_window = LoginWindow(on_login_success=show_settings_window)
+    
+    # 로그인 창에도 아이콘 적용
+    if os.path.exists(icon_path):
+        login_window.setWindowIcon(QIcon(icon_path))
+    
     login_window.show()
 
     sys.exit(app.exec())
