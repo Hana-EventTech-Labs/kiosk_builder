@@ -15,22 +15,66 @@ def modify_printer_thread(mode):
     backup_path = f"{file_path}.bak"
     shutil.copy2(file_path, backup_path)
     
+    # 파일을 라인 단위로 읽기
     with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+        lines = f.readlines()
     
     if mode == "preview":
         # 미리보기 활성화, 인쇄 비활성화
-        content = re.sub(r'(#\s*)(self\.show_preview\(\))', r'\2', content)
-        content = re.sub(r'(self\.print_card\(\))', r'# \1', content)
+        modified_lines = []
+        
+        for line in lines:
+            if "result = print_image(device_handle)" in line and not line.strip().startswith('#'):
+                modified_lines.append('# ' + line)
+            elif "if result != 0:" in line and not line.strip().startswith('#') and "print_image" in '\n'.join(modified_lines[-5:]):
+                modified_lines.append('# ' + line)
+            elif "self.error.emit(\"이미지 인쇄 실패\")" in line and not line.strip().startswith('#'):
+                modified_lines.append('# ' + line)
+            elif "return" in line and "이미지 인쇄 실패" in '\n'.join(modified_lines[-5:]):
+                if not line.strip().startswith('#'):
+                    modified_lines.append('# ' + line)
+                else:
+                    modified_lines.append(line)
+            else:
+                modified_lines.append(line)
+        
         print("미리보기 모드로 설정했습니다.")
     elif mode == "print":
         # 인쇄 활성화, 미리보기 비활성화
-        content = re.sub(r'(self\.show_preview\(\))', r'# \1', content)
-        content = re.sub(r'(#\s*)(self\.print_card\(\))', r'\2', content)
+        modified_lines = []
+        
+        # 미리보기 관련 코드 주석 처리 (256~263 줄)
+        in_preview_section = False
+        
+        for line in lines:
+            if "result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)" in line:
+                in_preview_section = True
+                modified_lines.append('# ' + line.lstrip('#').lstrip())
+            elif in_preview_section and any(keyword in line for keyword in ["if result == 0:", "image = bitmapinfo_to_image", "# self.preview_ready", "image.show()", "else:", "미리보기 비트맵 가져오기 실패"]):
+                modified_lines.append('# ' + line.lstrip('#').lstrip())
+            elif in_preview_section and "return" in line and "미리보기 비트맵 가져오기 실패" in '\n'.join(modified_lines[-5:]):
+                modified_lines.append('# ' + line.lstrip('#').lstrip())
+                in_preview_section = False
+            elif "result = print_image(device_handle)" in line:
+                # 인쇄 관련 코드 주석 해제
+                modified_lines.append(line.replace('# ', '', 1) if line.strip().startswith('#') else line)
+            elif "if result != 0:" in line and "print_image" in '\n'.join(modified_lines[-5:]):
+                # 인쇄 관련 코드 주석 해제
+                modified_lines.append(line.replace('# ', '', 1) if line.strip().startswith('#') else line)
+            elif "self.error.emit(\"이미지 인쇄 실패\")" in line:
+                # 인쇄 관련 코드 주석 해제
+                modified_lines.append(line.replace('# ', '', 1) if line.strip().startswith('#') else line)
+            elif "return" in line and "이미지 인쇄 실패" in '\n'.join(modified_lines[-5:]):
+                # 인쇄 관련 코드 주석 해제
+                modified_lines.append(line.replace('# ', '', 1) if line.strip().startswith('#') else line)
+            else:
+                modified_lines.append(line)
+        
         print("인쇄 모드로 설정했습니다.")
     
+    # 수정된 라인들을 파일에 쓰기
     with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(content)
+        f.writelines(modified_lines)
     
     return True
 

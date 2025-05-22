@@ -6,8 +6,9 @@ import json
 import copy
 import os
 import shutil
+import requests
 from utils.config_handler import ConfigHandler
-from ui.styles.colors import COLORS  # 경로 수정됨
+from ui.styles.colors import COLORS
 from .basic_tab import BasicTab
 from .splash_tab import SplashTab
 from .capture_tab import CaptureTab
@@ -15,12 +16,16 @@ from .keyboard_tab import KeyboardTab
 from .qr_tab import QRTab
 from .processing_tab import ProcessingTab
 from .complete_tab import CompleteTab
+from .download_progress_dialog import DownloadProgressDialog
 
 class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config_handler = ConfigHandler()
         self.config = copy.deepcopy(self.config_handler.config)
+        
+        # GitHub Releases 다운로드 URL 설정
+        self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
         
         self.init_ui()
         
@@ -60,7 +65,7 @@ class ConfigEditor(QMainWindow):
             QTabBar::tab {{
                 background-color: {COLORS['background']};
                 color: {COLORS['text_muted']};
-                border: 1px solid {COLORS['border']};  /* 기본 테두리 */
+                border: 1px solid {COLORS['border']};
                 padding: 10px 20px;
                 margin: 0 4px 0 0;
                 font-size: 13px;
@@ -141,11 +146,10 @@ class ConfigEditor(QMainWindow):
         
         # 탭 위젯 생성
         self.tab_widget = QTabWidget()
-        # self.tab_widget.setDocumentMode(True)  # 모던한 탭 스타일
-        self.tab_widget.setTabPosition(QTabWidget.North)  # 탭을 상단에 배치
-        self.tab_widget.setElideMode(Qt.ElideNone)  # 탭 텍스트 줄임 없음
-        self.tab_widget.setMovable(False)  # 탭 이동 불가
-        self.tab_widget.setUsesScrollButtons(True)  # 필요시 스크롤 버튼 사용
+        self.tab_widget.setTabPosition(QTabWidget.North)
+        self.tab_widget.setElideMode(Qt.ElideNone)
+        self.tab_widget.setMovable(False)
+        self.tab_widget.setUsesScrollButtons(True)
         main_layout.addWidget(self.tab_widget)
         
         # 탭 생성
@@ -237,7 +241,34 @@ class ConfigEditor(QMainWindow):
             }}
         """)
         status_bar.showMessage("슈퍼 키오스크 설정 프로그램이 준비되었습니다.")
-        
+
+    def download_file_from_github(self, filename, target_path):
+        """GitHub Releases에서 파일 다운로드"""
+        try:
+            download_url = f"{self.github_release_base_url}/{filename}"
+            print(f"{filename} 다운로드 시작: {download_url}")
+            
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+            
+            response = requests.get(download_url, headers=headers, timeout=60)
+            response.raise_for_status()
+            
+            # 파일 크기 확인
+            if len(response.content) < 10000:  # 10KB 미만이면 실패로 간주
+                raise Exception(f"다운로드된 파일이 너무 작습니다 ({len(response.content)} bytes)")
+            
+            with open(target_path, 'wb') as f:
+                f.write(response.content)
+            
+            print(f"{filename} 다운로드 완료 (크기: {len(response.content):,} bytes)")
+            return True
+            
+        except Exception as e:
+            print(f"{filename} 다운로드 실패: {e}")
+            return False
+
     def update_tab_enabled_states(self):
         """현재 screen_order 설정에 따라 탭 활성화/비활성화 상태를 업데이트"""
         try:
@@ -293,7 +324,6 @@ class ConfigEditor(QMainWindow):
                 self.tab_widget.setTabEnabled(i, True)
             # 탭 스타일 업데이트
             self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
-            
             
     def save_config(self):
         # 각 탭에서 설정 값 가져오기
@@ -440,12 +470,11 @@ class ConfigEditor(QMainWindow):
     
     def create_distribution(self):
         """배포용 파일 생성 및 복사"""
-        # 배포용 파일 처리
         try:
             import subprocess
             import sys
             
-            # 재귀적 복사 함수 추가
+            # 재귀적 복사 함수
             def copy_resources_recursive(source_dir, target_dir):
                 """리소스 폴더와 모든 하위 폴더/파일을 재귀적으로 복사"""
                 if not os.path.exists(source_dir):
@@ -500,8 +529,7 @@ class ConfigEditor(QMainWindow):
             # 앱 폴더 경로
             target_dir = os.path.join(parent_dir, app_folder_name)
             
-            # "저장" 버튼과 동일한 기능 수행하지만, 외부 config.json에는 저장하지 않음
-            # 설정 업데이트 (모든 UI 항목의 값들을 self.config에 업데이트)
+            # 설정 업데이트
             self.update_config_from_tabs()
             
             # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
@@ -561,7 +589,6 @@ class ConfigEditor(QMainWindow):
                 created_dirs.append("resources/background")
                 print(f"resources/background 폴더를 생성했습니다: {background_path}")
             
-            
             # json-reader.exe 파일 찾기 및 복사
             json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
             super_kiosk_program_copied = False
@@ -586,63 +613,75 @@ class ConfigEditor(QMainWindow):
                         print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
                         break
             
-            # 필요한 파일들 목록
-            required_files = [
-                {"name": "kiosk_preview.exe", "source": os.path.join(base_path, "kiosk_preview.exe")},
-                {"name": "kiosk_print.exe", "source": os.path.join(base_path, "kiosk_print.exe")}
+            # GitHub에서 필요한 exe 파일들 다운로드
+            github_files = [
+                {"name": "kiosk_preview.exe", "required": True},
+                {"name": "kiosk_print.exe", "required": True}
             ]
-            
-            # 폴더 목록
-            required_folders = [
-                {"name": "resources", "source": os.path.join(base_path, "resources")}
-            ]
-            
-            # 파일들을 대상 폴더로 복사
-            copied_files = []
-            missing_files = []
-            
-            for file_info in required_files:
-                source_path = file_info["source"]
-                target_path = os.path.join(target_dir, "bin", file_info["name"])
-                
-                if os.path.exists(source_path):
-                    shutil.copy2(source_path, target_path)
-                    copied_files.append(file_info["name"])
+
+            downloaded_files = []
+            failed_downloads = []
+
+            # 다운로드 진행률 다이얼로그 표시
+            download_dialog = DownloadProgressDialog(
+                parent=self,
+                github_base_url=self.github_release_base_url,
+                files_to_download=github_files,
+                target_dir=os.path.join(target_dir, "bin")
+            )
+
+            # 다이얼로그 실행 (모달)
+            download_dialog.exec_()
+
+            # 다운로드 결과 처리
+            download_results = download_dialog.get_results()
+
+            for filename, result in download_results.items():
+                if result['success']:
+                    downloaded_files.append(f"{filename} (GitHub에서 다운로드됨, 크기: {result.get('size', 0):,} bytes)")
                 else:
-                    missing_files.append(file_info["name"])
+                    # 다운로드 실패 시 로컬에서 찾기
+                    local_file_path = os.path.join(base_path, filename)
+                    target_path = os.path.join(target_dir, "bin", filename)
+                    
+                    if os.path.exists(local_file_path):
+                        shutil.copy2(local_file_path, target_path)
+                        downloaded_files.append(f"{filename} (로컬에서 복사됨)")
+                        print(f"로컬에서 {filename} 복사 완료")
+                    else:
+                        failed_downloads.append(filename)
             
             # 폴더들을 대상 폴더로 복사 (재귀적으로)
             copied_folders = []
             missing_folders = []
             copied_resource_files = []
 
-            for folder_info in required_folders:
-                source_path = folder_info["source"]
-                # 리소스 폴더를 bin 폴더 안에 복사
-                target_path = os.path.join(target_dir, "bin", folder_info["name"])
+            # resources 폴더 복사
+            resources_source = os.path.join(base_path, "resources")
+            resources_target = os.path.join(target_dir, "bin", "resources")
+            
+            if os.path.exists(resources_source):
+                # 대상 폴더가 존재하면 삭제 후 복사
+                if os.path.exists(resources_target):
+                    shutil.rmtree(resources_target)
                 
-                if os.path.exists(source_path):
-                    # 대상 폴더가 존재하면 삭제 후 복사
-                    if os.path.exists(target_path):
-                        shutil.rmtree(target_path)
+                # 재귀적 복사 함수 사용
+                copied_files_list = copy_resources_recursive(resources_source, resources_target)
+                if copied_files_list:
+                    copied_folders.append("resources")
+                    copied_resource_files = copied_files_list
                     
-                    # 재귀적 복사 함수 사용
-                    copied_files_list = copy_resources_recursive(source_path, target_path)
-                    if copied_files_list:
-                        copied_folders.append(folder_info["name"])
-                        copied_resource_files = copied_files_list
-                        
-                        # DLL과 폰트 파일 확인
-                        dll_files = [f for f in copied_files_list if f.endswith(".dll")]
-                        font_files = [f for f in copied_files_list if f.endswith((".ttf", ".otf"))]
-                        
-                        if dll_files:
-                            print(f"DLL 파일 {len(dll_files)}개 복사됨: {', '.join(dll_files)}")
-                        
-                        if font_files:
-                            print(f"폰트 파일 {len(font_files)}개 복사됨: {', '.join(font_files)}")
-                else:
-                    missing_folders.append(folder_info["name"])
+                    # DLL과 폰트 파일 확인
+                    dll_files = [f for f in copied_files_list if f.endswith(".dll")]
+                    font_files = [f for f in copied_files_list if f.endswith((".ttf", ".otf"))]
+                    
+                    if dll_files:
+                        print(f"DLL 파일 {len(dll_files)}개 복사됨: {', '.join(dll_files)}")
+                    
+                    if font_files:
+                        print(f"폰트 파일 {len(font_files)}개 복사됨: {', '.join(font_files)}")
+            else:
+                missing_folders.append("resources")
             
             # 실행 배치 파일 생성
             batch_path = os.path.join(target_dir, "run_kiosk.bat")
@@ -658,42 +697,48 @@ class ConfigEditor(QMainWindow):
             if created_dirs:
                 result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
             
-            if copied_files or copied_folders or super_kiosk_program_copied:
+            success_items = []
+            
+            if super_kiosk_program_copied:
+                success_items.append("super-kiosk-program.exe")
+            
+            if downloaded_files:
+                success_items.extend(downloaded_files)
+            
+            if copied_folders:
+                success_items.extend(copied_folders)
+            
+            if success_items:
                 result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                result_message += "- " + "\n- ".join(success_items) + "\n\n"
                 
-                if super_kiosk_program_copied:
-                    result_message += "실행 파일:\n- super-kiosk-program.exe\n\n"
+                # DLL 및 폰트 파일 정보 추가
+                dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
+                font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
                 
-                if copied_files:
-                    result_message += "파일:\n- " + "\n- ".join(copied_files) + "\n\n"
+                if dll_files:
+                    result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
                 
-                if copied_folders:
-                    result_message += "폴더:\n- " + "\n- ".join(copied_folders) + "\n\n"
-                    
-                    # DLL 및 폰트 파일 정보 추가
-                    dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
-                    font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
-                    
-                    if dll_files:
-                        result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
-                    
-                    if font_files:
-                        result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
+                if font_files:
+                    result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
+            
+            failure_items = []
             
             if not super_kiosk_program_copied:
-                result_message += "super-kiosk-program.exe 파일을 찾을 수 없습니다. 수동으로 복사해야 합니다.\n\n"
+                failure_items.append("super-kiosk-program.exe")
             
-            if missing_files or missing_folders:
+            if failed_downloads:
+                failure_items.extend([f"{f} (다운로드 및 로컬 복사 모두 실패)" for f in failed_downloads])
+            
+            if missing_folders:
+                failure_items.extend(missing_folders)
+            
+            if failure_items:
                 result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
-                
-                if missing_files:
-                    result_message += "파일:\n- " + "\n- ".join(missing_files) + "\n\n"
-                
-                if missing_folders:
-                    result_message += "폴더:\n- " + "\n- ".join(missing_folders) + "\n\n"
+                result_message += "- " + "\n- ".join(failure_items) + "\n\n"
             
             # 사용자에게 결과 알림
-            if copied_files or copied_folders or super_kiosk_program_copied:
+            if success_items:
                 QMessageBox.information(
                     self, 
                     "배포용 파일 생성 완료", 

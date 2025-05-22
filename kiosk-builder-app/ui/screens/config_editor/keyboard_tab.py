@@ -76,13 +76,15 @@ class KeyboardTab(BaseTab):
         text_input_count_layout = QHBoxLayout()
         text_input_count_label = QLabel("사용자 입력 필드 개수:")
         self.text_input_count_spinbox = QSpinBox()
-        self.text_input_count_spinbox.setRange(0, 10)
-        self.text_input_count_spinbox.setValue(self.config["text_input"]["count"])
+        self.text_input_count_spinbox.setRange(1, 10)  # 최소값을 0에서 1로 변경
+        # 설정값이 0이면 1로 설정, 아니면 설정값 사용
+        count_value = max(1, self.config["text_input"]["count"])
+        self.text_input_count_spinbox.setValue(count_value)
         self.text_input_count_spinbox.valueChanged.connect(self.update_text_input_items)
         text_input_count_layout.addWidget(text_input_count_label)
         text_input_count_layout.addWidget(self.text_input_count_spinbox)
         text_input_count_layout.addStretch()
-        
+
         text_input_layout.addLayout(text_input_count_layout)
         
         # 텍스트 입력 항목 컨테이너
@@ -92,7 +94,7 @@ class KeyboardTab(BaseTab):
         
         # 텍스트 입력 항목 필드 초기화
         self.text_input_item_fields = []
-        self.update_text_input_items(self.config["text_input"]["count"])
+        self.update_text_input_items(count_value)
         
         text_input_layout.addWidget(self.text_input_items_container)
         content_layout.addWidget(text_input_group)
@@ -201,8 +203,8 @@ class KeyboardTab(BaseTab):
         for i in range(count):
             # 기본값 설정
             item_data = {
-                "label": f"입력 {i+1}",
-                "placeholder": "입력하세요",
+                "label": "",
+                "placeholder": "",
                 "width": 800,
                 "height": 80,
                 "x": 100,
@@ -357,39 +359,40 @@ class KeyboardTab(BaseTab):
         self.text_items_container.updateGeometry()
     
     def update_ui(self, config):
-            """설정에 따라 UI 업데이트"""
-            self.config = config
-            
-            # 배경화면 업데이트
-            self.keyboard_bg_edit.setText(config["text_input"].get("background", ""))
-            
-            # 키보드 위치 및 크기 업데이트
-            for key, widget in self.keyboard_position_fields.items():
+        """설정에 따라 UI 업데이트"""
+        self.config = config
+        
+        # 배경화면 업데이트
+        self.keyboard_bg_edit.setText(config["text_input"].get("background", ""))
+        
+        # 키보드 위치 및 크기 업데이트
+        for key, widget in self.keyboard_position_fields.items():
+            widget.setValue(config["keyboard"][key])
+        
+        # 텍스트 입력 설정 업데이트
+        for key, widget in self.text_input_fields.items():
+            if key != "count":  # count는 spinbox에서 별도로 처리
+                widget.setValue(config["text_input"][key])
+        
+        # 텍스트 입력 개수 업데이트 - 최소값 1 보장
+        count_value = max(1, config["text_input"]["count"])
+        if self.text_input_count_spinbox.value() != count_value:
+            self.text_input_count_spinbox.setValue(count_value)
+        else:
+            self.update_text_input_items(count_value)  # 여기도 count_value 사용
+        
+        # 텍스트 개수 업데이트
+        if self.text_count_spinbox.value() != config["texts"]["count"]:
+            self.text_count_spinbox.setValue(config["texts"]["count"])
+        else:
+            self.update_text_items(config["texts"]["count"])
+        
+        # 키보드 스타일 업데이트
+        for key, widget in self.keyboard_style_fields.items():
+            if isinstance(widget, ColorPickerButton):
+                widget.update_color(config["keyboard"][key])
+            else:
                 widget.setValue(config["keyboard"][key])
-            
-            # 텍스트 입력 설정 업데이트
-            for key, widget in self.text_input_fields.items():
-                if key != "count":  # count는 spinbox에서 별도로 처리
-                    widget.setValue(config["text_input"][key])
-            
-            # 텍스트 입력 개수 업데이트
-            if self.text_input_count_spinbox.value() != config["text_input"]["count"]:
-                self.text_input_count_spinbox.setValue(config["text_input"]["count"])
-            else:
-                self.update_text_input_items(config["text_input"]["count"])
-            
-            # 텍스트 개수 업데이트
-            if self.text_count_spinbox.value() != config["texts"]["count"]:
-                self.text_count_spinbox.setValue(config["texts"]["count"])
-            else:
-                self.update_text_items(config["texts"]["count"])
-            
-            # 키보드 스타일 업데이트
-            for key, widget in self.keyboard_style_fields.items():
-                if isinstance(widget, ColorPickerButton):
-                    widget.update_color(config["keyboard"][key])
-                else:
-                    widget.setValue(config["keyboard"][key])
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
