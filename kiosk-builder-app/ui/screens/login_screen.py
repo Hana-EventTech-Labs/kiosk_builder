@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
                               QLineEdit, QMessageBox)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QGuiApplication
+from PySide6.QtGui import QFont, QGuiApplication, QIcon
 import os
 from api_client import login
 from ..components.inputs import ModernLineEdit
@@ -16,6 +16,12 @@ class LoginScreen(QWidget):
         # 창 설정
         self.setWindowTitle("슈퍼 키오스크 로그인")
         self.resize(400, 500)
+        
+        # 아이콘 설정
+        icon_path = "Hana.ico"
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         self.setStyleSheet(f"""
             QWidget {{
                 background-color: {COLORS['background']};
@@ -183,6 +189,11 @@ class LoginScreen(QWidget):
         error_box.setText(message)
         error_box.setIcon(QMessageBox.Warning)
         error_box.setStandardButtons(QMessageBox.Ok)
+        
+        # 오류 메시지 박스에도 아이콘 적용
+        icon_path = "Hana.png"  # 또는 "Hana.ico"
+        if os.path.exists(icon_path):
+            error_box.setWindowIcon(QIcon(icon_path))
         
         # 메시지 박스에 커스텀 스타일 적용
         error_box.setStyleSheet(f"""

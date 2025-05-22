@@ -37,5 +37,5 @@ config.json 파일은 다음과 같은 주요 섹션으로 구성됩니다:
 
 ### kiosk-builder-app 용 pyinstaller 명령어
 ```
-pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --name json-reader run_gui.py
+pyinstaller --clean --onefile --windowed --add-data "resources;resources" --add-data "config.json;." --icon="Hana.ico" --name json-reader run_gui.py
 ```
