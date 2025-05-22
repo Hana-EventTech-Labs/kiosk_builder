@@ -1,5 +1,4 @@
 {
-
     "app_name": "",
     "screen_size": {
         "width": 1920,
@@ -21,7 +20,10 @@
         "font_color": "#ffffff"
     },
     "screen_order": [
-        3
+        0,
+        3,
+        4,
+        5
     ],
     "frame": {
         "x": 0,
