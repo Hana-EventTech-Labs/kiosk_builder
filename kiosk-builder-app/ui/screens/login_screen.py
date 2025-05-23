@@ -1,9 +1,9 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QFrame, 
-                              QLineEdit, QMessageBox)
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, 
+                              QLineEdit, QMessageBox, QCheckBox, QPushButton)
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 import os
-from api_client import login
+from utils.auth_manager import AuthManager
 from ..components.inputs import ModernLineEdit
 from ..components.buttons import ModernButton
 from ..styles.colors import COLORS
@@ -12,10 +12,11 @@ class LoginScreen(QWidget):
     def __init__(self, on_login_success=None):
         super().__init__()
         self.on_login_success = on_login_success
+        self.auth_manager = AuthManager()
         
         # 창 설정
         self.setWindowTitle("슈퍼 키오스크 로그인")
-        self.resize(400, 500)
+        self.resize(450, 600)
         
         # 아이콘 설정
         icon_path = "Hana.ico"
@@ -29,6 +30,17 @@ class LoginScreen(QWidget):
             }}
         """)
         
+        self.init_ui()
+        self.load_saved_settings()
+        
+        # 자동 로그인 체크 시도
+        QTimer.singleShot(100, self.check_auto_login)
+        
+        # 화면 중앙에 위치
+        self.center_on_screen()
+    
+    def init_ui(self):
+        """UI 초기화"""
         # 메인 레이아웃
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(40, 40, 40, 40)
@@ -39,13 +51,7 @@ class LoginScreen(QWidget):
         header_layout = QVBoxLayout()
         header_layout.setAlignment(Qt.AlignCenter)
         
-        logo_label = QLabel()
-        # 로고 이미지가 있다면 다음 줄의 주석을 해제하고 경로 설정
-        # logo_pixmap = QPixmap("path/to/your/logo.png")
-        # logo_label.setPixmap(logo_pixmap.scaled(120, 120, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        
-        # 로고 대신 스타일된 텍스트 라벨 사용
-        logo_label.setText("SUPER KIOSK")
+        logo_label = QLabel("SUPER KIOSK")
         logo_label.setAlignment(Qt.AlignCenter)
         font = QFont()
         font.setPointSize(24)
@@ -114,6 +120,62 @@ class LoginScreen(QWidget):
         self.pw_input.setEchoMode(QLineEdit.Password)
         form_layout.addWidget(self.pw_input)
         
+        # 체크박스 영역
+        checkbox_layout = QVBoxLayout()
+        checkbox_layout.setSpacing(8)
+        
+        # 아이디 저장 체크박스
+        self.remember_id_checkbox = QCheckBox("아이디 저장")
+        self.remember_id_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {COLORS['text_dark']};
+                font-size: 11px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+            }}
+            QCheckBox::indicator:unchecked {{
+                border: 2px solid {COLORS['border']};
+                background-color: {COLORS['background_light']};
+                border-radius: 3px;
+            }}
+            QCheckBox::indicator:checked {{
+                border: 2px solid {COLORS['primary']};
+                background-color: {COLORS['primary']};
+                border-radius: 3px;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+            }}
+        """)
+        checkbox_layout.addWidget(self.remember_id_checkbox)
+        
+        # 자동 로그인 체크박스
+        self.auto_login_checkbox = QCheckBox("자동 로그인")
+        self.auto_login_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                color: {COLORS['text_dark']};
+                font-size: 11px;
+            }}
+            QCheckBox::indicator {{
+                width: 16px;
+                height: 16px;
+            }}
+            QCheckBox::indicator:unchecked {{
+                border: 2px solid {COLORS['border']};
+                background-color: {COLORS['background_light']};
+                border-radius: 3px;
+            }}
+            QCheckBox::indicator:checked {{
+                border: 2px solid {COLORS['primary']};
+                background-color: {COLORS['primary']};
+                border-radius: 3px;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+            }}
+        """)
+        checkbox_layout.addWidget(self.auto_login_checkbox)
+        
+        form_layout.addLayout(checkbox_layout)
+        
         # 공간 추가
         form_layout.addSpacing(20)
         
@@ -136,11 +198,46 @@ class LoginScreen(QWidget):
         self.id_input.returnPressed.connect(self.focus_password)
         self.pw_input.returnPressed.connect(self.attempt_login)
         
+        # 체크박스 상태 변경 연결
+        self.auto_login_checkbox.stateChanged.connect(self.on_auto_login_changed)
+        
         # 초기 포커스 설정
         self.id_input.setFocus()
+    
+    def on_auto_login_changed(self, state):
+        """자동 로그인 체크박스 상태 변경 시"""
+        if state == Qt.Checked:
+            # 자동 로그인 체크 시 아이디 저장도 자동으로 체크
+            self.remember_id_checkbox.setChecked(True)
+    
+    def load_saved_settings(self):
+        """저장된 인증 설정 불러오기"""
+        auth_settings = self.auth_manager.load_auth_settings()
         
-        # 화면 중앙에 위치
-        self.center_on_screen()
+        if auth_settings["login_id"]:
+            self.id_input.setText(auth_settings["login_id"])
+        
+        self.remember_id_checkbox.setChecked(auth_settings["remember_id"])
+        self.auto_login_checkbox.setChecked(auth_settings["auto_login"])
+        
+        # 자동 로그인이 설정되어 있으면 비밀번호도 설정
+        if auth_settings["auto_login"] and auth_settings["password"]:
+            self.pw_input.setText(auth_settings["password"])
+    
+    def check_auto_login(self):
+        """자동 로그인 체크"""
+        if self.auto_login_checkbox.isChecked():
+            success, message, user_id = self.auth_manager.attempt_auto_login()
+            if success:
+                self.close()
+                if self.on_login_success:
+                    self.on_login_success()
+                return
+            else:
+                # 자동 로그인 실패 시 체크박스 해제
+                self.auto_login_checkbox.setChecked(False)
+                if "자동 로그인 설정이 비활성화" not in message:
+                    self.show_error_message("자동 로그인 실패", message)
     
     def center_on_screen(self):
         """화면 중앙에 창 위치시키기"""
@@ -154,7 +251,7 @@ class LoginScreen(QWidget):
         self.pw_input.setFocus()
     
     def attempt_login(self):
-        """애니메이션 피드백과 함께 로그인 시도 처리"""
+        """로그인 시도 처리"""
         # 로딩 상태로 버튼 업데이트
         self.login_button.set_loading(True)
         
@@ -162,13 +259,32 @@ class LoginScreen(QWidget):
         login_id = self.id_input.text()
         password = self.pw_input.text()
         
-        # 로그인 처리 (원래 코드와 같이 try-except 사용)
+        # 입력 검증
+        if not login_id.strip():
+            self.show_error_message("입력 오류", "아이디를 입력해주세요.")
+            self.login_button.set_loading(False)
+            return
+            
+        if not password.strip():
+            self.show_error_message("입력 오류", "비밀번호를 입력해주세요.")
+            self.login_button.set_loading(False)
+            return
+        
+        # 로그인 처리
         try:
-            success, message, user_id = login(login_id, password)
+            success, message, user_id = self.auth_manager.validate_credentials(login_id, password)
             if success:
+                # 로그인 성공 시 설정 저장
+                self.auth_manager.save_auth_settings(
+                    login_id=login_id,
+                    password=password,
+                    remember_id=self.remember_id_checkbox.isChecked(),
+                    auto_login=self.auto_login_checkbox.isChecked()
+                )
+                
                 # 로그인 성공 시 사용자 ID를 전역 변수에 저장
                 import builtins
-                builtins.CURRENT_USER_ID = user_id  # 전역 변수에 사용자 ID 저장
+                builtins.CURRENT_USER_ID = user_id
                 
                 self.close()
                 if self.on_login_success:
@@ -181,7 +297,7 @@ class LoginScreen(QWidget):
             self.show_error_message("오류", f"로그인 중 예외 발생: {e}")
             # 버튼 상태 초기화
             self.login_button.set_loading(False)
-            
+    
     def show_error_message(self, title, message):
         """스타일이 적용된 오류 메시지 표시"""
         error_box = QMessageBox(self)
@@ -191,7 +307,7 @@ class LoginScreen(QWidget):
         error_box.setStandardButtons(QMessageBox.Ok)
         
         # 오류 메시지 박스에도 아이콘 적용
-        icon_path = "Hana.png"  # 또는 "Hana.ico"
+        icon_path = "Hana.png"
         if os.path.exists(icon_path):
             error_box.setWindowIcon(QIcon(icon_path))
         
