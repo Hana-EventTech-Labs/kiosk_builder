@@ -192,7 +192,7 @@ class PrinterThread(QThread):
                 # 이미지 그리기 (여러 개)
                 for img_info in self.images:
                     result = draw_image(
-                        device_handle, PAGE_FRONT, PANELID_COLOR, 
+                        device_handle, PAGE_FRONT, config["printer"]["panel_id"], 
                         x=img_info["x"], y=img_info["y"],
                         cx=img_info["width"], cy=img_info["height"], 
                         image_filename=img_info["filename"]
@@ -223,7 +223,7 @@ class PrinterThread(QThread):
                         font_color = self.rgb_to_bgr(text_info["font_color"])
                         
                     result = draw_text2(
-                        device_handle, PAGE_FRONT, PANELID_COLOR,
+                        device_handle, PAGE_FRONT, config["printer"]["panel_id"],
                         x=text_info["x"], y=text_info["y"], 
                         width=text_info["width"], height=text_info["height"], 
                         font_name=font_name, 
@@ -241,7 +241,7 @@ class PrinterThread(QThread):
                     
                 # 바코드 그리기
                 # result = draw_barcode(
-                #     device_handle, PAGE_FRONT, PANELID_COLOR,
+                #     device_handle, PAGE_FRONT, config["printer"]["panel_id"],
                 #     x=200, y=400, width=300, height=100,
                 #     color=0x000000,
                 #     name="Code128(C)",  # 표준 바코드 유형 (CODE39, CODE128, QR, EAN13 등)
@@ -251,23 +251,22 @@ class PrinterThread(QThread):
                 # )
                 # if result != 0:
                 #     self.error.emit(f"바코드 그리기 실패 (오류 코드: {result})")
-
-                # 미리보기 비트맵 가져오기
-                result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)
-                if result == 0:
-                    image = bitmapinfo_to_image(bm_info)
-                    # self.preview_ready.emit(image)
-                    image.show()
+                if config["printer"]["print_mode"]:
+                    # 이미지 인쇄
+                    result = print_image(device_handle)
+                    if result != 0:
+                        self.error.emit("이미지 인쇄 실패")
+                        return
                 else:
-                    self.error.emit("미리보기 비트맵 가져오기 실패")
-                    return
-                
-                # 이미지 인쇄
-                result = print_image(device_handle)
-                if result != 0:
-                    self.error.emit("이미지 인쇄 실패")
-                    return
-                    
+                # 미리보기 비트맵 가져오기
+                    result, bm_info = get_preview_bitmap(device_handle, PAGE_FRONT)
+                    if result == 0:
+                        image = bitmapinfo_to_image(bm_info)
+                        # self.preview_ready.emit(image)
+                        image.show()
+                    else:
+                        self.error.emit("미리보기 비트맵 가져오기 실패")
+                        return
                 self.finished.emit()
             finally:
                 # 장치 닫기 (항상 실행)

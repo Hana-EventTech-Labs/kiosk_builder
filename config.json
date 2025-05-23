@@ -123,5 +123,9 @@
         "x": 0,
         "y": 0,
         "complete_time": 2000
+    },
+    "printer": {
+        "print_mode": false,
+        "panel_id": 1
     }
 }
