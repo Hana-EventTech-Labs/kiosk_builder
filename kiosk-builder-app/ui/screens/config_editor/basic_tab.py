@@ -1,7 +1,7 @@
 #BaseTab을 상속받은 구체적인 탭 클래스
 
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton)
 from PySide6.QtCore import Qt  # Qt 모듈 추가
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
@@ -141,16 +141,63 @@ class BasicTab(BaseTab):
         
         content_layout.addWidget(crop_group)
         
+        # 프린터 설정 추가
+        self.init_printer_settings(content_layout)
+        
         # 이미지 설정 추가
         self.init_image_settings(content_layout)
         
         # 스트레치 추가
         content_layout.addStretch()
         
+    def init_printer_settings(self, parent_layout):
+        """프린터 설정 초기화"""
+        # 프린터 설정 그룹
+        printer_group = QGroupBox("프린터 설정")
+        self.apply_left_aligned_group_style(printer_group)
+        printer_layout = QFormLayout(printer_group)
+        
+        # 프린터 모드 설정 (라디오 버튼)
+        mode_layout = QHBoxLayout()
+        
+        self.preview_mode_radio = QRadioButton("미리보기 모드")
+        self.print_mode_radio = QRadioButton("인쇄 모드")
+        
+        # 현재 설정값에 따라 라디오 버튼 선택
+        current_print_mode = self.config.get("printer", {}).get("print_mode", False)
+        if current_print_mode:
+            self.print_mode_radio.setChecked(True)
+        else:
+            self.preview_mode_radio.setChecked(True)
+        
+        mode_layout.addWidget(self.preview_mode_radio)
+        mode_layout.addWidget(self.print_mode_radio)
+        mode_layout.addStretch()
+        
+        printer_layout.addRow("모드 선택:", mode_layout)
+        
+        # 패널 ID 설정 (콤보박스)
+        self.panel_combo = QComboBox()
+        self.panel_combo.addItem("YMC (컬러)", 1)
+        self.panel_combo.addItem("Resin (블랙/실버)", 2)
+        self.panel_combo.addItem("Overlay (보호막)", 4)
+        self.panel_combo.addItem("UV (형광)", 8)
+        
+        # 현재 패널 ID 선택
+        current_panel_id = self.config.get("printer", {}).get("panel_id", 1)
+        for i in range(self.panel_combo.count()):
+            if self.panel_combo.itemData(i) == current_panel_id:
+                self.panel_combo.setCurrentIndex(i)
+                break
+        
+        printer_layout.addRow("패널 타입:", self.panel_combo)
+        
+        parent_layout.addWidget(printer_group)
+        
     def init_image_settings(self, parent_layout):
         """이미지 설정 초기화"""
         # 이미지 설정 그룹
-        images_group = QGroupBox("이미지 설정")
+        images_group = QGroupBox("고정 이미지 설정")
         self.apply_left_aligned_group_style(images_group)
         images_layout = QVBoxLayout(images_group)
         
@@ -338,6 +385,20 @@ class BasicTab(BaseTab):
         for key, widget in self.crop_fields.items():
             widget.setValue(config["crop_area"][key])
         
+        # 프린터 설정 업데이트
+        current_print_mode = config.get("printer", {}).get("print_mode", False)
+        if current_print_mode:
+            self.print_mode_radio.setChecked(True)
+        else:
+            self.preview_mode_radio.setChecked(True)
+        
+        # 패널 ID 업데이트
+        current_panel_id = config.get("printer", {}).get("panel_id", 1)
+        for i in range(self.panel_combo.count()):
+            if self.panel_combo.itemData(i) == current_panel_id:
+                self.panel_combo.setCurrentIndex(i)
+                break
+        
         # 이미지 개수 업데이트
         if self.image_count_spinbox.value() != config["images"]["count"]:
             self.image_count_spinbox.setValue(config["images"]["count"])
@@ -377,6 +438,18 @@ class BasicTab(BaseTab):
         if selected_resolution:
             config["camera_size"]["width"] = selected_resolution[0]
             config["camera_size"]["height"] = selected_resolution[1]
+        
+        # 프린터 설정이 없으면 기본값으로 초기화
+        if "printer" not in config:
+            config["printer"] = {"print_mode": False, "panel_id": 1}
+        
+        # 프린터 모드 업데이트
+        config["printer"]["print_mode"] = self.print_mode_radio.isChecked()
+        
+        # 패널 ID 업데이트
+        selected_panel_id = self.panel_combo.currentData()
+        if selected_panel_id:
+            config["printer"]["panel_id"] = selected_panel_id
         
         # 이미지 설정 저장
         config["images"]["count"] = self.image_count_spinbox.value()

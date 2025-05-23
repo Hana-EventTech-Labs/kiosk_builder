@@ -49,7 +49,7 @@ class CaptureTab(BaseTab):
         content_layout.addWidget(frame_group)
         
         # 사진 설정 추가 (photo)
-        photo_group = QGroupBox("촬영 사진 설정")
+        photo_group = QGroupBox("촬영 사진 인쇄크기 설정")
         self.apply_left_aligned_group_style(photo_group)
         photo_layout = QFormLayout(photo_group)
         

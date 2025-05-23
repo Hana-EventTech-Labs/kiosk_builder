@@ -790,33 +790,35 @@ class ConfigEditor(QMainWindow):
                     print(f"resources/background 폴더를 생성했습니다: {background_path}")
                 
                 # json-reader.exe 파일 찾기 및 복사
-                json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
+                json_reader_exe = os.path.join(parent_dir,"super-kiosk-builder", ".exe")
                 super_kiosk_program_copied = False
 
                 if os.path.exists(json_reader_exe):
                     # json-reader.exe 파일을 대상 폴더로 복사하면서 이름 변경
-                    shutil.copy2(json_reader_exe, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                    shutil.copy2(json_reader_exe, os.path.join(target_dir, "bin", "super-kiosk-builder.exe"))
                     super_kiosk_program_copied = True
-                    print(f"json-reader.exe 파일을 super-kiosk-program.exe로 복사했습니다.")
+                    print(f"super-kiosk-builder.exe 파일을 super-kiosk-builder.exe로 복사했습니다.")
                 else:
                     # 다른 경로에서 json-reader.exe 찾기
-                    possible_paths = [
-                        os.path.join(parent_dir, "dist", "json-reader.exe"),
-                        os.path.join(parent_dir, "build", "json-reader.exe"),
-                        os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
-                    ]
+                    # possible_paths = [
+                    #     os.path.join(parent_dir, "dist", "json-reader.exe"),
+                    #     os.path.join(parent_dir, "build", "json-reader.exe"),
+                    #     os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                    # ]
                     
-                    for path in possible_paths:
-                        if os.path.exists(path):
-                            shutil.copy2(path, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
-                            super_kiosk_program_copied = True
-                            print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
-                            break
+                    # for path in possible_paths:
+                    #     if os.path.exists(path):
+                    #         shutil.copy2(path, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                    #         super_kiosk_program_copied = True
+                    #         print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
+                    #         break
+                    pass
                 
                 # GitHub에서 필요한 exe 파일들 다운로드
                 github_files = [
-                    {"name": "kiosk_preview.exe", "required": True},
-                    {"name": "kiosk_print.exe", "required": True}
+                    # {"name": "kiosk_preview.exe", "required": True},
+                    # {"name": "kiosk_print.exe", "required": True}
+                    {"name": "super-kiosk.exe", "required": True}
                 ]
 
                 downloaded_files = []
