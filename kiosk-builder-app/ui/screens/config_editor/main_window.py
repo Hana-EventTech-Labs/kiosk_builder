@@ -1,7 +1,9 @@
 from PySide6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QMessageBox, QLabel)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QIcon,QAction
+from utils.auth_manager import AuthManager
+from PySide6.QtWidgets import QMenuBar, QMenu
 import json
 import copy
 import os
@@ -22,25 +24,58 @@ class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config_handler = ConfigHandler()
+        self.auth_manager = AuthManager()  # 추가된 라인
         self.config = copy.deepcopy(self.config_handler.config)
         
         # GitHub Releases 다운로드 URL 설정
         self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
         
         self.init_ui()
+        self.create_menu_bar()  # 추가된 라인
         
         # config.json 파일 존재 여부에 따라 저장 버튼 상태 설정
         self.update_save_button_state()
-        
+
     def init_ui(self):
         self.setWindowTitle("S.K Program - 설정 편집기")
         self.setMinimumSize(1250, 900)
         
-        # 탭 위젯 스타일
+        # 탭 위젯 스타일 (기존과 동일하지만 QMenuBar 스타일 추가)
         self.setStyleSheet(f"""
             QMainWindow {{
                 background-color: {COLORS['background']};
                 font-family: 'Segoe UI', Arial, sans-serif;
+            }}
+            QMenuBar {{
+                background-color: {COLORS['background_light']};
+                color: {COLORS['text_dark']};
+                border-bottom: 1px solid {COLORS['border']};
+                padding: 2px;
+            }}
+            QMenuBar::item {{
+                background-color: transparent;
+                padding: 8px 12px;
+                margin: 2px;
+                border-radius: 4px;
+            }}
+            QMenuBar::item:selected {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text_light']};
+            }}
+            QMenu {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_dark']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 6px;
+                padding: 4px;
+            }}
+            QMenu::item {{
+                padding: 8px 20px;
+                border-radius: 4px;
+            }}
+            QMenu::item:selected {{
+                background-color: {COLORS['primary']};
+                color: {COLORS['text_light']};
             }}
             QTabWidget::pane {{
                 border: none;
@@ -133,6 +168,11 @@ class ConfigEditor(QMainWindow):
             margin-bottom: 10px;
         """)
         header_layout.addWidget(app_title)
+        
+        # 사용자 정보 표시 (추가된 부분)
+        self.user_info_label = QLabel()
+        self.update_user_info()
+        header_layout.addWidget(self.user_info_label)
         
         # 헤더에 여백 추가
         header_layout.addStretch()
@@ -242,6 +282,131 @@ class ConfigEditor(QMainWindow):
         """)
         status_bar.showMessage("슈퍼 키오스크 설정 프로그램이 준비되었습니다.")
 
+    # 새로 추가되는 메서드들
+    def create_menu_bar(self):
+        """메뉴바 생성"""
+        menubar = self.menuBar()
+        
+        # 계정 메뉴
+        account_menu = menubar.addMenu("계정")
+        
+        # 로그아웃 액션
+        logout_action = QAction("로그아웃", self)
+        logout_action.setStatusTip("다른 계정으로 로그인")
+        logout_action.triggered.connect(self.logout)
+        account_menu.addAction(logout_action)
+        
+        # 구분선
+        account_menu.addSeparator()
+        
+        # 종료 액션
+        exit_action = QAction("종료", self)
+        exit_action.setStatusTip("프로그램 종료")
+        exit_action.triggered.connect(self.close)
+        account_menu.addAction(exit_action)
+        
+        # 도움말 메뉴
+        help_menu = menubar.addMenu("도움말")
+        
+        # 정보 액션
+        about_action = QAction("프로그램 정보", self)
+        about_action.setStatusTip("프로그램 정보 보기")
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+    
+    def update_user_info(self):
+        # """사용자 정보 업데이트"""
+        # import builtins
+        # user_id = getattr(builtins, 'CURRENT_USER_ID', 0)
+        
+        # if user_id > 0:
+        #     # 실제 환경에서는 사용자 정보를 API에서 가져올 수 있음
+        #     # self.user_info_label.setText(f"사용자 ID: {user_id}")
+        #     self.user_info_label.setStyleSheet(f"""
+        #         color: {COLORS['text_muted']};
+        #         font-size: 12px;
+        #         background-color: {COLORS['background_light']};
+        #         padding: 5px 10px;
+        #         border-radius: 4px;
+        #         border: 1px solid {COLORS['border']};
+        #     """)
+        # else:
+        #     self.user_info_label.setText("사용자 정보 없음")
+        #     self.user_info_label.setStyleSheet(f"""
+        #         color: {COLORS['danger']};
+        #         font-size: 12px;
+        #         background-color: {COLORS['background_light']};
+        #         padding: 5px 10px;
+        #         border-radius: 4px;
+        #         border: 1px solid {COLORS['danger']};
+        #     """)
+        pass
+    
+    def logout(self):
+        """로그아웃 처리"""
+        reply = QMessageBox.question(
+            self, 
+            "로그아웃", 
+            "정말 로그아웃하시겠습니까?\n다른 계정으로 로그인할 수 있습니다.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            # 인증 매니저를 통해 로그아웃 처리
+            self.auth_manager.logout()
+            
+            # 창 닫기
+            self.close()
+            
+            # 로그인 화면으로 돌아가기
+            from ui.screens.login_screen import LoginScreen
+            
+            def show_settings_window():
+                from ui.screens.config_editor.main_window import ConfigEditor
+                settings_window = ConfigEditor()
+                
+                # 설정 창에도 아이콘 적용
+                icon_path = "Hana.ico"
+                if os.path.exists(icon_path):
+                    settings_window.setWindowIcon(QIcon(icon_path))
+                
+                settings_window.show()
+                
+                # 윈도우 객체가 가비지 컬렉션되지 않도록 전역 변수로 저장
+                global main_window
+                main_window = settings_window
+            
+            login_window = LoginScreen(on_login_success=show_settings_window)
+            
+            # 로그인 창에도 아이콘 적용
+            icon_path = "Hana.png"
+            if os.path.exists(icon_path):
+                login_window.setWindowIcon(QIcon(icon_path))
+            
+            login_window.show()
+            
+            # 전역 변수로 참조 유지
+            global login_window_ref
+            login_window_ref = login_window
+    
+    def show_about(self):
+        """프로그램 정보 표시"""
+        QMessageBox.about(
+            self,
+            "프로그램 정보",
+            """
+            <h3>슈퍼 키오스크 빌더</h3>
+            <p><b>버전:</b> 1.0.0</p>
+            <p><b>설명:</b> 키오스크 애플리케이션 설정 도구</p>
+            <p><b>개발:</b> HanaLabs</p>
+            <p><b>저작권:</b> © 2025 Super Kiosk Builder</p>
+            <br>
+            <p>이 프로그램은 키오스크 애플리케이션의 화면 설정과<br>
+            배포용 파일 생성을 지원합니다.</p>
+            """
+        )
+        
     def download_file_from_github(self, filename, target_path):
         """GitHub Releases에서 파일 다운로드"""
         try:
@@ -469,306 +634,351 @@ class ConfigEditor(QMainWindow):
         
     
     def create_distribution(self):
-        """배포용 파일 생성 및 복사"""
-        try:
-            import subprocess
-            import sys
-            
-            # 재귀적 복사 함수
-            def copy_resources_recursive(source_dir, target_dir):
-                """리소스 폴더와 모든 하위 폴더/파일을 재귀적으로 복사"""
-                if not os.path.exists(source_dir):
-                    print(f"소스 폴더를 찾을 수 없음: {source_dir}")
-                    return []
+            """배포용 파일 생성 및 복사"""
+            try:
+                import subprocess
+                import sys
                 
-                copied_files = []
+                # 재귀적 복사 함수
+                def copy_resources_recursive(source_dir, target_dir):
+                    """리소스 폴더와 모든 하위 폴더/파일을 재귀적으로 복사"""
+                    if not os.path.exists(source_dir):
+                        print(f"소스 폴더를 찾을 수 없음: {source_dir}")
+                        return []
+                    
+                    copied_files = []
+                    
+                    # 대상 폴더가 없으면 생성
+                    if not os.path.exists(target_dir):
+                        os.makedirs(target_dir, exist_ok=True)
+                    
+                    # 소스 폴더의 모든 항목 순회
+                    for item in os.listdir(source_dir):
+                        source_item = os.path.join(source_dir, item)
+                        target_item = os.path.join(target_dir, item)
+                        
+                        if os.path.isdir(source_item):
+                            # 디렉토리인 경우 재귀적으로 복사
+                            sub_copied = copy_resources_recursive(source_item, target_item)
+                            copied_files.extend(sub_copied)
+                        else:
+                            # 파일인 경우 복사
+                            try:
+                                shutil.copy2(source_item, target_item)
+                                copied_files.append(os.path.relpath(target_item, target_dir))
+                                print(f"파일 복사됨: {os.path.relpath(target_item, target_dir)}")
+                            except Exception as e:
+                                print(f"파일 복사 실패: {item} - {e}")
+
+                    return copied_files
                 
-                # 대상 폴더가 없으면 생성
-                if not os.path.exists(target_dir):
+                # 앱 이름으로 폴더 생성
+                app_name = self.basic_tab.app_name_edit.text()
+                if not app_name:
+                    self.show_message_box("경고", "앱 이름을 입력해주세요.", QMessageBox.Warning)
+                    return
+
+                # 특수문자 및 공백 처리
+                app_folder_name = app_name.replace(" ", "_").replace(".", "_")
+                
+                # 실행 파일 경로 확인 (PyInstaller)
+                if getattr(sys, 'frozen', False):
+                    # PyInstaller로 패키징된 경우
+                    base_path = sys._MEIPASS
+                    parent_dir = os.path.dirname(sys.executable)
+                else:
+                    # 일반 Python 스크립트로 실행된 경우
+                    base_path = os.getcwd()
+                    parent_dir = os.getcwd()
+                
+                # 앱 폴더 경로
+                target_dir = os.path.join(parent_dir, app_folder_name)
+                
+                # 설정 업데이트
+                self.update_config_from_tabs()
+                
+                # 로그인 정보 포함 여부 확인 (추가된 부분)
+                include_auth = False
+                auth_file_path = os.path.join(parent_dir, "auth_settings.dat")
+                
+                if os.path.exists(auth_file_path):
+                    # 현재 로그인 설정 확인
+                    auth_settings = self.auth_manager.load_auth_settings()
+                    
+                    if auth_settings.get("auto_login", False) or auth_settings.get("remember_id", False):
+                        reply = QMessageBox.question(
+                            self, 
+                            "로그인 정보 포함", 
+                            "현재 저장된 로그인 정보를 배포용 파일에 포함하시겠습니까?\n\n"
+                            "포함하면:\n"
+                            "✓ 배포된 프로그램에서 자동 로그인/아이디 저장 기능 유지\n"
+                            "✗ 다른 사용자가 해당 계정으로 접근 가능\n\n"
+                            "포함하지 않으면:\n"
+                            "✓ 보안상 안전함\n"
+                            "✗ 배포된 프로그램에서 다시 로그인 필요",
+                            QMessageBox.Yes | QMessageBox.No,
+                            QMessageBox.No
+                        )
+                        include_auth = (reply == QMessageBox.Yes)
+                
+                # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
+                if os.path.exists(target_dir):
+                    reply = QMessageBox.question(
+                        self, 
+                        "폴더 이미 존재", 
+                        f"'{app_folder_name}' 폴더가 이미 존재합니다. 내용을 덮어쓰시겠습니까?",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.No:
+                        return
+                    
+                    # 기존 폴더 내용 삭제
+                    for item in os.listdir(target_dir):
+                        item_path = os.path.join(target_dir, item)
+                        if os.path.isfile(item_path):
+                            os.remove(item_path)
+                        elif os.path.isdir(item_path):
+                            shutil.rmtree(item_path)
+                else:
+                    # 폴더 생성
                     os.makedirs(target_dir, exist_ok=True)
                 
-                # 소스 폴더의 모든 항목 순회
-                for item in os.listdir(source_dir):
-                    source_item = os.path.join(source_dir, item)
-                    target_item = os.path.join(target_dir, item)
-                    
-                    if os.path.isdir(source_item):
-                        # 디렉토리인 경우 재귀적으로 복사
-                        sub_copied = copy_resources_recursive(source_item, target_item)
-                        copied_files.extend(sub_copied)
-                    else:
-                        # 파일인 경우 복사
-                        try:
-                            shutil.copy2(source_item, target_item)
-                            copied_files.append(os.path.relpath(target_item, target_dir))
-                            print(f"파일 복사됨: {os.path.relpath(target_item, target_dir)}")
-                        except Exception as e:
-                            print(f"파일 복사 실패: {item} - {e}")
-
-                return copied_files
-            
-            # 앱 이름으로 폴더 생성
-            app_name = self.basic_tab.app_name_edit.text()
-            if not app_name:
-                self.show_message_box("경고", "앱 이름을 입력해주세요.", QMessageBox.Warning)
-                return
-
-            # 특수문자 및 공백 처리
-            app_folder_name = app_name.replace(" ", "_").replace(".", "_")
-            
-            # 실행 파일 경로 확인 (PyInstaller)
-            if getattr(sys, 'frozen', False):
-                # PyInstaller로 패키징된 경우
-                base_path = sys._MEIPASS
-                parent_dir = os.path.dirname(sys.executable)
-            else:
-                # 일반 Python 스크립트로 실행된 경우
-                base_path = os.getcwd()
-                parent_dir = os.getcwd()
-            
-            # 앱 폴더 경로
-            target_dir = os.path.join(parent_dir, app_folder_name)
-            
-            # 설정 업데이트
-            self.update_config_from_tabs()
-            
-            # 폴더가 이미 존재하는지 확인하고 사용자에게 확인
-            if os.path.exists(target_dir):
-                reply = QMessageBox.question(
-                    self, 
-                    "폴더 이미 존재", 
-                    f"'{app_folder_name}' 폴더가 이미 존재합니다. 내용을 덮어쓰시겠습니까?",
-                    QMessageBox.Yes | QMessageBox.No,
-                    QMessageBox.No
-                )
+                # 폴더 구조 생성
+                os.makedirs(os.path.join(target_dir, "bin"), exist_ok=True)
+                os.makedirs(os.path.join(target_dir, "bin", "resources", "background"), exist_ok=True)
+                os.makedirs(os.path.join(target_dir, "bin", "resources", "font"), exist_ok=True)
                 
-                if reply == QMessageBox.No:
-                    return
+                # 배포 폴더 내에 config.json 파일 생성
+                target_config_path = os.path.join(target_dir, "bin", "config.json")
+                with open(target_config_path, 'w', encoding='utf-8') as f:
+                    json.dump(self.config, f, ensure_ascii=False, indent=4)
                 
-                # 기존 폴더 내용 삭제
-                for item in os.listdir(target_dir):
-                    item_path = os.path.join(target_dir, item)
-                    if os.path.isfile(item_path):
-                        os.remove(item_path)
-                    elif os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
-            else:
-                # 폴더 생성
-                os.makedirs(target_dir, exist_ok=True)
-            
-            # 폴더 구조 생성
-            os.makedirs(os.path.join(target_dir, "bin"), exist_ok=True)
-            os.makedirs(os.path.join(target_dir, "bin", "resources", "background"), exist_ok=True)
-            os.makedirs(os.path.join(target_dir, "bin", "resources", "font"), exist_ok=True)
-            
-            # 배포 폴더 내에 config.json 파일 생성
-            target_config_path = os.path.join(target_dir, "bin", "config.json")
-            with open(target_config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.config, f, ensure_ascii=False, indent=4)
-            
-            # config.json 생성 후 저장 버튼 상태 업데이트
-            self.update_save_button_state()
-            
-            # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
-            resources_path = os.path.join(base_path, "resources")
-            font_path = os.path.join(resources_path, "font")
-            background_path = os.path.join(resources_path, "background")
-            
-            # 폴더 생성 여부를 저장할 변수
-            created_dirs = []
-            
-            # font 폴더가 없으면 생성
-            if not os.path.exists(font_path):
-                os.makedirs(font_path, exist_ok=True)
-                created_dirs.append("resources/font")
-                print(f"resources/font 폴더를 생성했습니다: {font_path}")
-            
-            # background 폴더가 없으면 생성
-            if not os.path.exists(background_path):
-                os.makedirs(background_path, exist_ok=True)
-                created_dirs.append("resources/background")
-                print(f"resources/background 폴더를 생성했습니다: {background_path}")
-            
-            # json-reader.exe 파일 찾기 및 복사
-            json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
-            super_kiosk_program_copied = False
-
-            if os.path.exists(json_reader_exe):
-                # json-reader.exe 파일을 대상 폴더로 복사하면서 이름 변경
-                shutil.copy2(json_reader_exe, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
-                super_kiosk_program_copied = True
-                print(f"json-reader.exe 파일을 super-kiosk-program.exe로 복사했습니다.")
-            else:
-                # 다른 경로에서 json-reader.exe 찾기
-                possible_paths = [
-                    os.path.join(parent_dir, "dist", "json-reader.exe"),
-                    os.path.join(parent_dir, "build", "json-reader.exe"),
-                    os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
-                ]
+                # 로그인 정보 파일 복사 (추가된 부분)
+                auth_copied = False
+                if include_auth and os.path.exists(auth_file_path):
+                    try:
+                        target_auth_path = os.path.join(target_dir, "bin", "auth_settings.dat")
+                        shutil.copy2(auth_file_path, target_auth_path)
+                        auth_copied = True
+                        print("로그인 정보 파일이 복사되었습니다.")
+                    except Exception as e:
+                        print(f"로그인 정보 파일 복사 실패: {e}")
                 
-                for path in possible_paths:
-                    if os.path.exists(path):
-                        shutil.copy2(path, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
-                        super_kiosk_program_copied = True
-                        print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
-                        break
-            
-            # GitHub에서 필요한 exe 파일들 다운로드
-            github_files = [
-                {"name": "kiosk_preview.exe", "required": True},
-                {"name": "kiosk_print.exe", "required": True}
-            ]
+                # config.json 생성 후 저장 버튼 상태 업데이트
+                self.update_save_button_state()
+                
+                # resources 폴더 안에 필요한 하위 폴더 확인 및 생성
+                resources_path = os.path.join(base_path, "resources")
+                font_path = os.path.join(resources_path, "font")
+                background_path = os.path.join(resources_path, "background")
+                
+                # 폴더 생성 여부를 저장할 변수
+                created_dirs = []
+                
+                # font 폴더가 없으면 생성
+                if not os.path.exists(font_path):
+                    os.makedirs(font_path, exist_ok=True)
+                    created_dirs.append("resources/font")
+                    print(f"resources/font 폴더를 생성했습니다: {font_path}")
+                
+                # background 폴더가 없으면 생성
+                if not os.path.exists(background_path):
+                    os.makedirs(background_path, exist_ok=True)
+                    created_dirs.append("resources/background")
+                    print(f"resources/background 폴더를 생성했습니다: {background_path}")
+                
+                # json-reader.exe 파일 찾기 및 복사
+                json_reader_exe = os.path.join(parent_dir, "json-reader.exe")
+                super_kiosk_program_copied = False
 
-            downloaded_files = []
-            failed_downloads = []
-
-            # 다운로드 진행률 다이얼로그 표시
-            download_dialog = DownloadProgressDialog(
-                parent=self,
-                github_base_url=self.github_release_base_url,
-                files_to_download=github_files,
-                target_dir=os.path.join(target_dir, "bin")
-            )
-
-            # 다이얼로그 실행 (모달)
-            download_dialog.exec_()
-
-            # 다운로드 결과 처리
-            download_results = download_dialog.get_results()
-
-            for filename, result in download_results.items():
-                if result['success']:
-                    downloaded_files.append(f"{filename} (GitHub에서 다운로드됨, 크기: {result.get('size', 0):,} bytes)")
+                if os.path.exists(json_reader_exe):
+                    # json-reader.exe 파일을 대상 폴더로 복사하면서 이름 변경
+                    shutil.copy2(json_reader_exe, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                    super_kiosk_program_copied = True
+                    print(f"json-reader.exe 파일을 super-kiosk-program.exe로 복사했습니다.")
                 else:
-                    # 다운로드 실패 시 로컬에서 찾기
-                    local_file_path = os.path.join(base_path, filename)
-                    target_path = os.path.join(target_dir, "bin", filename)
+                    # 다른 경로에서 json-reader.exe 찾기
+                    possible_paths = [
+                        os.path.join(parent_dir, "dist", "json-reader.exe"),
+                        os.path.join(parent_dir, "build", "json-reader.exe"),
+                        os.path.join(os.path.dirname(parent_dir), "json-reader.exe")
+                    ]
                     
-                    if os.path.exists(local_file_path):
-                        shutil.copy2(local_file_path, target_path)
-                        downloaded_files.append(f"{filename} (로컬에서 복사됨)")
-                        print(f"로컬에서 {filename} 복사 완료")
-                    else:
-                        failed_downloads.append(filename)
-            
-            # 폴더들을 대상 폴더로 복사 (재귀적으로)
-            copied_folders = []
-            missing_folders = []
-            copied_resource_files = []
-
-            # resources 폴더 복사
-            resources_source = os.path.join(base_path, "resources")
-            resources_target = os.path.join(target_dir, "bin", "resources")
-            
-            if os.path.exists(resources_source):
-                # 대상 폴더가 존재하면 삭제 후 복사
-                if os.path.exists(resources_target):
-                    shutil.rmtree(resources_target)
+                    for path in possible_paths:
+                        if os.path.exists(path):
+                            shutil.copy2(path, os.path.join(target_dir, "bin", "super-kiosk-program.exe"))
+                            super_kiosk_program_copied = True
+                            print(f"{path} 파일을 super-kiosk-program.exe로 복사했습니다.")
+                            break
                 
-                # 재귀적 복사 함수 사용
-                copied_files_list = copy_resources_recursive(resources_source, resources_target)
-                if copied_files_list:
-                    copied_folders.append("resources")
-                    copied_resource_files = copied_files_list
+                # GitHub에서 필요한 exe 파일들 다운로드
+                github_files = [
+                    {"name": "kiosk_preview.exe", "required": True},
+                    {"name": "kiosk_print.exe", "required": True}
+                ]
+
+                downloaded_files = []
+                failed_downloads = []
+
+                # 다운로드 진행률 다이얼로그 표시
+                download_dialog = DownloadProgressDialog(
+                    parent=self,
+                    github_base_url=self.github_release_base_url,
+                    files_to_download=github_files,
+                    target_dir=os.path.join(target_dir, "bin")
+                )
+
+                # 다이얼로그 실행 (모달)
+                download_dialog.exec_()
+
+                # 다운로드 결과 처리
+                download_results = download_dialog.get_results()
+
+                for filename, result in download_results.items():
+                    if result['success']:
+                        downloaded_files.append(f"{filename} (GitHub에서 다운로드됨, 크기: {result.get('size', 0):,} bytes)")
+                    else:
+                        # 다운로드 실패 시 로컬에서 찾기
+                        local_file_path = os.path.join(base_path, filename)
+                        target_path = os.path.join(target_dir, "bin", filename)
+                        
+                        if os.path.exists(local_file_path):
+                            shutil.copy2(local_file_path, target_path)
+                            downloaded_files.append(f"{filename} (로컬에서 복사됨)")
+                            print(f"로컬에서 {filename} 복사 완료")
+                        else:
+                            failed_downloads.append(filename)
+                
+                # 폴더들을 대상 폴더로 복사 (재귀적으로)
+                copied_folders = []
+                missing_folders = []
+                copied_resource_files = []
+
+                # resources 폴더 복사
+                resources_source = os.path.join(base_path, "resources")
+                resources_target = os.path.join(target_dir, "bin", "resources")
+                
+                if os.path.exists(resources_source):
+                    # 대상 폴더가 존재하면 삭제 후 복사
+                    if os.path.exists(resources_target):
+                        shutil.rmtree(resources_target)
                     
-                    # DLL과 폰트 파일 확인
-                    dll_files = [f for f in copied_files_list if f.endswith(".dll")]
-                    font_files = [f for f in copied_files_list if f.endswith((".ttf", ".otf"))]
+                    # 재귀적 복사 함수 사용
+                    copied_files_list = copy_resources_recursive(resources_source, resources_target)
+                    if copied_files_list:
+                        copied_folders.append("resources")
+                        copied_resource_files = copied_files_list
+                        
+                        # DLL과 폰트 파일 확인
+                        dll_files = [f for f in copied_files_list if f.endswith(".dll")]
+                        font_files = [f for f in copied_files_list if f.endswith((".ttf", ".otf"))]
+                        
+                        if dll_files:
+                            print(f"DLL 파일 {len(dll_files)}개 복사됨: {', '.join(dll_files)}")
+                        
+                        if font_files:
+                            print(f"폰트 파일 {len(font_files)}개 복사됨: {', '.join(font_files)}")
+                else:
+                    missing_folders.append("resources")
+                
+                # 실행 배치 파일 생성
+                batch_path = os.path.join(target_dir, "run_kiosk.bat")
+                with open(batch_path, 'w') as f:
+                    f.write("@echo off\n")
+                    f.write("cd bin\n")
+                    f.write("start super-kiosk-program.exe\n")
+                
+                # 결과 메시지 구성
+                result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
+                
+                # 폴더 생성 메시지 추가
+                if created_dirs:
+                    result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
+                
+                success_items = []
+                
+                if super_kiosk_program_copied:
+                    success_items.append("super-kiosk-program.exe")
+                
+                if downloaded_files:
+                    success_items.extend(downloaded_files)
+                
+                if copied_folders:
+                    success_items.extend(copied_folders)
+                
+                # 로그인 정보 복사 결과 추가
+                if auth_copied:
+                    success_items.append("auth_settings.dat (로그인 정보)")
+                
+                if success_items:
+                    result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+                    result_message += "- " + "\n- ".join(success_items) + "\n\n"
+                    
+                    # DLL 및 폰트 파일 정보 추가
+                    dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
+                    font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
                     
                     if dll_files:
-                        print(f"DLL 파일 {len(dll_files)}개 복사됨: {', '.join(dll_files)}")
+                        result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
                     
                     if font_files:
-                        print(f"폰트 파일 {len(font_files)}개 복사됨: {', '.join(font_files)}")
-            else:
-                missing_folders.append("resources")
-            
-            # 실행 배치 파일 생성
-            batch_path = os.path.join(target_dir, "run_kiosk.bat")
-            with open(batch_path, 'w') as f:
-                f.write("@echo off\n")
-                f.write("cd bin\n")
-                f.write("start super-kiosk-program.exe\n")
-            
-            # 결과 메시지 구성
-            result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
-            
-            # 폴더 생성 메시지 추가
-            if created_dirs:
-                result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
-            
-            success_items = []
-            
-            if super_kiosk_program_copied:
-                success_items.append("super-kiosk-program.exe")
-            
-            if downloaded_files:
-                success_items.extend(downloaded_files)
-            
-            if copied_folders:
-                success_items.extend(copied_folders)
-            
-            if success_items:
-                result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
-                result_message += "- " + "\n- ".join(success_items) + "\n\n"
-                
-                # DLL 및 폰트 파일 정보 추가
-                dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
-                font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
-                
-                if dll_files:
-                    result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
-                
-                if font_files:
-                    result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
-            
-            failure_items = []
-            
-            if not super_kiosk_program_copied:
-                failure_items.append("super-kiosk-program.exe")
-            
-            if failed_downloads:
-                failure_items.extend([f"{f} (다운로드 및 로컬 복사 모두 실패)" for f in failed_downloads])
-            
-            if missing_folders:
-                failure_items.extend(missing_folders)
-            
-            if failure_items:
-                result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
-                result_message += "- " + "\n- ".join(failure_items) + "\n\n"
-            
-            # 사용자에게 결과 알림
-            if success_items:
-                QMessageBox.information(
-                    self, 
-                    "배포용 파일 생성 완료", 
-                    result_message
-                )
-                
-                # 배포용 생성 성공 시 로그 기록
-                try:
-                    # 전역 변수에서 사용자 ID 가져오기
-                    import builtins
-                    user_id = getattr(builtins, 'CURRENT_USER_ID', 0)
+                        result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
                     
-                    if user_id > 0:
-                        # api_client의 로그 기록 함수 호출
-                        from api_client import log_distribution_creation
-                        success, message = log_distribution_creation(user_id, app_name)
-                        
-                        if not success:
-                            print(f"로그 기록 실패: {message}")
+                    # 로그인 정보 상태 안내
+                    if auth_copied:
+                        result_message += "📋 로그인 정보가 포함되어 자동 로그인이 가능합니다.\n"
                     else:
-                        print("사용자 ID가 없어 로그를 기록할 수 없습니다.")
-                except Exception as e:
-                    print(f"로그 기록 중 오류 발생: {e}")
+                        result_message += "🔐 로그인 정보가 포함되지 않아 보안상 안전합니다.\n"
+                
+                failure_items = []
+                
+                if not super_kiosk_program_copied:
+                    failure_items.append("super-kiosk-program.exe")
+                
+                if failed_downloads:
+                    failure_items.extend([f"{f} (다운로드 및 로컬 복사 모두 실패)" for f in failed_downloads])
+                
+                if missing_folders:
+                    failure_items.extend(missing_folders)
+                
+                if failure_items:
+                    result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
+                    result_message += "- " + "\n- ".join(failure_items) + "\n\n"
+                
+                # 사용자에게 결과 알림
+                if success_items:
+                    QMessageBox.information(
+                        self, 
+                        "배포용 파일 생성 완료", 
+                        result_message
+                    )
                     
-            else:
-                QMessageBox.warning(
-                    self, 
-                    "배포용 파일 생성 실패", 
-                    result_message + "필요한 파일을 찾을 수 없습니다."
-                )
-                    
-        except Exception as e:
-            QMessageBox.warning(self, "오류", f"배포용 파일 처리 중 오류가 발생했습니다: {str(e)}")
+                    # 배포용 생성 성공 시 로그 기록
+                    try:
+                        # 전역 변수에서 사용자 ID 가져오기
+                        import builtins
+                        user_id = getattr(builtins, 'CURRENT_USER_ID', 0)
+                        
+                        if user_id > 0:
+                            # api_client의 로그 기록 함수 호출
+                            from api_client import log_distribution_creation
+                            success, message = log_distribution_creation(user_id, app_name)
+                            
+                            if not success:
+                                print(f"로그 기록 실패: {message}")
+                        else:
+                            print("사용자 ID가 없어 로그를 기록할 수 없습니다.")
+                    except Exception as e:
+                        print(f"로그 기록 중 오류 발생: {e}")
+                        
+                else:
+                    QMessageBox.warning(
+                        self, 
+                        "배포용 파일 생성 실패", 
+                        result_message + "필요한 파일을 찾을 수 없습니다."
+                    )
+                        
+            except Exception as e:
+                QMessageBox.warning(self, "오류", f"배포용 파일 처리 중 오류가 발생했습니다: {str(e)}")
