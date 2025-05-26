@@ -45,7 +45,7 @@ def clean_build_dirs():
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
             shutil.rmtree(dir_name)
-            print(f"🧹 Cleaned {dir_name}")
+            print(f"[CLEAN] Cleaned {dir_name}")
 
 def build_super_kiosk_builder():
     """super-kiosk-builder.exe 빌드"""
@@ -92,12 +92,12 @@ def verify_builds():
     kiosk_exe = Path("dist/super-kiosk.exe")
     
     if builder_exe.exists() and kiosk_exe.exists():
-        print("✅ All builds successful!")
-        print(f"📁 super-kiosk-builder.exe: {builder_exe.stat().st_size:,} bytes")
-        print(f"📁 super-kiosk.exe: {kiosk_exe.stat().st_size:,} bytes")
+        print("[SUCCESS] All builds successful!")
+        print(f"[FILE] super-kiosk-builder.exe: {builder_exe.stat().st_size:,} bytes")
+        print(f"[FILE] super-kiosk.exe: {kiosk_exe.stat().st_size:,} bytes")
         return True
     else:
-        print("❌ Build verification failed")
+        print("[ERROR] Build verification failed")
         if not builder_exe.exists():
             print("  - super-kiosk-builder.exe not found")
         if not kiosk_exe.exists():
@@ -106,7 +106,7 @@ def verify_builds():
 
 def main():
     """메인 빌드 프로세스"""
-    print("🚀 Starting dual exe build process...")
+    print("[START] Starting dual exe build process...")
     
     # 1. 환경 확인
     required_files = [
@@ -115,7 +115,7 @@ def main():
     ]
     for file in required_files:
         if not os.path.exists(file):
-            print(f"❌ {file} not found")
+            print(f"[ERROR] {file} not found")
             sys.exit(1)
     
     # 2. 빌드 디렉토리 정리
@@ -123,19 +123,19 @@ def main():
     
     # 3. Builder 빌드
     if not build_super_kiosk_builder():
-        print("❌ Builder build failed")
+        print("[ERROR] Builder build failed")
         sys.exit(1)
     
     # 4. Kiosk 빌드  
     if not build_super_kiosk():
-        print("❌ Kiosk build failed")
+        print("[ERROR] Kiosk build failed")
         sys.exit(1)
     
     # 5. 빌드 결과 확인
     if not verify_builds():
         sys.exit(1)
     
-    print("🎉 All builds completed successfully!")
+    print("[SUCCESS] All builds completed successfully!")
 
 if __name__ == "__main__":
     main()
