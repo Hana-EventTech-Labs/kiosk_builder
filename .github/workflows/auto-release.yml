@@ -12,36 +12,51 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      run: |
+        git clone $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY.git .
+        git checkout $env:GITHUB_REF_NAME
+      shell: powershell
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+    - name: Setup Python
+      run: |
+        # Python이 이미 설치되어 있는지 확인
+        python --version
+        pip --version
+        
+        # 최신 pip으로 업그레이드
+        python -m pip install --upgrade pip
+      shell: powershell
     
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r kiosk-builder-app/requirements.txt
+        # 의존성 설치
+        if (Test-Path "requirements.txt") {
+          pip install -r requirements.txt
+        }
+        if (Test-Path "kiosk-builder-app/requirements.txt") {
+          pip install -r kiosk-builder-app/requirements.txt
+        }
+      shell: powershell
     
     - name: Extract version from tag
       id: get_version
       run: |
-        $tag = "${{ github.ref_name }}"
+        $tag = $env:GITHUB_REF_NAME
         $version = $tag -replace '^v', ''
         echo "version=$version" >> $env:GITHUB_OUTPUT
         echo "tag=$tag" >> $env:GITHUB_OUTPUT
-        echo "Version: $version"
+        Write-Host "Version: $version"
       shell: powershell
     
     - name: Update version in code
       run: |
         python scripts/update_version.py ${{ steps.get_version.outputs.version }}
+      shell: powershell
     
     - name: Build both executables
       run: |
         python scripts/build_all.py
+      shell: powershell
     
     - name: Verify builds
       run: |
@@ -62,10 +77,10 @@ jobs:
         Write-Host "📁 super-kiosk.exe: $($kioskSize.ToString('N0')) bytes"
       shell: powershell
     
-    - name: Generate release notes
-      id: release_notes
+    - name: Create Release with GitHub CLI
       run: |
         $version = "${{ steps.get_version.outputs.version }}"
+        $tag = "${{ steps.get_version.outputs.tag }}"
         $date = Get-Date -Format "yyyy-MM-dd"
         
         $releaseNotes = @"
@@ -75,12 +90,6 @@ jobs:
         - **super-kiosk-builder.exe**: 키오스크 설정 편집 프로그램 (관리자용)
         - **super-kiosk.exe**: 키오스크 실행 프로그램 (사용자용)
 
-        ### 📋 주요 특징
-        - 🔄 **자동 업데이트**: Builder에서 자동으로 최신 버전 확인 및 업데이트
-        - 🎨 **통합 UI**: 직관적인 키오스크 설정 인터페이스
-        - 📱 **반응형 디자인**: 다양한 화면 크기 지원
-        - 🔐 **보안**: 사용자 인증 및 권한 관리
-
         ### 🛠 기술 정보
         - **빌드 일시**: $date
         - **버전**: $version
@@ -88,32 +97,16 @@ jobs:
         - **UI 프레임워크**: PySide6
         "@
         
-        # GitHub Output으로 설정 (멀티라인 처리)
-        "release_notes<<EOF" >> $env:GITHUB_OUTPUT
-        $releaseNotes >> $env:GITHUB_OUTPUT
-        "EOF" >> $env:GITHUB_OUTPUT
-      shell: powershell
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          dist/super-kiosk-builder.exe
-          dist/super-kiosk.exe
-        body: ${{ steps.release_notes.outputs.release_notes }}
-        name: "Super Kiosk ${{ steps.get_version.outputs.tag }}"
-        draft: false
-        prerelease: false
-        generate_release_notes: false
+        # GitHub CLI로 릴리스 생성
+        gh release create $tag dist/super-kiosk-builder.exe dist/super-kiosk.exe --title "Super Kiosk $tag" --notes "$releaseNotes"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: powershell
     
     - name: Upload build artifacts (for debugging)
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: build-artifacts-${{ steps.get_version.outputs.version }}
-        path: |
-          dist/
-          *.log
-        retention-days: 30
+      run: |
+        # 아티팩트 업로드는 수동으로 처리
+        Write-Host "Build artifacts available in dist/ folder"
+        Write-Host "Files created:"
+        Get-ChildItem dist/ | ForEach-Object { Write-Host "- $($_.Name)" }
+      shell: powershell
