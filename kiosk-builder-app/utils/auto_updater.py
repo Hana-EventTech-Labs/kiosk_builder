@@ -262,79 +262,99 @@ class AutoUpdater:
             )
 
     def create_update_script(self, current_exe, update_file, backup_path):
-        """🔥 DLL 문제 해결을 위한 간단한 업데이트 스크립트"""
+        """🔥 MEI 폴더 문제 완전 해결을 위한 업데이트 스크립트"""
         script_content = f'''@echo off
 chcp 65001 > nul
 echo.
 echo 🔄 슈퍼 키오스크 빌더 업데이트 중...
-echo 💡 DLL 문제 해결 방식으로 업데이트합니다.
+echo 💡 MEI 폴더 문제 완전 해결 방식
 echo.
 
-REM 현재 실행 중인 프로세스 종료 대기
-:WAIT_PROCESS
-tasklist /FI "IMAGENAME eq super-kiosk-builder.exe" 2>NUL | find /I /N "super-kiosk-builder.exe">NUL
-if "%ERRORLEVEL%"=="0" (
-    echo ⏳ 프로그램 종료 대기 중...
-    timeout /t 2 /nobreak > nul
-    goto WAIT_PROCESS
-)
+REM 현재 실행 중인 모든 관련 프로세스 종료
+echo ⏳ 모든 관련 프로세스 종료 중...
+taskkill /f /im super-kiosk-builder.exe 2>nul
+taskkill /f /im python.exe 2>nul
+taskkill /f /im pythonw.exe 2>nul
 
-echo ✅ 프로그램이 완전히 종료되었습니다.
+REM 프로세스 완전 종료 대기
+timeout /t 5 /nobreak > nul
 
-REM 기존 파일 백업
-if exist "{current_exe}" (
-    echo 📦 기존 파일 백업 중...
-    move "{current_exe}" "{backup_path}"
-    if errorlevel 1 (
-        echo ❌ 백업 실패, 파일 직접 삭제 시도...
-        del "{current_exe}" /f /q 2>nul
+REM MEI 임시 폴더 완전 정리
+echo 🧹 MEI 임시 폴더 완전 정리 중...
+for /d %%i in ("%TEMP%\\_MEI*") do (
+    if exist "%%i" (
+        echo 강제 삭제: %%i
+        rmdir /s /q "%%i" 2>nul
+        if exist "%%i" (
+            takeown /f "%%i" /r /d y 2>nul
+            icacls "%%i" /grant administrators:F /t 2>nul
+            rmdir /s /q "%%i" 2>nul
+        )
     )
 )
 
-REM 새 파일 복사
+REM 추가 Python 관련 임시 파일 정리
+for /f "tokens=*" %%i in ('dir /b /ad "%TEMP%\\python*" 2^>nul') do (
+    rmdir /s /q "%TEMP%\\%%i" 2>nul
+)
+
+echo ✅ 임시 폴더 정리 완료
+
+REM 기존 파일 처리
+if exist "{current_exe}" (
+    echo 📦 기존 파일 백업 중...
+    move "{current_exe}" "{backup_path}" 2>nul
+    if errorlevel 1 (
+        echo ⚠️ 백업 실패, 강제 삭제 시도...
+        del /f /q "{current_exe}" 2>nul
+        timeout /t 2 /nobreak > nul
+    )
+)
+
+REM 새 파일 설치
 echo 📥 새 버전 설치 중...
 copy "{update_file}" "{current_exe}"
 if errorlevel 1 (
     echo ❌ 새 파일 복사 실패!
     if exist "{backup_path}" (
-        echo 🔄 백업 파일로 복원 중...
+        echo 🔄 백업 파일로 복원...
         move "{backup_path}" "{current_exe}"
     )
-    echo.
-    echo ❌ 업데이트에 실패했습니다. 수동으로 다시 시도해주세요.
     pause
     exit /b 1
 )
 
 echo ✅ 새 버전 설치 완료!
 
-REM 설치 확인 및 재시작
-if exist "{current_exe}" (
-    echo 🚀 새 버전으로 재시작 중...
-    timeout /t 2 /nobreak > nul
-    start "" "{current_exe}"
-    
-    REM 임시 파일 정리
-    timeout /t 3 /nobreak > nul
-    del "{update_file}" 2>nul
-    del "{backup_path}" 2>nul
-    
-    echo ✅ 업데이트가 완료되었습니다!
-    timeout /t 2 /nobreak > nul
-) else (
-    echo ❌ 새 파일이 제대로 복사되지 않았습니다.
-    if exist "{backup_path}" (
-        move "{backup_path}" "{current_exe}"
-        start "" "{current_exe}"
-    )
-    pause
+REM 파일 권한 설정
+attrib -r "{current_exe}" 2>nul
+icacls "{current_exe}" /grant everyone:F 2>nul
+
+REM 최종 MEI 정리
+echo 🧹 최종 정리...
+for /d %%i in ("%TEMP%\\_MEI*") do (
+    rmdir /s /q "%%i" 2>nul
 )
 
+REM 환경 변수 초기화 후 실행
+echo 🚀 새 버전 시작 중...
+echo 환경을 완전히 초기화하여 실행합니다...
+
+REM 새로운 독립적인 프로세스로 실행
+start "" cmd /c "set TEMP=%TEMP%&& set TMP=%TMP%&& timeout /t 3 /nobreak > nul && \"{current_exe}\""
+
+REM 정리 작업
+timeout /t 3 /nobreak > nul
+del "{update_file}" 2>nul
+del "{backup_path}" 2>nul
+
+echo ✅ 업데이트 완료! 새 버전이 시작됩니다.
+
 REM 스크립트 자기 자신 삭제
-del "%~f0" 2>nul
+(goto) 2>nul & del "%~f0"
 '''
 
-        script_path = os.path.join(tempfile.gettempdir(), "super_kiosk_simple_updater.bat")
+        script_path = os.path.join(tempfile.gettempdir(), "super_kiosk_ultimate_updater.bat")
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write(script_content)
         return script_path
