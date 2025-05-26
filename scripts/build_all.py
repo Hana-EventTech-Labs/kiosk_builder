@@ -5,7 +5,6 @@ import shutil
 from pathlib import Path
 
 def run_command_list(command_list, description):
-    """명령어 리스트 실행 및 결과 확인"""
     print(f"[BUILD] {description}...")
     try:
         result = subprocess.run(command_list, check=True, 
@@ -18,7 +17,6 @@ def run_command_list(command_list, description):
         return False
 
 def clean_build_dirs():
-    """빌드 디렉토리 정리"""
     dirs_to_clean = ['build', 'dist', '__pycache__']
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
@@ -26,17 +24,15 @@ def clean_build_dirs():
             print(f"[CLEAN] Cleaned {dir_name}")
 
 def get_python_dll_option():
-    """Python DLL 경로 명시적 포함"""
     dll_path = "C:\\Python312\\python312.dll"
     if os.path.exists(dll_path):
-        print(f"[INFO] Python DLL 포함: {dll_path}")
+        print(f"[INFO] Python DLL found: {dll_path}")
         return ["--add-binary", f"{dll_path};."]
     else:
-        print(f"[WARNING] DLL 없음: {dll_path}")
+        print(f"[WARNING] DLL not found: {dll_path}")
         return []
 
 def build_super_kiosk_builder():
-    """super-kiosk-builder.exe 빌드 (DLL 포함)"""
     builder_path = os.path.join("kiosk-builder-app", "run_gui.py")
 
     command = [
@@ -50,18 +46,15 @@ def build_super_kiosk_builder():
         '--name=super-kiosk-builder'
     ]
 
-    # 아이콘 파일이 있으면 추가
     if os.path.exists("Hana.ico"):
         command.insert(-2, '--icon=Hana.ico')
 
-    # Python DLL 포함
     command += get_python_dll_option()
     command.append(builder_path)
 
     return run_command_list(command, "Building super-kiosk-builder.exe")
 
 def build_super_kiosk():
-    """super-kiosk.exe 빌드 (DLL 포함)"""
     command = [
         'pyinstaller', '--clean', '--onefile', '--windowed',
         '--noupx',
@@ -76,18 +69,15 @@ def build_super_kiosk():
         '--name=super-kiosk'
     ]
 
-    # 아이콘 파일이 있으면 추가
     if os.path.exists("Kiosk.ico"):
         command.insert(-2, '--icon=Kiosk.ico')
 
-    # Python DLL 포함
     command += get_python_dll_option()
     command.append("kiosk_main.py")
 
     return run_command_list(command, "Building super-kiosk.exe")
 
 def verify_builds():
-    """빌드 결과 확인"""
     builder_exe = Path("dist/super-kiosk-builder.exe")
     kiosk_exe = Path("dist/super-kiosk.exe")
 
@@ -105,7 +95,6 @@ def verify_builds():
         return False
 
 def main():
-    """메인 빌드 프로세스"""
     print("[START] Starting dual exe build process...")
 
     required_files = [
@@ -118,7 +107,6 @@ def main():
             print(f"[ERROR] {file} not found")
             sys.exit(1)
 
-    # version.py 복사
     shutil.copy2("version.py", os.path.join("kiosk-builder-app", "version.py"))
     print("[COPY] version.py copied to kiosk-builder-app")
 
