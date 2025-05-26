@@ -24,13 +24,16 @@ def clean_build_dirs():
             print(f"[CLEAN] Cleaned {dir_name}")
 
 def get_python_dll_option():
-    dll_path = "C:\\Python312\\python312.dll"
+    # GitHub Actions 전용 경로 (Python 3.12 기준)
+    dll_path = "C:\\hostedtoolcache\\windows\\Python\\3.12.1\\x64\\python312.dll"
+
     if os.path.exists(dll_path):
         print(f"[INFO] Python DLL found: {dll_path}")
         return ["--add-binary", f"{dll_path};."]
     else:
-        print(f"[WARNING] DLL not found: {dll_path}")
-        return []
+        print(f"[WARNING] Python DLL not found: {dll_path}")
+        return []  # ⚠ return 빈 리스트 꼭 유지해야 함
+
 
 def build_super_kiosk_builder():
     builder_path = os.path.join("kiosk-builder-app", "run_gui.py")
