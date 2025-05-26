@@ -79,25 +79,35 @@ jobs:
     
     - name: Create Release with GitHub CLI
       run: |
+        # PowerShell 인코딩을 UTF-8로 설정
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        $OutputEncoding = [Text.Encoding]::UTF8
+        
         $version = "${{ steps.get_version.outputs.version }}"
         $tag = "${{ steps.get_version.outputs.tag }}"
         $date = Get-Date -Format "yyyy-MM-dd"
         
         $releaseNotes = @"
-        ## 🚀 Super Kiosk v$version 출시
+        ## Super Kiosk v$version Release
 
-        ### 📦 포함된 파일
-        - **super-kiosk-builder.exe**: 키오스크 설정 편집 프로그램 (관리자용)
-        - **super-kiosk.exe**: 키오스크 실행 프로그램 (사용자용)
+        ### Included Files
+        - **super-kiosk-builder.exe**: Kiosk Settings Editor (Admin)
+        - **super-kiosk.exe**: Kiosk Runtime Program (User)
 
-        ### 🛠 기술 정보
-        - **빌드 일시**: $date
-        - **버전**: $version
+        ### Technical Information
+        - **Build Date**: $date
+        - **Version**: $version
         - **Python**: 3.11
-        - **UI 프레임워크**: PySide6
+        - **UI Framework**: PySide6
+
+        ### Features
+        - Auto Update System
+        - Integrated UI Interface
+        - Cross-platform Support
+        - User Authentication
         "@
         
-        # GitHub CLI로 릴리스 생성
+        # GitHub CLI로 릴리스 생성 (영문으로 변경)
         gh release create $tag dist/super-kiosk-builder.exe dist/super-kiosk.exe --title "Super Kiosk $tag" --notes "$releaseNotes"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
