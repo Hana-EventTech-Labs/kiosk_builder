@@ -28,11 +28,23 @@ try:
     from version import get_version, get_full_version
     VERSION_AVAILABLE = True
 except ImportError:
-    VERSION_AVAILABLE = False
-    def get_version():
-        return "1.0.0"
-    def get_full_version():
-        return "1.0.0 (Build 001, 2025-01-27)"
+    # 현재 디렉토리에서 찾을 수 없으면 상위 디렉토리에서 시도
+    try:
+        import sys
+        import os
+        # kiosk-builder-app 기준으로 프로젝트 루트의 version.py 찾기
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # main_window.py에서 프로젝트 루트까지 4단계 상위
+        project_root = os.path.join(current_dir, '..', '..', '..', '..')
+        sys.path.insert(0, os.path.abspath(project_root))
+        from version import get_version, get_full_version
+        VERSION_AVAILABLE = True
+    except ImportError:
+        VERSION_AVAILABLE = False
+        def get_version():
+            return "1.0.0"
+        def get_full_version():
+            return "1.0.0 (Build 001, 2025-05-26)"
     
 class ConfigEditor(QMainWindow):
     def __init__(self):

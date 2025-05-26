@@ -214,12 +214,12 @@ class ConfigHandler:
             print("config.json 파일이 없습니다. 기본 설정을 사용합니다.")
             return self.default_config.copy()
 
-    def show_error_and_exit(self, message):
-        """오류 메시지를 표시하고 프로그램 종료"""
-        root = tk.Tk()
-        root.withdraw()  # 기본 창 숨기기
-        messagebox.showerror("오류", message)
-        sys.exit(1)
+    # def show_error_and_exit(self, message):
+    #     """오류 메시지를 표시하고 프로그램 종료"""
+    #     root = tk.Tk()
+    #     root.withdraw()  # 기본 창 숨기기
+    #     messagebox.showerror("오류", message)
+    #     sys.exit(1)
 
     def save_config(self, config_data):
         """설정을 JSON 파일로 저장"""

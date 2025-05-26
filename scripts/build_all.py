@@ -1,8 +1,4 @@
-# scripts/build_all.py
-"""
-두 개의 exe 파일을 동시에 빌드하는 스크립트
-로컬 개발 및 GitHub Actions에서 사용
-"""
+# scripts/build_all.py 수정된 버전
 
 import subprocess
 import sys
@@ -24,20 +20,6 @@ def run_command_list(command_list, description):
         print(f"Error: {e.stderr}")
         return False
 
-def run_command(command, description):
-    """명령어 실행 및 결과 확인 (기존 호환성용)"""
-    print(f"[BUILD] {description}...")
-    
-    try:
-        result = subprocess.run(command, shell=True, check=True, 
-                              capture_output=True, text=True)
-        print(f"[SUCCESS] {description} completed")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"[ERROR] {description} failed:")
-        print(f"Error: {e.stderr}")
-        return False
-
 def clean_build_dirs():
     """빌드 디렉토리 정리"""
     dirs_to_clean = ['build', 'dist', '__pycache__']
@@ -48,15 +30,19 @@ def clean_build_dirs():
             print(f"[CLEAN] Cleaned {dir_name}")
 
 def build_super_kiosk_builder():
-    """super-kiosk-builder.exe 빌드"""
-    # Windows에서 안전한 경로 처리
+    """super-kiosk-builder.exe 빌드 (DLL 문제 해결 옵션 추가)"""
     builder_path = os.path.join("kiosk-builder-app", "run_gui.py")
     
     command = [
         'pyinstaller', '--clean', '--onefile', '--windowed',
+        # DLL 로드 문제 해결을 위한 옵션들 추가
+        '--noupx',  # UPX 압축 비활성화
+        '--exclude-module=matplotlib',
+        '--hidden-import=tkinter',  # tkinter 명시적 포함
         '--add-data', 'resources;resources',
         '--add-data', 'kiosk-builder-app/config.json;.',
-        '--name=super-kiosk-builder',  # = 기호 사용
+        '--add-data', 'version.py;.',  # version.py 명시적 추가
+        '--name=super-kiosk-builder',
         builder_path
     ]
     
@@ -67,16 +53,20 @@ def build_super_kiosk_builder():
     return run_command_list(command, "Building super-kiosk-builder.exe")
 
 def build_super_kiosk():
-    """super-kiosk.exe 빌드"""
+    """super-kiosk.exe 빌드 (DLL 문제 해결 옵션 추가)"""
     command = [
         'pyinstaller', '--clean', '--onefile', '--windowed',
+        # DLL 로드 문제 해결을 위한 옵션들 추가
+        '--noupx',  # UPX 압축 비활성화
+        '--debug=all',  # 디버그 정보 포함
         '--add-data', 'resources;resources',
         '--add-data', 'screens;screens',
         '--add-data', 'components;components', 
         '--add-data', 'printer_utils;printer_utils',
         '--add-data', 'webcam_utils;webcam_utils',
         '--add-data', 'config.json;.',
-        '--name=super-kiosk',  # = 기호 사용
+        '--add-data', 'version.py;.',  # version.py 명시적 추가
+        '--name=super-kiosk',
         'kiosk_main.py'
     ]
     
@@ -111,27 +101,32 @@ def main():
     # 1. 환경 확인
     required_files = [
         os.path.join("kiosk-builder-app", "run_gui.py"), 
-        "kiosk_main.py"
+        "kiosk_main.py",
+        "version.py"
     ]
     for file in required_files:
         if not os.path.exists(file):
             print(f"[ERROR] {file} not found")
             sys.exit(1)
     
-    # 2. 빌드 디렉토리 정리
+    # 2. version.py를 kiosk-builder-app에 복사
+    shutil.copy2("version.py", os.path.join("kiosk-builder-app", "version.py"))
+    print("[COPY] version.py copied to kiosk-builder-app")
+    
+    # 3. 빌드 디렉토리 정리
     clean_build_dirs()
     
-    # 3. Builder 빌드
+    # 4. Builder 빌드
     if not build_super_kiosk_builder():
         print("[ERROR] Builder build failed")
         sys.exit(1)
     
-    # 4. Kiosk 빌드  
+    # 5. Kiosk 빌드  
     if not build_super_kiosk():
         print("[ERROR] Kiosk build failed")
         sys.exit(1)
     
-    # 5. 빌드 결과 확인
+    # 6. 빌드 결과 확인
     if not verify_builds():
         sys.exit(1)
     
