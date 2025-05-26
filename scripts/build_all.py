@@ -1,5 +1,3 @@
-# scripts/build_all.py 수정된 버전
-
 import subprocess
 import sys
 import os
@@ -9,10 +7,9 @@ from pathlib import Path
 def run_command_list(command_list, description):
     """명령어 리스트 실행 및 결과 확인"""
     print(f"[BUILD] {description}...")
-    
     try:
         result = subprocess.run(command_list, check=True, 
-                              capture_output=True, text=True)
+                                capture_output=True, text=True)
         print(f"[SUCCESS] {description} completed")
         return True
     except subprocess.CalledProcessError as e:
@@ -23,64 +20,77 @@ def run_command_list(command_list, description):
 def clean_build_dirs():
     """빌드 디렉토리 정리"""
     dirs_to_clean = ['build', 'dist', '__pycache__']
-    
     for dir_name in dirs_to_clean:
         if os.path.exists(dir_name):
             shutil.rmtree(dir_name)
             print(f"[CLEAN] Cleaned {dir_name}")
 
+def get_python_dll_option():
+    """Python DLL 경로 명시적 포함"""
+    dll_path = "C:\\Python312\\python312.dll"
+    if os.path.exists(dll_path):
+        print(f"[INFO] Python DLL 포함: {dll_path}")
+        return ["--add-binary", f"{dll_path};."]
+    else:
+        print(f"[WARNING] DLL 없음: {dll_path}")
+        return []
+
 def build_super_kiosk_builder():
-    """super-kiosk-builder.exe 빌드 (DLL 문제 해결 옵션 추가)"""
+    """super-kiosk-builder.exe 빌드 (DLL 포함)"""
     builder_path = os.path.join("kiosk-builder-app", "run_gui.py")
-    
+
     command = [
         'pyinstaller', '--clean', '--onefile', '--windowed',
-        # DLL 로드 문제 해결을 위한 옵션들 추가
-        '--noupx',  # UPX 압축 비활성화
+        '--noupx',
         '--exclude-module=matplotlib',
-        '--hidden-import=tkinter',  # tkinter 명시적 포함
+        '--hidden-import=tkinter',
         '--add-data', 'resources;resources',
         '--add-data', 'kiosk-builder-app/config.json;.',
-        '--add-data', 'version.py;.',  # version.py 명시적 추가
-        '--name=super-kiosk-builder',
-        builder_path
+        '--add-data', 'version.py;.',
+        '--name=super-kiosk-builder'
     ]
-    
+
     # 아이콘 파일이 있으면 추가
     if os.path.exists("Hana.ico"):
         command.insert(-2, '--icon=Hana.ico')
-    
+
+    # Python DLL 포함
+    command += get_python_dll_option()
+    command.append(builder_path)
+
     return run_command_list(command, "Building super-kiosk-builder.exe")
 
 def build_super_kiosk():
-    """super-kiosk.exe 빌드 (DLL 문제 해결 옵션 추가)"""
+    """super-kiosk.exe 빌드 (DLL 포함)"""
     command = [
         'pyinstaller', '--clean', '--onefile', '--windowed',
-        # DLL 로드 문제 해결을 위한 옵션들 추가
-        '--noupx',  # UPX 압축 비활성화
-        '--debug=all',  # 디버그 정보 포함
+        '--noupx',
+        '--debug=all',
         '--add-data', 'resources;resources',
         '--add-data', 'screens;screens',
-        '--add-data', 'components;components', 
+        '--add-data', 'components;components',
         '--add-data', 'printer_utils;printer_utils',
         '--add-data', 'webcam_utils;webcam_utils',
         '--add-data', 'config.json;.',
-        '--add-data', 'version.py;.',  # version.py 명시적 추가
-        '--name=super-kiosk',
-        'kiosk_main.py'
+        '--add-data', 'version.py;.',
+        '--name=super-kiosk'
     ]
-    
+
     # 아이콘 파일이 있으면 추가
     if os.path.exists("Kiosk.ico"):
         command.insert(-2, '--icon=Kiosk.ico')
-    
+
+    # Python DLL 포함
+    command += get_python_dll_option()
+    command.append("kiosk_main.py")
+
     return run_command_list(command, "Building super-kiosk.exe")
 
 def verify_builds():
     """빌드 결과 확인"""
     builder_exe = Path("dist/super-kiosk-builder.exe")
     kiosk_exe = Path("dist/super-kiosk.exe")
-    
+
     if builder_exe.exists() and kiosk_exe.exists():
         print("[SUCCESS] All builds successful!")
         print(f"[FILE] super-kiosk-builder.exe: {builder_exe.stat().st_size:,} bytes")
@@ -97,10 +107,9 @@ def verify_builds():
 def main():
     """메인 빌드 프로세스"""
     print("[START] Starting dual exe build process...")
-    
-    # 1. 환경 확인
+
     required_files = [
-        os.path.join("kiosk-builder-app", "run_gui.py"), 
+        os.path.join("kiosk-builder-app", "run_gui.py"),
         "kiosk_main.py",
         "version.py"
     ]
@@ -108,28 +117,24 @@ def main():
         if not os.path.exists(file):
             print(f"[ERROR] {file} not found")
             sys.exit(1)
-    
-    # 2. version.py를 kiosk-builder-app에 복사
+
+    # version.py 복사
     shutil.copy2("version.py", os.path.join("kiosk-builder-app", "version.py"))
     print("[COPY] version.py copied to kiosk-builder-app")
-    
-    # 3. 빌드 디렉토리 정리
+
     clean_build_dirs()
-    
-    # 4. Builder 빌드
+
     if not build_super_kiosk_builder():
         print("[ERROR] Builder build failed")
         sys.exit(1)
-    
-    # 5. Kiosk 빌드  
+
     if not build_super_kiosk():
         print("[ERROR] Kiosk build failed")
         sys.exit(1)
-    
-    # 6. 빌드 결과 확인
+
     if not verify_builds():
         sys.exit(1)
-    
+
     print("[SUCCESS] All builds completed successfully!")
 
 if __name__ == "__main__":
