@@ -229,25 +229,28 @@ class AutoUpdater:
             )
 
     def install_update(self, update_file_path):
-        """업데이트 설치 (프로세스 종료 로직 강화)"""
+        """🔥 간단한 업데이트 설치 - DLL 문제 해결"""
         try:
             current_exe = sys.executable if getattr(sys, 'frozen', False) else __file__
             current_exe_path = os.path.abspath(current_exe)
             backup_path = current_exe_path + ".backup"
 
+            # 백업 파일이 있으면 삭제
             if os.path.exists(backup_path):
                 os.remove(backup_path)
 
+            # 🔥 핵심: 간단한 업데이트 스크립트 - 현재 환경 유지
             update_script = self.create_update_script(current_exe_path, update_file_path, backup_path)
 
             QMessageBox.information(
                 self.parent,
                 "업데이트 설치 시작",
                 "🚀 업데이트 설치를 시작합니다!\n\n"
-                "💡 프로그램이 자동으로 종료되고 새 버전으로 재시작됩니다.\n"
+                "💡 현재 실행 환경을 유지하여 DLL 문제가 발생하지 않습니다.\n"
                 "⚠️ 잠시 후 프로그램이 자동으로 재시작됩니다."
             )
 
+            # 업데이트 스크립트 실행
             subprocess.Popen([update_script], shell=True)
             sys.exit(0)
 
@@ -259,49 +262,67 @@ class AutoUpdater:
             )
 
     def create_update_script(self, current_exe, update_file, backup_path):
-        """업데이트 배치 스크립트 생성"""
+        """🔥 DLL 문제 해결을 위한 간단한 업데이트 스크립트"""
         script_content = f'''@echo off
 chcp 65001 > nul
 echo.
-echo 🔄 슈퍼 키오스크 빌더 업데이트 설치 중...
+echo 🔄 슈퍼 키오스크 빌더 업데이트 중...
+echo 💡 DLL 문제 해결 방식으로 업데이트합니다.
 echo.
 
-taskkill /f /im super-kiosk-builder.exe 2>nul
-taskkill /f /im super-kiosk.exe 2>nul
-timeout /t 5 /nobreak > nul
-
-for /d %%i in ("%TEMP%\\_MEI*") do (
-    if exist "%%i" (
-        echo 삭제 중: %%i
-        rmdir /s /q "%%i" 2>nul
-    )
+REM 현재 실행 중인 프로세스 종료 대기
+:WAIT_PROCESS
+tasklist /FI "IMAGENAME eq super-kiosk-builder.exe" 2>NUL | find /I /N "super-kiosk-builder.exe">NUL
+if "%ERRORLEVEL%"=="0" (
+    echo ⏳ 프로그램 종료 대기 중...
+    timeout /t 2 /nobreak > nul
+    goto WAIT_PROCESS
 )
 
-timeout /t 3 /nobreak > nul
+echo ✅ 프로그램이 완전히 종료되었습니다.
 
+REM 기존 파일 백업
 if exist "{current_exe}" (
+    echo 📦 기존 파일 백업 중...
     move "{current_exe}" "{backup_path}"
     if errorlevel 1 (
+        echo ❌ 백업 실패, 파일 직접 삭제 시도...
         del "{current_exe}" /f /q 2>nul
     )
 )
 
+REM 새 파일 복사
+echo 📥 새 버전 설치 중...
 copy "{update_file}" "{current_exe}"
 if errorlevel 1 (
+    echo ❌ 새 파일 복사 실패!
     if exist "{backup_path}" (
+        echo 🔄 백업 파일로 복원 중...
         move "{backup_path}" "{current_exe}"
     )
+    echo.
+    echo ❌ 업데이트에 실패했습니다. 수동으로 다시 시도해주세요.
     pause
     exit /b 1
 )
 
+echo ✅ 새 버전 설치 완료!
+
+REM 설치 확인 및 재시작
 if exist "{current_exe}" (
-    timeout /t 3 /nobreak > nul
+    echo 🚀 새 버전으로 재시작 중...
+    timeout /t 2 /nobreak > nul
     start "" "{current_exe}"
+    
+    REM 임시 파일 정리
+    timeout /t 3 /nobreak > nul
     del "{update_file}" 2>nul
     del "{backup_path}" 2>nul
+    
+    echo ✅ 업데이트가 완료되었습니다!
     timeout /t 2 /nobreak > nul
 ) else (
+    echo ❌ 새 파일이 제대로 복사되지 않았습니다.
     if exist "{backup_path}" (
         move "{backup_path}" "{current_exe}"
         start "" "{current_exe}"
@@ -309,10 +330,11 @@ if exist "{current_exe}" (
     pause
 )
 
+REM 스크립트 자기 자신 삭제
 del "%~f0" 2>nul
 '''
 
-        script_path = os.path.join(tempfile.gettempdir(), "super_kiosk_updater.bat")
+        script_path = os.path.join(tempfile.gettempdir(), "super_kiosk_simple_updater.bat")
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write(script_content)
         return script_path
