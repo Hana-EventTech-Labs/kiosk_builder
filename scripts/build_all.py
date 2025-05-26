@@ -1,4 +1,4 @@
-# scripts/build_all.py - 사용자 친화적 onedir
+# scripts/build_all.py - NSIS 설치 프로그램 방식
 import subprocess
 import sys
 import os
@@ -65,157 +65,216 @@ def build_super_kiosk():
     command.append("kiosk_main.py")
     return run_command_list(command, "Building super-kiosk (onedir)")
 
-def create_user_friendly_structure():
-    """사용자 친화적 구조로 재구성"""
-    print("[RESTRUCTURE] Creating user-friendly structure...")
+def create_nsis_script():
+    """NSIS 설치 스크립트 생성"""
+    print("[NSIS] Creating installer script...")
     
+    # version.py에서 버전 읽기
     try:
-        # Builder 구조 개선
-        if os.path.exists("dist/super-kiosk-builder"):
-            builder_clean_dir = "dist/Super-Kiosk-Builder"
-            os.makedirs(builder_clean_dir, exist_ok=True)
-            
-            # 메인 실행 파일만 최상위에
-            exe_source = "dist/super-kiosk-builder/super-kiosk-builder.exe"
-            exe_dest = f"{builder_clean_dir}/Super-Kiosk-Builder.exe"
-            
-            if os.path.exists(exe_source):
-                shutil.copy2(exe_source, exe_dest)
-            
-            # 나머지 파일들은 lib 폴더로
-            lib_dir = f"{builder_clean_dir}/lib"
-            shutil.copytree("dist/super-kiosk-builder", lib_dir, 
-                          ignore=shutil.ignore_patterns("super-kiosk-builder.exe"))
-            
-            # 실행 스크립트 생성
-            launcher_script = f'''@echo off
-cd /d "%~dp0"
-start "" "lib\\super-kiosk-builder.exe" %*
-'''
-            
-            with open(f"{builder_clean_dir}/실행.bat", "w", encoding="utf-8") as f:
-                f.write(launcher_script)
-            
-            with open(f"{builder_clean_dir}/Run.bat", "w", encoding="utf-8") as f:
-                f.write(launcher_script)
-            
-            # README 파일 생성
-            readme_content = '''# Super Kiosk Builder
-
-## 실행 방법
-1. "실행.bat" 또는 "Run.bat" 파일을 더블클릭
-2. 또는 "Super-Kiosk-Builder.exe" 직접 실행
-
-## 폴더 구조
-- Super-Kiosk-Builder.exe: 메인 프로그램 (실행 안될 수 있음)
-- 실행.bat / Run.bat: 안전한 실행 방법 (권장)
-- lib/: 프로그램 구동에 필요한 파일들
-
-## 주의사항
-- 이 폴더 전체를 이동하세요
-- exe 파일만 복사하면 안됩니다
-'''
-            
-            with open(f"{builder_clean_dir}/README.txt", "w", encoding="utf-8") as f:
-                f.write(readme_content)
-            
-            print("✅ Builder: 사용자 친화적 구조 생성 완료")
-        
-        # Kiosk도 동일하게 처리
-        if os.path.exists("dist/super-kiosk"):
-            kiosk_clean_dir = "dist/Super-Kiosk"
-            os.makedirs(kiosk_clean_dir, exist_ok=True)
-            
-            exe_source = "dist/super-kiosk/super-kiosk.exe" 
-            exe_dest = f"{kiosk_clean_dir}/Super-Kiosk.exe"
-            
-            if os.path.exists(exe_source):
-                shutil.copy2(exe_source, exe_dest)
-            
-            lib_dir = f"{kiosk_clean_dir}/lib"
-            shutil.copytree("dist/super-kiosk", lib_dir,
-                          ignore=shutil.ignore_patterns("super-kiosk.exe"))
-            
-            launcher_script = f'''@echo off
-cd /d "%~dp0"
-start "" "lib\\super-kiosk.exe" %*
-'''
-            
-            with open(f"{kiosk_clean_dir}/키오스크실행.bat", "w", encoding="utf-8") as f:
-                f.write(launcher_script)
-                
-            with open(f"{kiosk_clean_dir}/Run-Kiosk.bat", "w", encoding="utf-8") as f:
-                f.write(launcher_script)
-            
-            print("✅ Kiosk: 사용자 친화적 구조 생성 완료")
-            
-        return True
-        
-    except Exception as e:
-        print(f"❌ 구조 재구성 실패: {e}")
-        return False
-
-def create_zip_packages():
-    """ZIP 패키지 생성"""
-    print("[PACKAGE] Creating ZIP packages...")
+        with open('version.py', 'r', encoding='utf-8') as f:
+            content = f.read()
+            # __version__ = "x.x.x" 찾기
+            import re
+            version_match = re.search(r'__version__ = ["\']([^"\']+)["\']', content)
+            if version_match:
+                version = version_match.group(1)
+            else:
+                version = "1.0.0"
+    except:
+        version = "1.0.0"
     
-    try:
-        # 정리된 Builder ZIP 생성
-        if os.path.exists("dist/Super-Kiosk-Builder"):
-            shutil.make_archive("dist/Super-Kiosk-Builder", 'zip', "dist", "Super-Kiosk-Builder")
-            print("✅ Created Super-Kiosk-Builder.zip")
-        
-        # 정리된 Kiosk ZIP 생성
-        if os.path.exists("dist/Super-Kiosk"):
-            shutil.make_archive("dist/Super-Kiosk", 'zip', "dist", "Super-Kiosk")
-            print("✅ Created Super-Kiosk.zip")
-            
-        return True
-    except Exception as e:
-        print(f"❌ ZIP 생성 실패: {e}")
-        return False
+    nsis_script = f'''# Super Kiosk Builder Installer
+!define PRODUCT_NAME "Super Kiosk Builder"
+!define PRODUCT_VERSION "{version}"
+!define PRODUCT_PUBLISHER "HanaLabs"
+!define PRODUCT_WEB_SITE "https://github.com/Hana-EventTech-Labs/kiosk_builder"
+!define PRODUCT_DIR_REGKEY "Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\super-kiosk-builder.exe"
+!define PRODUCT_UNINST_KEY "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\${{PRODUCT_NAME}}"
+!define PRODUCT_UNINST_ROOT_KEY "HKLM"
+
+SetCompressor lzma
+
+# Modern UI
+!include "MUI2.nsh"
+
+# General
+Name "${{PRODUCT_NAME}} ${{PRODUCT_VERSION}}"
+OutFile "dist\\SuperKioskSetup.exe"
+InstallDir "$PROGRAMFILES\\Super Kiosk Builder"
+InstallDirRegKey HKLM "${{PRODUCT_DIR_REGKEY}}" ""
+ShowInstDetails show
+ShowUnInstDetails show
+
+# Interface Settings
+!define MUI_ABORTWARNING
+!define MUI_ICON "${{NSISDIR}}\\Contrib\\Graphics\\Icons\\modern-install.ico"
+!define MUI_UNICON "${{NSISDIR}}\\Contrib\\Graphics\\Icons\\modern-uninstall.ico"
+
+# Pages
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_LICENSE "LICENSE.txt"
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!define MUI_FINISHPAGE_RUN "$INSTDIR\\super-kiosk-builder.exe"
+!insertmacro MUI_PAGE_FINISH
+
+# Uninstaller pages
+!insertmacro MUI_UNPAGE_INSTFILES
+
+# Language files
+!insertmacro MUI_LANGUAGE "Korean"
+!insertmacro MUI_LANGUAGE "English"
+
+# Reserve files
+!insertmacro MUI_RESERVEFILE_LANGDLL
+
+Section "MainSection" SEC01
+  SetOutPath "$INSTDIR"
+  SetOverwrite ifnewer
+  
+  # 프로그램 파일들 설치
+  File /r "dist\\super-kiosk-builder\\*.*"
+  
+  # 바이너리 파일 등록
+  WriteRegStr HKLM "${{PRODUCT_DIR_REGKEY}}" "" "$INSTDIR\\super-kiosk-builder.exe"
+  
+  # 시작 메뉴 바로가기
+  CreateDirectory "$SMPROGRAMS\\Super Kiosk Builder"
+  CreateShortCut "$SMPROGRAMS\\Super Kiosk Builder\\Super Kiosk Builder.lnk" "$INSTDIR\\super-kiosk-builder.exe"
+  CreateShortCut "$SMPROGRAMS\\Super Kiosk Builder\\Uninstall.lnk" "$INSTDIR\\uninst.exe"
+  
+  # 바탕화면 바로가기
+  CreateShortCut "$DESKTOP\\Super Kiosk Builder.lnk" "$INSTDIR\\super-kiosk-builder.exe"
+SectionEnd
+
+Section -AdditionalIcons
+  WriteIniStr "$INSTDIR\\${{PRODUCT_NAME}}.url" "InternetShortcut" "URL" "${{PRODUCT_WEB_SITE}}"
+  CreateShortCut "$SMPROGRAMS\\Super Kiosk Builder\\Website.lnk" "$INSTDIR\\${{PRODUCT_NAME}}.url"
+SectionEnd
+
+Section -Post
+  WriteUninstaller "$INSTDIR\\uninst.exe"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "DisplayName" "${{PRODUCT_NAME}}"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "UninstallString" "$INSTDIR\\uninst.exe"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "DisplayIcon" "$INSTDIR\\super-kiosk-builder.exe"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "DisplayVersion" "${{PRODUCT_VERSION}}"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "URLInfoAbout" "${{PRODUCT_WEB_SITE}}"
+  WriteRegStr HKLM "${{PRODUCT_UNINST_KEY}}" "Publisher" "${{PRODUCT_PUBLISHER}}"
+SectionEnd
+
+Function un.onUninstSuccess
+  HideWindow
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name)가 컴퓨터에서 성공적으로 제거되었습니다."
+FunctionEnd
+
+Function un.onInit
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "$(^Name)을(를) 완전히 제거하시겠습니까?" IDYES +2
+  Abort
+FunctionEnd
+
+Section Uninstall
+  Delete "$INSTDIR\\${{PRODUCT_NAME}}.url"
+  Delete "$INSTDIR\\uninst.exe"
+  
+  # 모든 파일 삭제
+  RMDir /r "$INSTDIR"
+  
+  # 바로가기 삭제
+  Delete "$SMPROGRAMS\\Super Kiosk Builder\\*.*"
+  RMDir "$SMPROGRAMS\\Super Kiosk Builder"
+  Delete "$DESKTOP\\Super Kiosk Builder.lnk"
+  
+  # 레지스트리 삭제
+  DeleteRegKey HKLM "${{PRODUCT_UNINST_KEY}}"
+  DeleteRegKey HKLM "${{PRODUCT_DIR_REGKEY}}"
+  
+  SetAutoClose true
+SectionEnd
+'''
+    
+    with open('installer.nsi', 'w', encoding='utf-8') as f:
+        f.write(nsis_script)
+    
+    print("[NSIS] Installer script created: installer.nsi")
+    return True
+
+def create_license_file():
+    """라이선스 파일 생성 (NSIS 요구사항)"""
+    license_content = """MIT License
+
+Copyright (c) 2025 Super Kiosk Builder
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+    
+    with open('LICENSE.txt', 'w', encoding='utf-8') as f:
+        f.write(license_content)
+    
+    print("[NSIS] License file created")
+
+def build_installer():
+    """NSIS로 설치 프로그램 빌드"""
+    print("[NSIS] Building installer...")
+    
+    # NSIS 경로 확인
+    nsis_paths = [
+        "C:\\Program Files (x86)\\NSIS\\makensis.exe",
+        "C:\\Program Files\\NSIS\\makensis.exe",
+        "makensis.exe"  # PATH에 있는 경우
+    ]
+    
+    nsis_exe = None
+    for path in nsis_paths:
+        if shutil.which(path):
+            nsis_exe = path
+            break
+    
+    if not nsis_exe:
+        print("[ERROR] NSIS not found. Installing NSIS...")
+        # GitHub Actions에서 NSIS 설치
+        install_cmd = [
+            'powershell', '-Command',
+            'choco install nsis -y'
+        ]
+        if not run_command_list(install_cmd, "Installing NSIS"):
+            print("[ERROR] Failed to install NSIS")
+            return False
+        nsis_exe = "makensis.exe"
+    
+    # NSIS 컴파일
+    compile_cmd = [nsis_exe, 'installer.nsi']
+    return run_command_list(compile_cmd, "Compiling NSIS installer")
 
 def verify_builds():
-    # 정리된 구조 확인
-    builder_dir = Path("dist/Super-Kiosk-Builder")
-    kiosk_dir = Path("dist/Super-Kiosk")
+    installer_path = Path("dist/SuperKioskSetup.exe")
     
-    # ZIP 파일 확인
-    builder_zip = Path("dist/Super-Kiosk-Builder.zip")
-    kiosk_zip = Path("dist/Super-Kiosk.zip")
-
-    success = True
-    
-    if builder_dir.exists() and kiosk_dir.exists():
-        print("[SUCCESS] 사용자 친화적 구조 생성 완료!")
-        
-        # 최상위 파일 개수 확인
-        builder_top_files = [f for f in builder_dir.iterdir() if f.is_file()]
-        kiosk_top_files = [f for f in kiosk_dir.iterdir() if f.is_file()]
-        
-        print(f"[CLEAN] Builder 최상위 파일: {len(builder_top_files)}개")
-        print(f"[CLEAN] Kiosk 최상위 파일: {len(kiosk_top_files)}개")
-        
-        for f in builder_top_files:
-            print(f"  📄 {f.name}")
-            
+    if installer_path.exists():
+        print("[SUCCESS] NSIS installer created!")
+        print(f"[INSTALLER] SuperKioskSetup.exe: {installer_path.stat().st_size:,} bytes")
+        return True
     else:
-        print("[ERROR] 구조 생성 실패")
-        success = False
-
-    if builder_zip.exists() and kiosk_zip.exists():
-        print("[SUCCESS] ZIP packages created!")
-        print(f"[ZIP] Super-Kiosk-Builder.zip: {builder_zip.stat().st_size:,} bytes")
-        print(f"[ZIP] Super-Kiosk.zip: {kiosk_zip.stat().st_size:,} bytes")
-    else:
-        print("[ERROR] ZIP package creation failed")
-        success = False
-
-    return success
+        print("[ERROR] Installer creation failed")
+        return False
 
 def main():
-    print("[START] Building user-friendly onedir packages")
-    print("💡 사용자 친화적 구조로 DLL 문제 해결")
+    print("[START] Building NSIS installer package")
+    print("Professional installer solution for DLL issues")
 
     required_files = [
         os.path.join("kiosk-builder-app", "run_gui.py"),
@@ -240,25 +299,26 @@ def main():
         print("[ERROR] Kiosk build failed")
         sys.exit(1)
     
-    if not create_user_friendly_structure():
-        print("[ERROR] Structure reorganization failed")
+    create_license_file()
+    
+    if not create_nsis_script():
+        print("[ERROR] NSIS script creation failed")
         sys.exit(1)
     
-    if not create_zip_packages():
-        print("[ERROR] ZIP packaging failed")
+    if not build_installer():
+        print("[ERROR] Installer build failed")
         sys.exit(1)
 
     if not verify_builds():
         sys.exit(1)
 
-    print("[SUCCESS] 사용자 친화적 빌드 완료!")
+    print("[SUCCESS] Professional installer created!")
     print("")
-    print("📦 사용자가 보는 것:")
-    print("  📄 Super-Kiosk-Builder.exe")
-    print("  📄 실행.bat (권장)")
-    print("  📄 Run.bat")
-    print("  📄 README.txt") 
-    print("  📁 lib/ (시스템 파일들)")
+    print("User experience:")
+    print("  1. Download SuperKioskSetup.exe")
+    print("  2. Run installer")
+    print("  3. Click Start menu shortcut")
+    print("  4. No DLL issues!")
 
 if __name__ == "__main__":
     main()
