@@ -56,7 +56,7 @@ def build_super_kiosk_builder():
         'pyinstaller', '--clean', '--onefile', '--windowed',
         '--add-data', 'resources;resources',
         '--add-data', 'kiosk-builder-app/config.json;.',
-        '--name', 'super-kiosk-builder',
+        '--name=super-kiosk-builder',  # = 기호 사용
         builder_path
     ]
     
@@ -76,7 +76,7 @@ def build_super_kiosk():
         '--add-data', 'printer_utils;printer_utils',
         '--add-data', 'webcam_utils;webcam_utils',
         '--add-data', 'config.json;.',
-        '--name', 'super-kiosk',
+        '--name=super-kiosk',  # = 기호 사용
         'kiosk_main.py'
     ]
     
