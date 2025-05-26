@@ -23,18 +23,6 @@ def clean_build_dirs():
             shutil.rmtree(dir_name)
             print(f"[CLEAN] Cleaned {dir_name}")
 
-def get_python_dll_option():
-    # GitHub Actions 전용 경로 (Python 3.12 기준)
-    dll_path = "C:\\hostedtoolcache\\windows\\Python\\3.12.1\\x64\\python312.dll"
-
-    if os.path.exists(dll_path):
-        print(f"[INFO] Python DLL found: {dll_path}")
-        return ["--add-binary", f"{dll_path};."]
-    else:
-        print(f"[WARNING] Python DLL not found: {dll_path}")
-        return []  # ⚠ return 빈 리스트 꼭 유지해야 함
-
-
 def build_super_kiosk_builder():
     builder_path = os.path.join("kiosk-builder-app", "run_gui.py")
 
@@ -50,11 +38,9 @@ def build_super_kiosk_builder():
     ]
 
     if os.path.exists("Hana.ico"):
-        command.insert(-2, '--icon=Hana.ico')
+        command.extend(['--icon', 'Hana.ico'])
 
-    command += get_python_dll_option()
     command.append(builder_path)
-
     return run_command_list(command, "Building super-kiosk-builder.exe")
 
 def build_super_kiosk():
@@ -73,11 +59,9 @@ def build_super_kiosk():
     ]
 
     if os.path.exists("Kiosk.ico"):
-        command.insert(-2, '--icon=Kiosk.ico')
+        command.extend(['--icon', 'Kiosk.ico'])
 
-    command += get_python_dll_option()
     command.append("kiosk_main.py")
-
     return run_command_list(command, "Building super-kiosk.exe")
 
 def verify_builds():
