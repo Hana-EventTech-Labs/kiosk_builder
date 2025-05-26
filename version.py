@@ -4,9 +4,9 @@
 이 파일에서만 버전을 수정하면 모든 프로그램에 반영됩니다.
 """
 
-__version__ = "1.0.8"
+__version__ = "0.9.0"
 BUILD_DATE = "2025-05-26"
-BUILD_NUMBER = "001"
+BUILD_NUMBER = "146"
 
 def get_version():
     """현재 버전 반환"""
@@ -24,10 +24,11 @@ def get_build_info():
         "build_number": BUILD_NUMBER
     }
 
-# 버전업 시 이 값만 수정하면 됩니다
+# 버전 정보 파싱
+VERSION_PARTS = __version__.split('.')
 VERSION_INFO = {
-    "major": 1,
-    "minor": 0, 
-    "patch": 0,
-    "stage": "release"  # release, beta, alpha
+    "major": int(VERSION_PARTS[0]) if len(VERSION_PARTS) > 0 else 1,
+    "minor": int(VERSION_PARTS[1]) if len(VERSION_PARTS) > 1 else 0,
+    "patch": int(VERSION_PARTS[2]) if len(VERSION_PARTS) > 2 else 0,
+    "stage": "release"
 }
