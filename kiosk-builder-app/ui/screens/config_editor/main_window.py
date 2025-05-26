@@ -20,10 +20,24 @@ from .components.style_manager import StyleManager
 from .handlers.config_handler_ui import ConfigHandlerUI
 from .handlers.distribution_handler import DistributionHandler
 
+# 프로젝트 루트의 version.py를 import하기 위한 경로 추가
+project_root = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
+sys.path.insert(0, os.path.abspath(project_root))
+
+try:
+    from version import get_version, get_full_version
+    VERSION_AVAILABLE = True
+except ImportError:
+    VERSION_AVAILABLE = False
+    def get_version():
+        return "1.0.0"
+    def get_full_version():
+        return "1.0.0 (Build 001, 2025-01-27)"
+    
 class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = "1.0.0"
+        self.current_version = get_version() if VERSION_AVAILABLE else "1.0.0"
         
         # 핵심 매니저들 초기화
         self.config_handler = ConfigHandler()
@@ -50,7 +64,7 @@ class ConfigEditor(QMainWindow):
 
     def init_ui(self):
         """UI 초기화"""
-        self.setWindowTitle("S.K Program - 설정 편집기")
+        self.setWindowTitle(f"S.K Program - 설정 편집기 v{self.current_version}")
         self.setMinimumSize(1250, 900)
         
         # 스타일 적용
