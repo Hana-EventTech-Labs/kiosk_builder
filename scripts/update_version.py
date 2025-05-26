@@ -58,7 +58,7 @@ VERSION_INFO = {{
     with open('version.py', 'w', encoding='utf-8') as f:
         f.write(version_content)
     
-    print(f"✅ Version updated to {new_version} (Build {build_number:0>3})")
+    print(f"[SUCCESS] Version updated to {new_version} (Build {build_number:0>3})")
     return True
 
 def main():
@@ -76,7 +76,7 @@ def main():
     
     # 버전 형식 검증
     if not re.match(r'^\d+\.\d+\.\d+$', version_input):
-        print(f"❌ Invalid version format: {version_input}")
+        print(f"[ERROR] Invalid version format: {version_input}")
         print("Use format: X.Y.Z (e.g., 1.2.0)")
         sys.exit(1)
     

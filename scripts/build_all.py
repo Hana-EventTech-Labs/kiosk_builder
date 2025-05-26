@@ -12,29 +12,29 @@ from pathlib import Path
 
 def run_command_list(command_list, description):
     """명령어 리스트 실행 및 결과 확인"""
-    print(f"🔨 {description}...")
+    print(f"[BUILD] {description}...")
     
     try:
         result = subprocess.run(command_list, check=True, 
                               capture_output=True, text=True)
-        print(f"✅ {description} completed")
+        print(f"[SUCCESS] {description} completed")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ {description} failed:")
+        print(f"[ERROR] {description} failed:")
         print(f"Error: {e.stderr}")
         return False
 
 def run_command(command, description):
     """명령어 실행 및 결과 확인 (기존 호환성용)"""
-    print(f"🔨 {description}...")
+    print(f"[BUILD] {description}...")
     
     try:
         result = subprocess.run(command, shell=True, check=True, 
                               capture_output=True, text=True)
-        print(f"✅ {description} completed")
+        print(f"[SUCCESS] {description} completed")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"❌ {description} failed:")
+        print(f"[ERROR] {description} failed:")
         print(f"Error: {e.stderr}")
         return False
 
@@ -56,10 +56,13 @@ def build_super_kiosk_builder():
         'pyinstaller', '--clean', '--onefile', '--windowed',
         '--add-data', 'resources;resources',
         '--add-data', 'kiosk-builder-app/config.json;.',
-        '--icon=Hana.ico',
         '--name', 'super-kiosk-builder',
         builder_path
     ]
+    
+    # 아이콘 파일이 있으면 추가
+    if os.path.exists("Hana.ico"):
+        command.insert(-2, '--icon=Hana.ico')
     
     return run_command_list(command, "Building super-kiosk-builder.exe")
 
@@ -73,10 +76,13 @@ def build_super_kiosk():
         '--add-data', 'printer_utils;printer_utils',
         '--add-data', 'webcam_utils;webcam_utils',
         '--add-data', 'config.json;.',
-        '--icon=Kiosk.ico',
         '--name', 'super-kiosk',
         'kiosk_main.py'
     ]
+    
+    # 아이콘 파일이 있으면 추가
+    if os.path.exists("Kiosk.ico"):
+        command.insert(-2, '--icon=Kiosk.ico')
     
     return run_command_list(command, "Building super-kiosk.exe")
 
