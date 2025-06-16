@@ -829,14 +829,6 @@ async def delete_event(event_id: str):
         return {"success": True, "message": "Event data deleted."}
     raise HTTPException(status_code=404, detail="Event not found")
 
-import os
-import pymysql
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import traceback
-
-app = FastAPI()
-
 class EventFindRequest(BaseModel):
     event_name: str
     kiosk_id: str
