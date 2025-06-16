@@ -829,13 +829,14 @@ async def delete_event(event_id: str):
         return {"success": True, "message": "Event data deleted."}
     raise HTTPException(status_code=404, detail="Event not found")
 
-from fastapi import HTTPException
-from pydantic import BaseModel
-import pymysql
-import traceback
 import os
+import pymysql
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import traceback
 
-# ✅ 요청 모델
+app = FastAPI()
+
 class EventFindRequest(BaseModel):
     event_name: str
     kiosk_id: str
@@ -844,7 +845,6 @@ class ValidCheckRequest(BaseModel):
     event_number: int
     kiosk_id: str
 
-# ✅ 1) event 테이블에서 키오스크 정보 조회 (스키마명 붙임)
 @app.post("/api/event/find")
 async def find_event(request: EventFindRequest):
     try:
@@ -853,45 +853,28 @@ async def find_event(request: EventFindRequest):
             port=int(os.getenv("DB_PORT", 3306)),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
-            db=os.getenv("DB_NAME"),
+            db="hanalabs-event",   # ✅ 대시 포함 그대로
             charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor
         )
-
         with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT no, event_name, kiosk_id, created_at "
-                "FROM hanalabs_event.event "
-                "WHERE event_name = %s AND kiosk_id = %s",
-                (request.event_name, request.kiosk_id)
-            )
+            cursor.execute("""
+                SELECT no, event_name, kiosk_id, created_at
+                FROM `hanalabs-event`.event
+                WHERE event_name = %s AND kiosk_id = %s
+            """, (request.event_name, request.kiosk_id))
             result = cursor.fetchone()
 
             if not result:
-                return {
-                    "success": False,
-                    "error": "등록되지 않은 키오스크입니다."
-                }
+                return {"success": False, "error": "등록되지 않은 키오스크입니다."}
 
-            return {
-                "success": True,
-                "data": {
-                    "no": result["no"],
-                    "event_name": result["event_name"],
-                    "kiosk_id": result["kiosk_id"],
-                    "created_at": str(result["created_at"])
-                }
-            }
+            return {"success": True, "data": result}
 
     except Exception as e:
         print(f"[EVENT FIND ERROR] {e}")
         traceback.print_exc()
-        return {
-            "success": False,
-            "error": "서버 내부 오류"
-        }
+        return {"success": False, "error": "서버 내부 오류"}
 
-# ✅ 2) valid 테이블에서 유효기간 확인 (스키마명 붙임)
 @app.post("/api/valid/check")
 async def check_valid_period(request: ValidCheckRequest):
     try:
@@ -900,43 +883,26 @@ async def check_valid_period(request: ValidCheckRequest):
             port=int(os.getenv("DB_PORT", 3306)),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
-            db=os.getenv("DB_NAME"),
+            db="hanalabs-event",   # ✅ 대시 포함 그대로
             charset="utf8mb4",
             cursorclass=pymysql.cursors.DictCursor
         )
-
         with conn.cursor() as cursor:
-            cursor.execute(
-                "SELECT no, event_number, kiosk_id, expired_at, state "
-                "FROM hanalabs_event.valid "
-                "WHERE event_number = %s AND kiosk_id = %s "
-                "ORDER BY no DESC LIMIT 1",
-                (request.event_number, request.kiosk_id)
-            )
+            cursor.execute("""
+                SELECT no, event_number, kiosk_id, expired_at, state
+                FROM `hanalabs-event`.valid
+                WHERE event_number = %s AND kiosk_id = %s
+                ORDER BY no DESC LIMIT 1
+            """, (request.event_number, request.kiosk_id))
             result = cursor.fetchone()
 
             if not result:
-                return {
-                    "success": False,
-                    "error": "유효기간 정보를 찾을 수 없습니다."
-                }
+                return {"success": False, "error": "유효기간 정보를 찾을 수 없습니다."}
 
-            return {
-                "success": True,
-                "data": {
-                    "no": result["no"],
-                    "event_number": result["event_number"],
-                    "kiosk_id": result["kiosk_id"],
-                    "expired_at": str(result["expired_at"]),
-                    "state": result["state"]
-                }
-            }
+            return {"success": True, "data": result}
 
     except Exception as e:
         print(f"[VALID CHECK ERROR] {e}")
         traceback.print_exc()
-        return {
-            "success": False,
-            "error": "서버 내부 오류"
-        }
+        return {"success": False, "error": "서버 내부 오류"}
 
