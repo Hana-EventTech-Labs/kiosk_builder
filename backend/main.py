@@ -820,11 +820,111 @@ async def get_app_usage_count(user_id: int, app_name: str, action: str = "button
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="서버 내부 오류")
 
-# @app.delete("/api/events/{event_id}")
-# async def delete_event(event_id: str):
-#     event_dir = UPLOAD_DIR / event_id
-#     if event_dir.exists():
-#         shutil.rmtree(event_dir)  # 폴더 통째로 삭제
-#         print(f"Deleted event folder: {event_dir}")
-#         return {"success": True, "message": "Event data deleted."}
-#     raise HTTPException(status_code=404, detail="Event not found")
+@app.delete("/api/events/{event_id}")
+async def delete_event(event_id: str):
+    event_dir = UPLOAD_DIR / event_id
+    if event_dir.exists():
+        shutil.rmtree(event_dir)  # 폴더 통째로 삭제
+        print(f"Deleted event folder: {event_dir}")
+        return {"success": True, "message": "Event data deleted."}
+    raise HTTPException(status_code=404, detail="Event not found")
+
+# 키오스크 검증 관련 모델들
+class EventFindRequest(BaseModel):
+    event_name: str
+    kiosk_id: str
+
+class ValidCheckRequest(BaseModel):
+    event_number: int
+    kiosk_id: str
+
+# 1. event 테이블에서 키오스크 정보 조회
+@app.post("/api/event/find")
+async def find_event(request: EventFindRequest):
+    try:
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db=os.getenv("DB_NAME"),
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT no, event_name, kiosk_id, created_at FROM event WHERE event_name = %s AND kiosk_id = %s", 
+                (request.event_name, request.kiosk_id)
+            )
+            result = cursor.fetchone()
+            
+            if not result:
+                return {
+                    "success": False,
+                    "error": "등록되지 않은 키오스크입니다."
+                }
+            
+            return {
+                "success": True,
+                "data": {
+                    "no": result["no"],
+                    "event_name": result["event_name"],
+                    "kiosk_id": result["kiosk_id"],
+                    "created_at": str(result["created_at"])
+                }
+            }
+
+    except Exception as e:
+        print(f"[EVENT FIND ERROR] {e}")
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": "서버 내부 오류"
+        }
+
+# 2. valid 테이블에서 유효기간 확인
+@app.post("/api/valid/check")
+async def check_valid_period(request: ValidCheckRequest):
+    try:
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db=os.getenv("DB_NAME"),
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT no, event_number, kiosk_id, expired_at, state FROM valid WHERE event_number = %s AND kiosk_id = %s ORDER BY no DESC LIMIT 1", 
+                (request.event_number, request.kiosk_id)
+            )
+            result = cursor.fetchone()
+            
+            if not result:
+                return {
+                    "success": False,
+                    "error": "유효기간 정보를 찾을 수 없습니다."
+                }
+            
+            return {
+                "success": True,
+                "data": {
+                    "no": result["no"],
+                    "event_number": result["event_number"],
+                    "kiosk_id": result["kiosk_id"],
+                    "expired_at": str(result["expired_at"]),
+                    "state": result["state"]
+                }
+            }
+
+    except Exception as e:
+        print(f"[VALID CHECK ERROR] {e}")
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": "서버 내부 오류"
+        }
