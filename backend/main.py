@@ -897,4 +897,141 @@ async def check_valid_period(request: ValidCheckRequest):
         print(f"[VALID CHECK ERROR] {e}")
         traceback.print_exc()
         return {"success": False, "error": "서버 내부 오류"}
+# 기존 paste.txt 파일에 추가할 내용
 
+# 1. 새로운 Request 모델 추가 (기존 요청 모델들 뒤에 추가)
+class PrintLogRequest(BaseModel):
+    event_number: int
+    kiosk_id: str
+
+# 2. 인쇄 완료 로그 엔드포인트 추가 (기존 엔드포인트들 뒤에 추가)
+@app.post("/api/print/log")
+async def create_print_log(request: PrintLogRequest):
+    """
+    인쇄 완료 시 로그를 기록하는 엔드포인트
+    """
+    try:
+        # 사용자 입력 검증
+        if request.event_number <= 0:
+            raise HTTPException(status_code=400, detail="유효하지 않은 행사 번호입니다")
+        
+        if not request.kiosk_id or len(request.kiosk_id.strip()) == 0:
+            raise HTTPException(status_code=400, detail="키오스크 ID는 필수입니다")
+        
+        # 데이터베이스 연결
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db="hanalabs-event",  # 해당 데이터베이스 이름
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            # 현재 시간으로 로그 저장
+            sql = """
+            INSERT INTO `hanalabs-event`.logs 
+            (event_number, kiosk_id, created_at) 
+            VALUES (%s, %s, NOW())
+            """
+            cursor.execute(sql, (request.event_number, request.kiosk_id))
+            conn.commit()
+            
+            print(f"[PRINT LOG] 인쇄 완료 로그 기록 - Event: {request.event_number}, Kiosk: {request.kiosk_id}")
+            
+        return {
+            "success": True, 
+            "message": "인쇄 완료 로그가 성공적으로 기록되었습니다.",
+            "event_number": request.event_number,
+            "kiosk_id": request.kiosk_id
+        }
+        
+    except HTTPException as e:
+        raise e  # FastAPI가 처리할 수 있게 그대로 전달
+    except Exception as e:
+        print(f"[PRINT LOG ERROR] {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="서버 내부 오류")
+
+# 3. 인쇄 통계 조회 엔드포인트 추가 (선택사항)
+@app.get("/api/print/stats/{event_number}")
+async def get_print_stats(event_number: int, kiosk_id: str = None):
+    """
+    인쇄 통계를 조회하는 엔드포인트 (선택사항)
+    """
+    try:
+        conn = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", 3306)),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            db="hanalabs-event",
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with conn.cursor() as cursor:
+            if kiosk_id:
+                # 특정 키오스크의 통계
+                sql = """
+                SELECT COUNT(*) as total_prints,
+                       DATE(created_at) as print_date,
+                       COUNT(*) as daily_count
+                FROM `hanalabs-event`.logs 
+                WHERE event_number = %s AND kiosk_id = %s
+                GROUP BY DATE(created_at)
+                ORDER BY print_date DESC
+                """
+                cursor.execute(sql, (event_number, kiosk_id))
+                daily_stats = cursor.fetchall()
+                
+                sql = """
+                SELECT COUNT(*) as total_prints
+                FROM `hanalabs-event`.logs 
+                WHERE event_number = %s AND kiosk_id = %s
+                """
+                cursor.execute(sql, (event_number, kiosk_id))
+                total = cursor.fetchone()
+            else:
+                # 전체 키오스크의 통계
+                sql = """
+                SELECT kiosk_id,
+                       COUNT(*) as prints_count,
+                       MAX(created_at) as last_print_time
+                FROM `hanalabs-event`.logs 
+                WHERE event_number = %s
+                GROUP BY kiosk_id
+                ORDER BY prints_count DESC
+                """
+                cursor.execute(sql, (event_number,))
+                kiosk_stats = cursor.fetchall()
+                
+                sql = """
+                SELECT COUNT(*) as total_prints
+                FROM `hanalabs-event`.logs 
+                WHERE event_number = %s
+                """
+                cursor.execute(sql, (event_number,))
+                total = cursor.fetchone()
+                
+                return {
+                    "success": True,
+                    "event_number": event_number,
+                    "total_prints": total["total_prints"],
+                    "kiosk_stats": kiosk_stats
+                }
+            
+        return {
+            "success": True,
+            "event_number": event_number,
+            "kiosk_id": kiosk_id,
+            "total_prints": total["total_prints"],
+            "daily_stats": daily_stats
+        }
+        
+    except Exception as e:
+        print(f"[PRINT STATS ERROR] {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="서버 내부 오류")
