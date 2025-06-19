@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap, QFont
+from PySide6.QtGui import QPixmap, QFont, QMovie
+from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from components.hangul_composer import HangulComposer
 from components.virtual_keyboard import VirtualKeyboard
 from config import config
@@ -26,6 +28,8 @@ class TextInputScreen(QWidget):
         self.active_input = None  # 현재 활성화된 입력 필드
         self.text_inputs = []  # 모든 텍스트 입력 필드 관리
         self.keyboard = None
+        self.background_widget = None  # 배경 위젯 추적을 위한 변수
+        self.media_player = None  # 미디어 플레이어 추적을 위한 변수
         self.setupUI()
     
     def setupUI(self):
@@ -124,24 +128,79 @@ class TextInputScreen(QWidget):
         self.stack.setCurrentIndex(next_index)
     
     def setupBackground(self):
-        # First try index-based files (2.jpg, 2.png), then fallback to generic name
-        background_files = ["background/2.png", "background/2.jpg", "background/text_input_bg.jpg"]
+        # 지원하는 배경 파일들 (우선순위 순)
+        background_files = [
+            "background/2.mp4", "background/2.gif", "background/2.png", "background/2.jpg",
+            "background/text_input_bg.mp4", "background/text_input_bg.gif", "background/text_input_bg.png", "background/text_input_bg.jpg"
+        ]
         
-        pixmap = None
+        background_file = None
         for filename in background_files:
             file_path = f"resources/{filename}"
             if os.path.exists(file_path):
-                pixmap = QPixmap(file_path)
+                background_file = file_path
                 break
         
-        if pixmap is None or pixmap.isNull():
-            # Use empty background if no files exist
-            pixmap = QPixmap()
+        if background_file is None:
+            # 모든 파일이 없는 경우 빈 배경 사용
+            background_label = QLabel(self)
+            background_label.resize(*self.screen_size)
+            self.background_widget = background_label
+            return
         
-        background_label = QLabel(self)
-        background_label.setPixmap(pixmap)
-        background_label.setScaledContents(True)
-        background_label.resize(*self.screen_size)
+        file_extension = background_file.lower().split('.')[-1]
+        
+        if file_extension == 'mp4':
+            # MP4 비디오 재생
+            self.setupVideoBackground(background_file)
+        elif file_extension == 'gif':
+            # GIF 애니메이션 재생
+            self.setupGifBackground(background_file)
+        else:
+            # 일반 이미지 (PNG, JPG)
+            self.setupImageBackground(background_file)
+    
+    def setupVideoBackground(self, video_path):
+        """MP4 비디오 배경 설정"""
+        self.background_widget = QVideoWidget(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        self.media_player = QMediaPlayer(self)
+        self.audio_output = QAudioOutput(self)
+        self.audio_output.setMuted(True)  # 음소거
+        
+        self.media_player.setAudioOutput(self.audio_output)
+        self.media_player.setVideoOutput(self.background_widget)
+        self.media_player.setSource(f"file:///{os.path.abspath(video_path)}")
+        
+        # 비디오가 끝나면 다시 재생 (루프)
+        self.media_player.mediaStatusChanged.connect(self.onVideoStatusChanged)
+        self.media_player.play()
+    
+    def setupGifBackground(self, gif_path):
+        """GIF 애니메이션 배경 설정"""
+        self.background_widget = QLabel(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        movie = QMovie(gif_path)
+        movie.setScaledSize(self.background_widget.size())
+        self.background_widget.setMovie(movie)
+        self.background_widget.setScaledContents(True)
+        movie.start()
+    
+    def setupImageBackground(self, image_path):
+        """일반 이미지 배경 설정"""
+        self.background_widget = QLabel(self)
+        pixmap = QPixmap(image_path)
+        self.background_widget.setPixmap(pixmap)
+        self.background_widget.setScaledContents(True)
+        self.background_widget.resize(*self.screen_size)
+    
+    def onVideoStatusChanged(self, status):
+        """비디오 상태 변경 시 호출 (루프 재생을 위해)"""
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            self.media_player.setPosition(0)
+            self.media_player.play()
     
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
