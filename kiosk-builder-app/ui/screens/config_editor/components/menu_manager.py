@@ -1,3 +1,5 @@
+# kiosk-builder-app/ui/screens/config_editor/components/menu_manager.py 수정
+
 from PySide6.QtWidgets import QMessageBox
 from PySide6.QtGui import QAction, QIcon
 import os
@@ -33,12 +35,12 @@ class MenuManager:
         """도움말 메뉴 생성"""
         help_menu = menubar.addMenu("도움말")
         
-        check_update_action = QAction("업데이트 확인", self.main_window)
-        check_update_action.setStatusTip("수동으로 업데이트 확인")
-        check_update_action.triggered.connect(self._check_for_updates_manually)
-        help_menu.addAction(check_update_action)
-        
-        help_menu.addSeparator()
+        # 업데이트 확인 메뉴 제거
+        # check_update_action = QAction("업데이트 확인", self.main_window)
+        # check_update_action.setStatusTip("수동으로 업데이트 확인")
+        # check_update_action.triggered.connect(self._check_for_updates_manually)
+        # help_menu.addAction(check_update_action)
+        # help_menu.addSeparator()
         
         about_action = QAction("프로그램 정보", self.main_window)
         about_action.setStatusTip("프로그램 정보 보기")
@@ -86,16 +88,17 @@ class MenuManager:
         global login_window_ref
         login_window_ref = login_window
 
-    def _check_for_updates_manually(self):
-        """수동 업데이트 확인"""
-        if hasattr(self.main_window, 'auto_updater'):
-            self.main_window.auto_updater.check_for_updates(show_no_update_message=True)
-        else:
-            QMessageBox.warning(
-                self.main_window,
-                "업데이트 확인 불가",
-                "자동 업데이트 시스템이 초기화되지 않았습니다."
-            )
+    # 업데이트 확인 메서드 제거
+    # def _check_for_updates_manually(self):
+    #     """수동 업데이트 확인"""
+    #     if hasattr(self.main_window, 'auto_updater'):
+    #         self.main_window.auto_updater.check_for_updates(show_no_update_message=True)
+    #     else:
+    #         QMessageBox.warning(
+    #             self.main_window,
+    #             "업데이트 확인 불가",
+    #             "자동 업데이트 시스템이 초기화되지 않았습니다."
+    #         )
 
     def _show_about(self):
         """프로그램 정보 표시"""
@@ -111,7 +114,8 @@ class MenuManager:
             <br>
             <p>이 프로그램은 키오스크 애플리케이션의 화면 설정과<br>
             배포용 파일 생성을 지원합니다.</p>
-            <br>
-            <p>🔄 자동 업데이트 기능이 활성화되어 있습니다.</p>
             """
+            # 자동 업데이트 관련 문구 제거
+            # <br>
+            # <p>🔄 자동 업데이트 기능이 활성화되어 있습니다.</p>
         )

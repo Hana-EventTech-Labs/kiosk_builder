@@ -1,3 +1,5 @@
+# kiosk-builder-app/ui/screens/config_editor/main_window.py 수정
+
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -10,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
 from utils.config_handler import ConfigHandler
 from utils.auth_manager import AuthManager
-from utils.auto_updater import AutoUpdater
+# from utils.auto_updater import AutoUpdater  # 이 줄 삭제
 from ui.styles.colors import COLORS
 
 from .components.menu_manager import MenuManager
@@ -56,8 +58,8 @@ class ConfigEditor(QMainWindow):
         self.auth_manager = AuthManager()
         self.config = copy.deepcopy(self.config_handler.config)
         
-        # GitHub 설정
-        self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
+        # GitHub 설정 (필요하면 나중에 제거)
+        # self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
         
         # UI 매니저들 초기화
         self.style_manager = StyleManager()
@@ -71,7 +73,7 @@ class ConfigEditor(QMainWindow):
         
         # UI 초기화
         self.init_ui()
-        self.init_auto_updater()
+        # self.init_auto_updater()  # 이 줄 삭제
         self.config_handler_ui.update_save_button_state()
 
     def init_ui(self):
@@ -133,14 +135,3 @@ class ConfigEditor(QMainWindow):
         description.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 13px; margin-bottom: 0px;")
         layout.addWidget(description)
 
-    def init_auto_updater(self):
-        """자동 업데이트 시스템 초기화"""
-        try:
-            self.auto_updater = AutoUpdater(
-                parent_window=self,
-                current_version=self.current_version,
-                github_repo="Hana-EventTech-Labs/kiosk_builder"
-            )
-            self.auto_updater.start_periodic_check(interval_hours=24)
-        except Exception as e:
-            print(f"자동 업데이트 시스템 초기화 실패: {e}")

@@ -244,39 +244,51 @@ class DistributionHandler:
             return False
 
     def _download_github_files(self):
-        """GitHub에서 파일 다운로드"""
-        github_files = [{"name": "super-kiosk.exe", "required": True}]
+        """로컬에서 키오스크 실행 파일 복사"""
         downloaded_files = []
         failed_downloads = []
 
-        download_dialog = DownloadProgressDialog(
-            parent=self.main_window,
-            github_base_url=self.main_window.github_release_base_url,
-            files_to_download=github_files,
-            target_dir=os.path.join(self.target_dir, "bin")
-        )
-
-        download_dialog.exec_()
-        download_results = download_dialog.get_results()
-
-        for filename, result in download_results.items():
-            if result['success'] and filename == "super-kiosk.exe":
-                original_path = os.path.join(self.target_dir, "bin", "super-kiosk.exe")
-                
-                # 앱 이름으로 파일명 변경
-                safe_app_name = self.app_name.replace(" ", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
-                new_filename = f"{safe_app_name}.exe"
-                new_path = os.path.join(self.target_dir, "bin", new_filename)
-                
+        # GitHub에서 다운로드하는 대신 로컬에서 찾기
+        if getattr(sys, 'frozen', False):
+            parent_dir = os.path.dirname(sys.executable)
+        else:
+            parent_dir = os.getcwd()
+        
+        # 가능한 경로들에서 super-kiosk.exe 찾기
+        possible_paths = [
+            os.path.join(parent_dir, "super-kiosk.exe"),
+            os.path.join(parent_dir, "..", "super-kiosk.exe"),
+            os.path.join(parent_dir, "dist", "super-kiosk.exe"),
+            os.path.join(parent_dir, "..", "dist", "super-kiosk.exe"),
+        ]
+        
+        kiosk_exe_found = False
+        
+        for source_path in possible_paths:
+            if os.path.exists(source_path):
                 try:
-                    os.rename(original_path, new_path)
-                    downloaded_files.append(f"{new_filename} (GitHub에서 다운로드 후 이름 변경, 크기: {result.get('size', 0):,} bytes)")
-                    print(f"super-kiosk.exe를 {new_filename}으로 이름 변경 완료")
+                    # 앱 이름으로 파일명 변경
+                    safe_app_name = self.app_name.replace(" ", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
+                    new_filename = f"{safe_app_name}.exe"
+                    target_path = os.path.join(self.target_dir, "bin", new_filename)
+                    
+                    # 파일 복사
+                    shutil.copy2(source_path, target_path)
+                    file_size = os.path.getsize(target_path)
+                    downloaded_files.append(f"{new_filename} (로컬에서 복사됨, 크기: {file_size:,} bytes)")
+                    print(f"super-kiosk.exe를 {new_filename}으로 복사 완료")
+                    kiosk_exe_found = True
+                    break
+                    
                 except Exception as e:
-                    print(f"파일명 변경 실패: {e}")
-                    downloaded_files.append(f"super-kiosk.exe (GitHub에서 다운로드됨, 크기: {result.get('size', 0):,} bytes)")
-            else:
-                failed_downloads.append(filename)
+                    print(f"파일 복사 실패: {e}")
+                    continue
+        
+        if not kiosk_exe_found:
+            failed_downloads.append("super-kiosk.exe (로컬에서 찾을 수 없음)")
+            print("super-kiosk.exe를 찾을 수 없습니다. 다음 경로들을 확인했습니다:")
+            for path in possible_paths:
+                print(f"  - {path}")
 
         return downloaded_files, failed_downloads
 
