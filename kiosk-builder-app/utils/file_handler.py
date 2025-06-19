@@ -81,12 +81,12 @@ class FileHandler:
     
     @staticmethod
     def browse_background_file(parent, line_edit, screen_key):
-        """배경화면 이미지 파일 선택 다이얼로그"""
+        """배경화면 파일 선택 다이얼로그 (이미지, 동영상, GIF 지원)"""
         file_path, _ = QFileDialog.getOpenFileName(
             parent, 
-            "배경화면 이미지 선택", 
+            "배경화면 파일 선택", 
             "resources/background", 
-            "이미지 파일 (*.png *.jpg *.jpeg *.bmp)"
+            "배경화면 파일 (*.png *.jpg *.jpeg *.bmp *.gif *.mp4)"
         )
         
         if file_path:
@@ -102,7 +102,9 @@ class FileHandler:
             if isinstance(screen_key, str) and screen_key in ["splash", "process", "complete"]:
                 screen_index = {"splash": "0", "process": "4", "complete": "5"}.get(screen_key, "0")
             
-            target_filename = f"{screen_index}.jpg"
+            # 원본 파일 확장자 유지
+            original_ext = os.path.splitext(file_path)[1].lower()
+            target_filename = f"{screen_index}{original_ext}"
             
             # 원본 파일명에서 확장자를 제외한 이름 가져오기
             original_name = os.path.basename(file_path)
@@ -158,7 +160,6 @@ class FileHandler:
                     )
             else:
                 # 이미 리소스 폴더 내부에 있는 경우, 적절한 이름으로 복사
-                file_ext = os.path.splitext(file_path)[1]
                 target_path = os.path.join(resources_background_path, target_filename)
                 
                 # 파일 확장자가 다른 경우에도 적절히 처리
