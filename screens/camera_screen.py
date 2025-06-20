@@ -118,6 +118,17 @@ class CameraScreen(QWidget):
             self.media_player.play()
         
     def onPhotoCaptured(self):
+        """사진이 촬영되었을 때 호출되는 함수"""
+        # 현재 카메라 화면(인덱스 1)이 screen_order에서 몇 번째 위치인지 찾기
+        current_screen = 1  # 카메라 화면 인덱스
+        try:
+            current_position = config["screen_order"].index(current_screen)
+            self.main_window.current_index = current_position
+        except ValueError:
+            # screen_order에 카메라 화면이 없으면 0으로 설정
+            self.main_window.current_index = 0
+        
+        # 다음 화면으로 이동
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
 
