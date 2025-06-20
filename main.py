@@ -12,6 +12,7 @@ from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
 from screens.QR_screen import QR_screen
+from screens.frame_screen import FrameScreen
 
 # 애플리케이션 중복 실행 방지 클래스
 class SingleApplication(QApplication):
@@ -69,13 +70,15 @@ class KioskApp(QMainWindow):
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
         self.qr_screen = QR_screen(self.stack, self.screen_size, self)
+        self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
 
         self.stack.addWidget(self.splash_screen)      # 인덱스 0
         self.stack.addWidget(self.photo_screen)       # 인덱스 1
         self.stack.addWidget(self.text_input_screen)  # 인덱스 2
         self.stack.addWidget(self.qr_screen)         # 인덱스 3
-        self.stack.addWidget(self.process_screen)     # 인덱스 4
-        self.stack.addWidget(self.complete_screen)    # 인덱스 5
+        self.stack.addWidget(self.frame_screen)       # 인덱스 4
+        self.stack.addWidget(self.process_screen)     # 인덱스 5
+        self.stack.addWidget(self.complete_screen)    # 인덱스 6
 
     def getNextScreenIndex(self):
         # screen_order의 다음 인덱스로 이동
