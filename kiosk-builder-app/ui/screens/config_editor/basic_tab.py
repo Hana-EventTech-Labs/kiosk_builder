@@ -1,7 +1,9 @@
 #BaseTab을 상속받은 구체적인 탭 클래스
-
+import os
+import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog)
+from PySide6.QtGui import QPixmap, QPainter
 from PySide6.QtCore import Qt  # Qt 모듈 추가
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
@@ -11,6 +13,9 @@ class BasicTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
         self.screen_order_checkboxes = []
+        self.image_preview_label = None
+        self.portrait_radio = None
+        self.landscape_radio = None
         self.init_ui()
         
     def init_ui(self):
@@ -229,84 +234,117 @@ class BasicTab(BaseTab):
         
     def update_image_items(self, count):
         """이미지 항목 UI 업데이트"""
-        # 이전 이미지 개수 확인
-        prev_count = len(self.image_item_fields)
-        
-        # 기존 이미지 데이터 저장
-        prev_image_data = []
-        for i, fields in enumerate(self.image_item_fields):
-            prev_data = {
-                "filename": fields["filename"].text(),
-                "x": fields["x"].value(),
-                "y": fields["y"].value(),
-                "width": fields["width"].value(),
-                "height": fields["height"].value()
-            }
-            prev_image_data.append(prev_data)
-        
         # 기존 위젯 제거
         for i in reversed(range(self.image_items_layout.count())):
             item = self.image_items_layout.itemAt(i)
             if item.widget():
                 item.widget().deleteLater()
         
-        # 이미지 항목 필드 초기화
+        # 필드 및 미리보기 초기화
         self.image_item_fields = []
-        
-        # 새 항목 추가
-        for i in range(count):
-            # 기본값 설정
-            item_data = {
-                "filename": "file_name.jpg",
-                "x": 0,
-                "y": 0,
-                "width": 300,
-                "height": 300
+        self.image_preview_label = None
+
+        if count == 1:
+            item_data = self.config["images"]["items"][0] if self.config["images"]["items"] else {
+                "filename": "", "x": 0, "y": 0, "width": 300, "height": 300, "orientation": "portrait"
             }
-            
-            # 기존 이미지 데이터 유지
-            if i < prev_count:
-                item_data = prev_image_data[i]
-            # 저장된 config에서 데이터 가져오기
-            elif i < len(self.config["images"]["items"]):
-                item_data = self.config["images"]["items"][i]
-            
-            # 항목 그룹 생성
-            item_group = QGroupBox(f"이미지 {i+1}")
-            item_layout = QFormLayout(item_group)
-            
-            # 항목 필드 생성
-            item_fields = {}
-            
-            # 파일명 입력란과 파일 선택 버튼을 담을 레이아웃
-            filename_layout = QHBoxLayout()
-            
-            # 파일명 입력란
-            filename_edit = QLineEdit(item_data["filename"])
-            filename_layout.addWidget(filename_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
-            item_fields["filename"] = filename_edit
-            
-            # 파일 선택 버튼
-            browse_button = QPushButton("찾기...")
-            browse_button.clicked.connect(lambda checked, edit=filename_edit: FileHandler.browse_image_file(self, edit))
-            filename_layout.addWidget(browse_button)
-            
-            item_layout.addRow("파일명:", filename_layout)
-            
-            # 위치 및 크기
-            for key in ["width", "height", "x", "y"]:
-                # QSpinBox 대신 NumberLineEdit 사용
-                line_edit = NumberLineEdit()
-                line_edit.setValue(item_data.get(key, 0))
-                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", line_edit)
-                item_fields[key] = line_edit
-            
-            self.image_items_layout.addWidget(item_group)
+            main_container, item_fields = self.create_image_settings_ui(item_data)
+            self.image_items_layout.addWidget(main_container)
             self.image_item_fields.append(item_fields)
+            self.update_card_preview()
+
+    def create_image_settings_ui(self, item_data):
+        main_container = QWidget()
+        main_layout = QHBoxLayout(main_container)
+
+        item_group = QGroupBox("이미지 1")
+        item_layout = QFormLayout(item_group)
+        item_fields = {}
+
+        filename_layout = QHBoxLayout()
+        filename_edit = QLineEdit(item_data.get("filename", ""))
+        filename_layout.addWidget(filename_edit, 1)
+        item_fields["filename"] = filename_edit
+        browse_button = QPushButton("찾기...")
+        browse_button.clicked.connect(lambda: self.on_browse_image(filename_edit))
+        filename_layout.addWidget(browse_button)
+        item_layout.addRow("파일명:", filename_layout)
+
+        orientation_layout = QHBoxLayout()
+        self.portrait_radio = QRadioButton("세로")
+        self.landscape_radio = QRadioButton("가로")
+        if item_data.get("orientation", "portrait") == "portrait":
+            self.portrait_radio.setChecked(True)
+        else:
+            self.landscape_radio.setChecked(True)
+        orientation_layout.addWidget(self.portrait_radio)
+        orientation_layout.addWidget(self.landscape_radio)
+        item_layout.addRow("인쇄 방향:", orientation_layout)
+        self.portrait_radio.toggled.connect(self.update_card_preview)
+
+        for key, label in [("width", "너비"), ("height", "높이"), ("x", "X 위치"), ("y", "Y 위치")]:
+            line_edit = NumberLineEdit()
+            line_edit.setValue(item_data.get(key, 0))
+            line_edit.textChanged.connect(self.update_card_preview)
+            item_layout.addRow(f"{label}:", line_edit)
+            item_fields[key] = line_edit
         
-        # UI 업데이트
-        self.image_items_container.updateGeometry()
+        main_layout.addWidget(item_group, 1)
+
+        preview_group = QGroupBox("미리보기")
+        preview_layout = QVBoxLayout(preview_group)
+        self.image_preview_label = QLabel()
+        self.image_preview_label.setFixedSize(300, 300)  # 300x300 -> 600x600으로 크기 증가
+        self.image_preview_label.setAlignment(Qt.AlignCenter)
+        self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        preview_layout.addWidget(self.image_preview_label)
+        main_layout.addWidget(preview_group, 1)
+
+        return main_container, item_fields
+
+    def on_browse_image(self, filename_edit):
+        source_path, _ = QFileDialog.getOpenFileName(self, "이미지 파일 선택", "", "Image Files (*.png *.jpg *.jpeg *.gif)")
+        if source_path:
+            destination_dir = "resources"
+            os.makedirs(destination_dir, exist_ok=True)
+            filename = os.path.basename(source_path)
+            destination_path = os.path.join(destination_dir, filename)
+            try:
+                shutil.copy(source_path, destination_path)
+                filename_edit.setText(filename)
+                self.update_card_preview()
+            except Exception as e:
+                print(f"이미지 복사 오류: {e}")
+
+    def update_card_preview(self):
+        if not self.image_item_fields or not self.image_preview_label:
+            return
+
+        fields = self.image_item_fields[0]
+        filename = fields["filename"].text()
+        x = fields["x"].value()
+        y = fields["y"].value()
+        width = fields["width"].value()
+        height = fields["height"].value()
+        is_portrait = self.portrait_radio.isChecked()
+
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        card_pixmap = QPixmap(card_width, card_height)
+        card_pixmap.fill(Qt.white)
+
+        image_path = os.path.join("resources", filename) if filename else ""
+        if filename and os.path.exists(image_path):
+            overlay_pixmap = QPixmap(image_path)
+            if not overlay_pixmap.isNull():
+                painter = QPainter(card_pixmap)
+                painter.drawPixmap(x, y, width, height, overlay_pixmap)
+                painter.end()
+        
+        self.image_preview_label.setPixmap(card_pixmap.scaled(
+            self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
     
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
@@ -420,6 +458,13 @@ class BasicTab(BaseTab):
                     fields["width"].setValue(item["width"])
                     fields["height"].setValue(item["height"])
                     
+                    # 방향 라디오 버튼 업데이트
+                    if self.portrait_radio and "orientation" in item:
+                        if item["orientation"] == "portrait":
+                            self.portrait_radio.setChecked(True)
+                        else:
+                            self.landscape_radio.setChecked(True)
+            
     def update_config(self, config):
         """UI 값을 config에 반영"""
         config["app_name"] = self.app_name_edit.text()
@@ -465,6 +510,7 @@ class BasicTab(BaseTab):
                 "x": fields["x"].value(),
                 "y": fields["y"].value(),
                 "width": fields["width"].value(),
-                "height": fields["height"].value()
+                "height": fields["height"].value(),
+                "orientation": "portrait" if self.portrait_radio.isChecked() else "landscape"
             }
             config["images"]["items"].append(item)
