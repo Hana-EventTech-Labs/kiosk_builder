@@ -106,7 +106,7 @@ class QRTab(BaseTab):
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
-        preview_layout.addWidget(self.image_preview_label)
+        preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
         main_layout.addWidget(preview_group, 1)
 
         # 초기 미리보기 업데이트

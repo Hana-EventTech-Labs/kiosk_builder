@@ -3,7 +3,7 @@ import os
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
                              QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog)
-from PySide6.QtGui import QPixmap, QPainter
+from PySide6.QtGui import QPixmap, QPainter, QColor
 from PySide6.QtCore import Qt  # Qt 모듈 추가
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
@@ -13,7 +13,7 @@ class BasicTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
         self.screen_order_checkboxes = []
-        self.image_preview_label = None
+        self.crop_preview_label = None
         self.portrait_radio = None
         self.landscape_radio = None
         self.init_ui()
@@ -125,6 +125,10 @@ class BasicTab(BaseTab):
         
         content_layout.addWidget(camera_group)
         
+        # 실제 인쇄 영역 컨테이너
+        crop_section_container = QWidget()
+        crop_section_layout = QHBoxLayout(crop_section_container)
+        
         # 실제 인쇄 영역
         crop_group = QGroupBox("실제 인쇄 영역(예시: 945, 1080, 487, 0)")
         self.apply_left_aligned_group_style(crop_group)
@@ -136,11 +140,27 @@ class BasicTab(BaseTab):
             # QSpinBox 대신 NumberLineEdit 사용
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["crop_area"][key])
+            line_edit.textChanged.connect(self._update_crop_preview)
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
             crop_layout.addRow(f"{label_text}:", line_edit)
             self.crop_fields[key] = line_edit
         
-        content_layout.addWidget(crop_group)
+        crop_section_layout.addWidget(crop_group, 1)
+
+        # 미리보기 그룹
+        crop_preview_group = QGroupBox("미리보기")
+        self.apply_left_aligned_group_style(crop_preview_group)
+        crop_preview_layout = QVBoxLayout(crop_preview_group)
+        
+        self.crop_preview_label = QLabel()
+        self.crop_preview_label.setFixedSize(300, 300)
+        self.crop_preview_label.setAlignment(Qt.AlignCenter)
+        self.crop_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        crop_preview_layout.addWidget(self.crop_preview_label, 0, Qt.AlignHCenter)
+        crop_section_layout.addWidget(crop_preview_group, 1)
+
+        content_layout.addWidget(crop_section_container)
         
         # 프린터 설정 추가
         self.init_printer_settings(content_layout)
@@ -150,6 +170,8 @@ class BasicTab(BaseTab):
         
         # 스트레치 추가
         content_layout.addStretch()
+        
+        self._update_crop_preview()
         
     def init_printer_settings(self, parent_layout):
         """프린터 설정 초기화"""
@@ -294,10 +316,10 @@ class BasicTab(BaseTab):
         preview_group = QGroupBox("미리보기")
         preview_layout = QVBoxLayout(preview_group)
         self.image_preview_label = QLabel()
-        self.image_preview_label.setFixedSize(300, 300)  # 300x300 -> 600x600으로 크기 증가
+        self.image_preview_label.setFixedSize(300, 300)
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
-        preview_layout.addWidget(self.image_preview_label)
+        preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
         main_layout.addWidget(preview_group, 1)
 
         return main_container, item_fields
@@ -367,14 +389,54 @@ class BasicTab(BaseTab):
             print(f"화면 순서 변경 중 오류 발생: {e}")
     
     def on_camera_resolution_changed(self, index):
-        """카메라 해상도 선택이 변경되었을 때 호출되는 메소드"""
+        """카메라 해상도 변경 시 호출되는 메소드"""
         selected_resolution = self.camera_resolution_combo.itemData(index)
-        
         if selected_resolution:
-            width, height = selected_resolution
-            self.config["camera_size"]["width"] = width
-            self.config["camera_size"]["height"] = height
-    
+            self.config["camera_size"]["width"] = selected_resolution[0]
+            self.config["camera_size"]["height"] = selected_resolution[1]
+        self._update_crop_preview()
+
+    def _update_crop_preview(self):
+        """실제 인쇄 영역 미리보기 업데이트"""
+        if not self.crop_preview_label:
+            return
+
+        cam_resolution = self.camera_resolution_combo.currentData()
+        if not cam_resolution:
+            cam_width = self.config["camera_size"]["width"]
+            cam_height = self.config["camera_size"]["height"]
+        else:
+            cam_width, cam_height = cam_resolution
+
+        if cam_width == 0 or cam_height == 0:
+            return
+
+        bg_pixmap = QPixmap(cam_width, cam_height)
+        bg_pixmap.fill(Qt.white)
+
+        painter = QPainter(bg_pixmap)
+        
+        try:
+            width = self.crop_fields["width"].value()
+            height = self.crop_fields["height"].value()
+            x = self.crop_fields["x"].value()
+            y = self.crop_fields["y"].value()
+        except (AttributeError, KeyError):
+            painter.end()
+            return
+            
+        from PySide6.QtGui import QPen
+        pen = QPen(QColor("red"), 20)
+        painter.setPen(pen)
+        painter.setBrush(Qt.white)
+        painter.drawRect(x, y, width, height)
+        
+        painter.end()
+
+        self.crop_preview_label.setPixmap(bg_pixmap.scaled(
+            self.crop_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
+
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
         self.config = config
@@ -390,36 +452,7 @@ class BasicTab(BaseTab):
             checkbox.setChecked(index in config["screen_order"])
             checkbox.stateChanged.connect(self.on_screen_order_changed)
         
-        # 카메라 해상도 업데이트
-        current_width = config["camera_size"]["width"]
-        current_height = config["camera_size"]["height"]
-        current_resolution = (current_width, current_height)
-        
-        # 일치하는 항목 찾기
-        found = False
-        for i in range(self.camera_resolution_combo.count()):
-            if self.camera_resolution_combo.itemData(i) == current_resolution:
-                self.camera_resolution_combo.setCurrentIndex(i)
-                found = True
-                break
-        
-        # 일치하는 항목이 없으면 새 항목 추가
-        if not found:
-            user_resolution = f"{current_width} X {current_height}"
-            # 이미 사용자 정의 항목이 있는지 확인
-            for i in range(self.camera_resolution_combo.count()):
-                if self.camera_resolution_combo.itemText(i) == user_resolution:
-                    self.camera_resolution_combo.setItemData(i, current_resolution)
-                    self.camera_resolution_combo.setCurrentIndex(i)
-                    found = True
-                    break
-            
-            # 사용자 정의 항목이 없으면 새로 추가
-            if not found:
-                self.camera_resolution_combo.addItem(user_resolution, current_resolution)
-                self.camera_resolution_combo.setCurrentIndex(self.camera_resolution_combo.count() - 1)
-        
-        # 크롭 영역 업데이트
+        # 실제 인쇄 영역 업데이트
         for key, widget in self.crop_fields.items():
             widget.setValue(config["crop_area"][key])
         
@@ -465,13 +498,16 @@ class BasicTab(BaseTab):
                         else:
                             self.landscape_radio.setChecked(True)
             
+        self.update_card_preview()
+        self._update_crop_preview()
+        
     def update_config(self, config):
         """UI 값을 config에 반영"""
         config["app_name"] = self.app_name_edit.text()
         config["screen_size"]["width"] = self.screen_width_edit.value()
         config["screen_size"]["height"] = self.screen_height_edit.value()
         
-        # 크롭 영역 설정 저장
+        # 실제 인쇄 영역 설정 저장
         for key, widget in self.crop_fields.items():
             config["crop_area"][key] = widget.value()
         
