@@ -197,15 +197,20 @@ class BasicTab(BaseTab):
         self.apply_left_aligned_group_style(images_group)
         images_layout = QVBoxLayout(images_group)
         
-        # 이미지 개수 설정
+        # 이미지 개수 설정 (드롭다운)
         image_count_layout = QHBoxLayout()
-        # image_count_label = QLabel("이미지 개수:")
-        self.image_count_spinbox = QSpinBox()
-        self.image_count_spinbox.setRange(0, 10)
-        self.image_count_spinbox.setValue(self.config["images"]["count"])
-        self.image_count_spinbox.valueChanged.connect(self.update_image_items)
-        # image_count_layout.addWidget(image_count_label)
-        image_count_layout.addWidget(self.image_count_spinbox)
+        self.image_count_combo = QComboBox()
+        self.image_count_combo.addItems(["0", "1"])
+        
+        # config에서 현재 값 가져오기 (없거나 유효하지 않으면 0)
+        current_count = self.config["images"].get("count", 0)
+        if current_count not in [0, 1]:
+            current_count = 0
+        self.image_count_combo.setCurrentIndex(current_count)
+        
+        self.image_count_combo.currentIndexChanged.connect(self.update_image_items)
+        
+        image_count_layout.addWidget(self.image_count_combo)
         image_count_layout.addStretch()
         
         images_layout.addLayout(image_count_layout)
@@ -217,7 +222,7 @@ class BasicTab(BaseTab):
         
         # 이미지 항목 필드 초기화
         self.image_item_fields = []
-        self.update_image_items(self.config["images"]["count"])
+        self.update_image_items(current_count) # 초기값으로 업데이트
         
         images_layout.addWidget(self.image_items_container)
         parent_layout.addWidget(images_group)
@@ -395,11 +400,15 @@ class BasicTab(BaseTab):
                 break
         
         # 이미지 개수 업데이트
-        if self.image_count_spinbox.value() != config["images"]["count"]:
-            self.image_count_spinbox.setValue(config["images"]["count"])
+        new_count = config["images"].get("count", 0)
+        if new_count not in [0, 1]:
+            new_count = 0
+
+        if self.image_count_combo.currentIndex() != new_count:
+            self.image_count_combo.setCurrentIndex(new_count)
         else:
             # 이미지 항목 업데이트
-            self.update_image_items(config["images"]["count"])
+            self.update_image_items(new_count)
             
             # 각 항목의 데이터도 업데이트
             for i, fields in enumerate(self.image_item_fields):
@@ -447,7 +456,7 @@ class BasicTab(BaseTab):
             config["printer"]["panel_id"] = selected_panel_id
         
         # 이미지 설정 저장
-        config["images"]["count"] = self.image_count_spinbox.value()
+        config["images"]["count"] = self.image_count_combo.currentIndex()
         config["images"]["items"] = []
         
         for i, fields in enumerate(self.image_item_fields):
