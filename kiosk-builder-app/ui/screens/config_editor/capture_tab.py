@@ -1,5 +1,7 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                              QLabel, QLineEdit, QPushButton, QSpinBox)
+                              QLabel, QLineEdit, QPushButton, QSpinBox, QWidget)
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
+from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from utils.file_handler import FileHandler
@@ -8,11 +10,21 @@ from .base_tab import BaseTab
 class CaptureTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.image_preview_label = None
         self.init_ui()
         
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
-        content_layout = self.create_tab_with_scroll()
+        scroll_content_layout = self.create_tab_with_scroll()
+
+        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
+        main_layout = QHBoxLayout()
+        scroll_content_layout.addLayout(main_layout)
+
+        # 설정 영역
+        settings_widget = QWidget()
+        content_layout = QVBoxLayout(settings_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
@@ -60,6 +72,7 @@ class CaptureTab(BaseTab):
             # QSpinBox 대신 NumberLineEdit 사용
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["photo"][key])
+            line_edit.textChanged.connect(self._update_card_preview)
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
             photo_layout.addRow(f"{label_text}:", line_edit)
             self.photo_fields[key] = line_edit
@@ -95,6 +108,61 @@ class CaptureTab(BaseTab):
         
         # 스트레치 추가
         content_layout.addStretch()
+
+        # 좌측 설정 영역을 메인 레이아웃에 추가
+        main_layout.addWidget(settings_widget, 1)
+
+        # 우측 미리보기 영역 추가
+        preview_group = QGroupBox("미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        
+        self.image_preview_label = QLabel()
+        self.image_preview_label.setFixedSize(300, 300)
+        self.image_preview_label.setAlignment(Qt.AlignCenter)
+        self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        preview_layout.addWidget(self.image_preview_label)
+        main_layout.addWidget(preview_group, 1)
+
+        # 초기 미리보기 업데이트
+        self._update_card_preview()
+
+    def _update_card_preview(self):
+        """촬영 사진 인쇄 크기 설정 미리보기 업데이트"""
+        if not self.image_preview_label:
+            return
+
+        # 카드 크기 (세로 기준)
+        card_width, card_height = 636, 1012
+        card_pixmap = QPixmap(card_width, card_height)
+        card_pixmap.fill(Qt.white)
+
+        painter = QPainter(card_pixmap)
+        
+        # "촬영 사진 인쇄크기 설정" 값 가져오기
+        try:
+            width = self.photo_fields["width"].value()
+            height = self.photo_fields["height"].value()
+            x = self.photo_fields["x"].value()
+            y = self.photo_fields["y"].value()
+        except (AttributeError, KeyError):
+            # 위젯이 아직 완전히 생성되지 않았을 수 있음
+            painter.end()
+            return
+            
+        # 사각형 그리기
+        pen = QPen(QColor("red"), 10, Qt.SolidLine) # 10px 빨간 테두리
+        painter.setPen(pen)
+        painter.setBrush(Qt.white) # 흰색으로 채우기
+        painter.drawRect(x, y, width, height)
+        
+        painter.end()
+
+        # 라벨에 최종 이미지 설정
+        self.image_preview_label.setPixmap(card_pixmap.scaled(
+            self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
+        ))
     
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -113,6 +181,9 @@ class CaptureTab(BaseTab):
         self.camera_count_fields["number"].setValue(config["camera_count"]["number"])
         self.camera_count_fields["font_size"].setValue(config["camera_count"]["font_size"])
         self.camera_count_fields["font_color"].update_color(config["camera_count"]["font_color"])
+
+        # 미리보기 업데이트
+        self._update_card_preview()
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
