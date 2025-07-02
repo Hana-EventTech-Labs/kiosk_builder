@@ -1,4 +1,3 @@
-
 from PySide6.QtWidgets import QTabWidget
 from PySide6.QtCore import Qt
 from ui.styles.colors import COLORS
@@ -10,6 +9,7 @@ from ..keyboard_tab import KeyboardTab
 from ..qr_tab import QRTab
 from ..processing_tab import ProcessingTab
 from ..complete_tab import CompleteTab
+from ..frame_tab import FrameTab
 
 class TabManager:
     def __init__(self, main_window):
@@ -48,41 +48,50 @@ class TabManager:
         self.tabs['qr'] = QRTab(config)
         self.tab_widget.addTab(self.tabs['qr'], "QR코드 화면(3)")
         
+        self.tabs['frame'] = FrameTab(config)
+        self.tab_widget.addTab(self.tabs['frame'], "프레임 화면(4)")
+        
         self.tabs['processing'] = ProcessingTab(config)
-        self.tab_widget.addTab(self.tabs['processing'], "발급중 화면(4)")
+        self.tab_widget.addTab(self.tabs['processing'], "발급중 화면(5)")
         
         self.tabs['complete'] = CompleteTab(config)
-        self.tab_widget.addTab(self.tabs['complete'], "발급완료 화면(5)")
+        self.tab_widget.addTab(self.tabs['complete'], "발급완료 화면(6)")
 
     def update_tab_enabled_states(self):
         """화면 순서에 따라 탭 활성화/비활성화"""
         try:
             basic_tab = self.tabs['basic']
-            screen_order_text = basic_tab.screen_order_edit.text()
+            # 체크박스에서 화면 순서 가져오기
+            screen_order = sorted([
+                cb.property("screen_index")
+                for cb in basic_tab.screen_order_checkboxes
+                if cb.isChecked()
+            ])
             
-            if not screen_order_text.strip():
-                screen_order = self.main_window.config["screen_order"]
-            else:
-                try:
-                    screen_order = [int(x.strip()) for x in screen_order_text.split(",")]
-                except ValueError:
-                    for i in range(1, 7):
-                        self.tab_widget.setTabEnabled(i, True)
-                    return
-            
-            # 탭 인덱스 매핑
-            tab_indices = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6}
-            
+            # 탭 인덱스 매핑 (기존 유지)
+            # 0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR, 4: 프레임, 5: 발급중, 6: 완료
+            tab_mapping = {
+                0: self.tabs['splash'],
+                1: self.tabs['capture'],
+                2: self.tabs['keyboard'],
+                3: self.tabs['qr'],
+                4: self.tabs['frame'],
+                5: self.tabs['processing'],
+                6: self.tabs['complete']
+            }
+
             # 모든 화면 탭 비활성화
-            for i in range(1, 7):
-                self.tab_widget.setTabEnabled(i, False)
+            for tab in tab_mapping.values():
+                self.tab_widget.setTabEnabled(self.tab_widget.indexOf(tab), False)
             
             # screen_order에 있는 탭만 활성화
-            for screen_type in screen_order:
-                if 0 <= screen_type <= 5:
-                    tab_index = tab_indices.get(screen_type)
-                    if tab_index is not None:
-                        self.tab_widget.setTabEnabled(tab_index, True)
+            for screen_index in screen_order:
+                if screen_index in tab_mapping:
+                    tab_widget = tab_mapping[screen_index]
+                    self.tab_widget.setTabEnabled(self.tab_widget.indexOf(tab_widget), True)
+
+            # 기본 탭은 항상 활성화
+            self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.tabs['basic']), True)
             
             # 스타일 업데이트
             self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
@@ -94,7 +103,8 @@ class TabManager:
             
         except Exception as e:
             print(f"탭 활성화 상태 업데이트 중 오류 발생: {e}")
-            for i in range(1, 7):
+            # 오류 발생 시 모든 탭 활성화 (안전 조치)
+            for i in range(self.tab_widget.count()):
                 self.tab_widget.setTabEnabled(i, True)
 
     def update_ui_from_config(self, config):
