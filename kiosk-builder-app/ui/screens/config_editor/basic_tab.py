@@ -1,7 +1,7 @@
 #BaseTab을 상속받은 구체적인 탭 클래스
 
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout)
 from PySide6.QtCore import Qt  # Qt 모듈 추가
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
@@ -10,6 +10,7 @@ from .base_tab import BaseTab
 class BasicTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.screen_order_checkboxes = []
         self.init_ui()
         
     def init_ui(self):
@@ -39,34 +40,25 @@ class BasicTab(BaseTab):
         content_layout.addWidget(app_name_group)
         
         # 화면 순서
-        screen_order_group = QGroupBox("화면 순서( 쉼표 구분 )")
+        screen_order_group = QGroupBox("화면 순서 선택")
         self.apply_left_aligned_group_style(screen_order_group)
-        screen_order_layout = QVBoxLayout(screen_order_group)
+        screen_order_layout = QGridLayout(screen_order_group)
 
-        # 레이블과 입력 필드를 포함할 폼 레이아웃 생성
-        screen_order_form = QFormLayout()
-        screen_order_form.setLabelAlignment(Qt.AlignVCenter | Qt.AlignRight)
-        screen_order_form.setFormAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        self.screen_options = [
+            (0, "스플래쉬"), (1, "촬영"), (2, "키보드"), 
+            (3, "QR코드"), (4, "프레임"), (5, "발급중"), 
+            (6, "발급완료")
+        ]
 
-        # ModernLineEdit 사용하도록 변경
-        self.screen_order_edit = ModernLineEdit(placeholder="예: 0,1,2,3,4,5")
-
-        # 높이 설정으로 정렬 조정
-        self.screen_order_edit.setFixedHeight(35)  # 다른 입력 필드와 동일한 높이로 조정
-
-        self.screen_order_edit.setText(",".join(map(str, self.config["screen_order"])))
-        self.screen_order_edit.textChanged.connect(self.on_screen_order_changed)
-
-        # 폼 레이아웃에 레이블과 입력 필드 추가
-        screen_order_form.addRow(self.screen_order_edit)
-
-        # 폼 레이아웃을 메인 레이아웃에 추가
-        screen_order_layout.addLayout(screen_order_form)
-
-        # 설명 레이블 추가
-        screen_order_info = QLabel("0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR코드, 4: 발급중, 5: 발급완료")
-        screen_order_info.setStyleSheet("color: gray;")
-        screen_order_layout.addWidget(screen_order_info)
+        for i, (index, name) in enumerate(self.screen_options):
+            checkbox = QCheckBox(name)
+            checkbox.setProperty("screen_index", index)
+            checkbox.setChecked(index in self.config["screen_order"])
+            checkbox.stateChanged.connect(self.on_screen_order_changed)
+            
+            row, col = divmod(i, 4)  # 4열로 배치
+            screen_order_layout.addWidget(checkbox, row, col)
+            self.screen_order_checkboxes.append(checkbox)
 
         content_layout.addWidget(screen_order_group)
 
@@ -310,24 +302,20 @@ class BasicTab(BaseTab):
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
         try:
-            # 입력된 화면 순서 가져오기
-            screen_order_text = self.screen_order_edit.text()
+            # 체크된 체크박스의 screen_index를 가져와서 정렬
+            screen_order = sorted([
+                cb.property("screen_index") 
+                for cb in self.screen_order_checkboxes 
+                if cb.isChecked()
+            ])
             
-            # 입력값이 비어있지 않고 유효한 형식인지 확인
-            if screen_order_text.strip():
-                # 변경된 값을 config에 업데이트
-                try:
-                    screen_order = [int(x.strip()) for x in screen_order_text.split(",")]
-                    self.config["screen_order"] = screen_order
-                    
-                    # 메인 윈도우의 update_tab_enabled_states 메서드 호출
-                    # self가 BasicTab 인스턴스이므로 부모 윈도우를 찾아야 함
-                    main_window = self.window()
-                    if hasattr(main_window, 'update_tab_enabled_states'):
-                        main_window.update_tab_enabled_states()
-                except ValueError:
-                    # 변환할 수 없는 값이 있으면 무시
-                    pass
+            self.config["screen_order"] = screen_order
+            
+            # 메인 윈도우의 탭 활성화 상태 업데이트
+            main_window = self.window()
+            if hasattr(main_window, 'update_tab_enabled_states'):
+                main_window.update_tab_enabled_states()
+
         except Exception as e:
             print(f"화면 순서 변경 중 오류 발생: {e}")
     
@@ -348,9 +336,12 @@ class BasicTab(BaseTab):
         self.screen_height_edit.setValue(config["screen_size"]["height"])
         
         # 화면 순서 업데이트
-        screen_order_text = ",".join(map(str, config["screen_order"]))
-        if self.screen_order_edit.text() != screen_order_text:
-            self.screen_order_edit.setText(screen_order_text)
+        for checkbox in self.screen_order_checkboxes:
+            index = checkbox.property("screen_index")
+            # 업데이트 중 시그널 발생 방지
+            checkbox.stateChanged.disconnect(self.on_screen_order_changed)
+            checkbox.setChecked(index in config["screen_order"])
+            checkbox.stateChanged.connect(self.on_screen_order_changed)
         
         # 카메라 해상도 업데이트
         current_width = config["camera_size"]["width"]
@@ -427,11 +418,11 @@ class BasicTab(BaseTab):
             config["crop_area"][key] = widget.value()
         
         # 화면 순서 업데이트
-        try:
-            screen_order = [int(x.strip()) for x in self.screen_order_edit.text().split(",")]
-            config["screen_order"] = screen_order
-        except ValueError:
-            pass  # 화면 순서에 숫자가 아닌 값이 있으면 무시
+        config["screen_order"] = sorted([
+            cb.property("screen_index") 
+            for cb in self.screen_order_checkboxes 
+            if cb.isChecked()
+        ])
         
         # 카메라 해상도 업데이트
         selected_resolution = self.camera_resolution_combo.currentData()
