@@ -67,15 +67,19 @@ class BasicTab(BaseTab):
         screen_group = QGroupBox("모니터 크기")
         self.apply_left_aligned_group_style(screen_group)
 
-        screen_layout = QFormLayout(screen_group)
+        screen_layout = QHBoxLayout(screen_group)
         
+        screen_layout.addWidget(QLabel("너비:"))
         self.screen_width_edit = NumberLineEdit()
         self.screen_width_edit.setValue(self.config["screen_size"]["width"])
-        screen_layout.addRow("너비:", self.screen_width_edit)
+        screen_layout.addWidget(self.screen_width_edit)
         
+        screen_layout.addWidget(QLabel("높이:"))
         self.screen_height_edit = NumberLineEdit()
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
-        screen_layout.addRow("높이:", self.screen_height_edit)
+        screen_layout.addWidget(self.screen_height_edit)
+        
+        screen_layout.addStretch(1)
         
         content_layout.addWidget(screen_group)
         
