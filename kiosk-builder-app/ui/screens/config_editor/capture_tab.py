@@ -6,6 +6,7 @@ from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
+from ui.components.preview_label import DraggablePreviewLabel
 
 class CaptureTab(BaseTab):
     def __init__(self, config):
@@ -117,7 +118,8 @@ class CaptureTab(BaseTab):
         self.apply_left_aligned_group_style(preview_group)
         preview_layout = QVBoxLayout(preview_group)
         
-        self.image_preview_label = QLabel()
+        self.image_preview_label = DraggablePreviewLabel()
+        self.image_preview_label.position_changed.connect(self._on_photo_position_changed)
         self.image_preview_label.setFixedSize(300, 300)
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
@@ -128,6 +130,17 @@ class CaptureTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_card_preview()
 
+    def _on_photo_position_changed(self, x, y):
+        """드래그로 사진 위치 변경 시 호출되는 슬롯"""
+        self.photo_fields['x'].blockSignals(True)
+        self.photo_fields['y'].blockSignals(True)
+        
+        self.photo_fields['x'].setValue(x)
+        self.photo_fields['y'].setValue(y)
+        
+        self.photo_fields['x'].blockSignals(False)
+        self.photo_fields['y'].blockSignals(False)
+
     def _update_card_preview(self):
         """촬영 사진 인쇄 크기 설정 미리보기 업데이트"""
         if not self.image_preview_label:
@@ -137,8 +150,6 @@ class CaptureTab(BaseTab):
         card_width, card_height = 636, 1012
         card_pixmap = QPixmap(card_width, card_height)
         card_pixmap.fill(Qt.white)
-
-        painter = QPainter(card_pixmap)
         
         # "촬영 사진 인쇄크기 설정" 값 가져오기
         try:
@@ -146,23 +157,15 @@ class CaptureTab(BaseTab):
             height = self.photo_fields["height"].value()
             x = self.photo_fields["x"].value()
             y = self.photo_fields["y"].value()
+            photo_rect = QRect(x, y, width, height)
         except (AttributeError, KeyError):
-            # 위젯이 아직 완전히 생성되지 않았을 수 있음
-            painter.end()
-            return
+            photo_rect = QRect()
             
         # 사각형 그리기
-        pen = QPen(QColor("red"), 10, Qt.SolidLine) # 10px 빨간 테두리
-        painter.setPen(pen)
-        painter.setBrush(Qt.white) # 흰색으로 채우기
-        painter.drawRect(x, y, width, height)
+        pen = QPen(QColor("red"), 2, Qt.SolidLine)
         
-        painter.end()
-
-        # 라벨에 최종 이미지 설정
-        self.image_preview_label.setPixmap(card_pixmap.scaled(
-            self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        self.image_preview_label.set_pen(pen)
+        self.image_preview_label.update_preview(card_pixmap, photo_rect)
     
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""

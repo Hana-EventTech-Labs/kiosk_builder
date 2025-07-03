@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
                               QLabel, QLineEdit, QPushButton, QWidget)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
+from ui.components.preview_label import DraggablePreviewLabel
 
 class QRTab(BaseTab):
     def __init__(self, config):
@@ -101,7 +102,8 @@ class QRTab(BaseTab):
         self.apply_left_aligned_group_style(preview_group)
         preview_layout = QVBoxLayout(preview_group)
         
-        self.image_preview_label = QLabel()
+        self.image_preview_label = DraggablePreviewLabel()
+        self.image_preview_label.position_changed.connect(self._on_image_position_changed)
         self.image_preview_label.setFixedSize(300, 300)
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
@@ -112,6 +114,17 @@ class QRTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_card_preview()
 
+    def _on_image_position_changed(self, x, y):
+        """드래그로 이미지 위치 변경 시 호출되는 슬롯"""
+        self.qr_uploaded_fields['x'].blockSignals(True)
+        self.qr_uploaded_fields['y'].blockSignals(True)
+        
+        self.qr_uploaded_fields['x'].setValue(x)
+        self.qr_uploaded_fields['y'].setValue(y)
+        
+        self.qr_uploaded_fields['x'].blockSignals(False)
+        self.qr_uploaded_fields['y'].blockSignals(False)
+
     def _update_card_preview(self):
         """이미지 인쇄 설정 미리보기 업데이트"""
         if not self.image_preview_label:
@@ -121,29 +134,20 @@ class QRTab(BaseTab):
         card_pixmap = QPixmap(card_width, card_height)
         card_pixmap.fill(Qt.white)
 
-        painter = QPainter(card_pixmap)
-        
         try:
             # 업로드된 이미지 위치 그리기 (빨간색)
             width = self.qr_uploaded_fields["width"].value()
             height = self.qr_uploaded_fields["height"].value()
             x = self.qr_uploaded_fields["x"].value()
             y = self.qr_uploaded_fields["y"].value()
-
-            pen = QPen(QColor("red"), 10, Qt.SolidLine)
-            painter.setPen(pen)
-            painter.setBrush(Qt.white)
-            painter.drawRect(x, y, width, height)
-
+            image_rect = QRect(x, y, width, height)
         except (AttributeError, KeyError):
-            painter.end()
-            return
+            image_rect = QRect()
             
-        painter.end()
+        pen = QPen(QColor("red"), 2, Qt.SolidLine)
 
-        self.image_preview_label.setPixmap(card_pixmap.scaled(
-            self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        self.image_preview_label.set_pen(pen)
+        self.image_preview_label.update_preview(card_pixmap, image_rect)
     
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""

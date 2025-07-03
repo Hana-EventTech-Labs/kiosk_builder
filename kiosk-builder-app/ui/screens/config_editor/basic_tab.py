@@ -3,11 +3,12 @@ import os
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
                              QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog)
-from PySide6.QtGui import QPixmap, QPainter, QColor
-from PySide6.QtCore import Qt  # Qt 모듈 추가
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
+from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
+from ui.components.preview_label import DraggablePreviewLabel
 
 class BasicTab(BaseTab):
     def __init__(self, config):
@@ -152,7 +153,8 @@ class BasicTab(BaseTab):
         self.apply_left_aligned_group_style(crop_preview_group)
         crop_preview_layout = QVBoxLayout(crop_preview_group)
         
-        self.crop_preview_label = QLabel()
+        self.crop_preview_label = DraggablePreviewLabel()
+        self.crop_preview_label.position_changed.connect(self._on_crop_position_changed)
         self.crop_preview_label.setFixedSize(300, 300)
         self.crop_preview_label.setAlignment(Qt.AlignCenter)
         self.crop_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
@@ -315,7 +317,8 @@ class BasicTab(BaseTab):
 
         preview_group = QGroupBox("미리보기")
         preview_layout = QVBoxLayout(preview_group)
-        self.image_preview_label = QLabel()
+        self.image_preview_label = DraggablePreviewLabel()
+        self.image_preview_label.position_changed.connect(self._on_image_position_changed)
         self.image_preview_label.setFixedSize(300, 300)
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
@@ -356,17 +359,14 @@ class BasicTab(BaseTab):
         card_pixmap = QPixmap(card_width, card_height)
         card_pixmap.fill(Qt.white)
 
+        overlay_pixmap = QPixmap()
         image_path = os.path.join("resources", filename) if filename else ""
         if filename and os.path.exists(image_path):
             overlay_pixmap = QPixmap(image_path)
-            if not overlay_pixmap.isNull():
-                painter = QPainter(card_pixmap)
-                painter.drawPixmap(x, y, width, height, overlay_pixmap)
-                painter.end()
+            
+        image_rect = QRect(x, y, width, height)
         
-        self.image_preview_label.setPixmap(card_pixmap.scaled(
-            self.image_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        self.image_preview_label.update_preview(card_pixmap, image_rect, overlay_pixmap)
     
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
@@ -413,29 +413,45 @@ class BasicTab(BaseTab):
 
         bg_pixmap = QPixmap(cam_width, cam_height)
         bg_pixmap.fill(Qt.white)
-
-        painter = QPainter(bg_pixmap)
         
         try:
             width = self.crop_fields["width"].value()
             height = self.crop_fields["height"].value()
             x = self.crop_fields["x"].value()
             y = self.crop_fields["y"].value()
+            crop_rect = QRect(x, y, width, height)
         except (AttributeError, KeyError):
-            painter.end()
+            crop_rect = QRect()
+        
+        pen = QPen(QColor("red"), 2)
+        self.crop_preview_label.set_pen(pen)
+        self.crop_preview_label.update_preview(bg_pixmap, crop_rect)
+
+    def _on_crop_position_changed(self, x, y):
+        """드래그로 위치 변경 시 호출되는 슬롯"""
+        self.crop_fields['x'].blockSignals(True)
+        self.crop_fields['y'].blockSignals(True)
+        
+        self.crop_fields['x'].setValue(x)
+        self.crop_fields['y'].setValue(y)
+        
+        self.crop_fields['x'].blockSignals(False)
+        self.crop_fields['y'].blockSignals(False)
+
+    def _on_image_position_changed(self, x, y):
+        """드래그로 고정 이미지 위치 변경 시 호출되는 슬롯"""
+        if not self.image_item_fields:
             return
             
-        from PySide6.QtGui import QPen
-        pen = QPen(QColor("red"), 20)
-        painter.setPen(pen)
-        painter.setBrush(Qt.white)
-        painter.drawRect(x, y, width, height)
+        fields = self.image_item_fields[0]
+        fields['x'].blockSignals(True)
+        fields['y'].blockSignals(True)
         
-        painter.end()
-
-        self.crop_preview_label.setPixmap(bg_pixmap.scaled(
-            self.crop_preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
-        ))
+        fields['x'].setValue(x)
+        fields['y'].setValue(y)
+        
+        fields['x'].blockSignals(False)
+        fields['y'].blockSignals(False)
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
