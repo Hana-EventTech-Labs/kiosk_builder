@@ -2,13 +2,14 @@
 import os
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 from ui.components.preview_label import DraggablePreviewLabel
+from utils.printer_thread import PrinterThread
 
 class BasicTab(BaseTab):
     def __init__(self, config):
@@ -17,6 +18,9 @@ class BasicTab(BaseTab):
         self.crop_preview_label = None
         self.portrait_radio = None
         self.landscape_radio = None
+        self.print_count_edit = None
+        self.print_button = None
+        self.printer_thread = None
         self.init_ui()
         
     def init_ui(self):
@@ -313,6 +317,30 @@ class BasicTab(BaseTab):
             item_layout.addRow(f"{label}:", line_edit)
             item_fields[key] = line_edit
         
+        # 구분선 추가
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        item_layout.addRow(separator)
+
+        # 인쇄 매수 설정 및 버튼
+        print_controls_layout = QHBoxLayout()
+        print_controls_layout.setContentsMargins(0,0,0,0)
+        
+        self.print_count_edit = NumberLineEdit()
+        self.print_count_edit.setFixedWidth(50) # 너비 조절
+        self.print_count_edit.setValue(1)
+        
+        self.print_button = QPushButton("인쇄")
+        self.print_button.clicked.connect(self._on_print_button_clicked)
+
+        print_controls_layout.addWidget(QLabel("인쇄매수:"))
+        print_controls_layout.addWidget(self.print_count_edit)
+        print_controls_layout.addStretch(1)
+        print_controls_layout.addWidget(self.print_button)
+        
+        item_layout.addRow(print_controls_layout)
+
         main_layout.addWidget(item_group, 1)
 
         preview_group = QGroupBox("미리보기")
@@ -566,3 +594,58 @@ class BasicTab(BaseTab):
                 "orientation": "portrait" if self.portrait_radio.isChecked() else "landscape"
             }
             config["images"]["items"].append(item)
+
+    def _on_print_button_clicked(self):
+        """인쇄 버튼 클릭 시 호출되는 슬롯"""
+        if not self.image_item_fields:
+            self._show_error_message("인쇄할 이미지가 설정되지 않았습니다.")
+            return
+
+        # UI에서 현재 설정 값 가져오기
+        try:
+            print_data = {
+                "filename": self.image_item_fields[0]["filename"].text(),
+                "x": self.image_item_fields[0]["x"].value(),
+                "y": self.image_item_fields[0]["y"].value(),
+                "width": self.image_item_fields[0]["width"].value(),
+                "height": self.image_item_fields[0]["height"].value(),
+            }
+            print_count = self.print_count_edit.value()
+            panel_id = self.panel_combo.currentData()
+
+        except (IndexError, KeyError) as e:
+            self._show_error_message(f"인쇄 정보를 가져오는 중 오류가 발생했습니다: {e}")
+            return
+            
+        if not print_data["filename"]:
+            self._show_error_message("인쇄할 이미지 파일이 선택되지 않았습니다.")
+            return
+
+        # 인쇄 스레드 시작
+        self.print_button.setEnabled(False)
+        self.window().statusBar().showMessage("인쇄를 시작합니다...")
+
+        self.printer_thread = PrinterThread(print_data, print_count, panel_id)
+        self.printer_thread.finished.connect(self._on_print_finished)
+        self.printer_thread.error.connect(self._on_print_error)
+        self.printer_thread.start()
+
+    def _on_print_finished(self):
+        """인쇄 성공 시 호출되는 슬롯"""
+        self.window().statusBar().showMessage("인쇄가 완료되었습니다.", 5000)
+        self.print_button.setEnabled(True)
+
+    def _on_print_error(self, message):
+        """인쇄 오류 시 호출되는 슬롯"""
+        self._show_error_message(message)
+        self.window().statusBar().showMessage(f"인쇄 오류: {message}", 5000)
+        self.print_button.setEnabled(True)
+
+    def _show_error_message(self, message):
+        """오류 메시지 박스를 표시하는 헬퍼 함수"""
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Critical)
+        msg_box.setText("오류")
+        msg_box.setInformativeText(message)
+        msg_box.setWindowTitle("오류")
+        msg_box.exec()
