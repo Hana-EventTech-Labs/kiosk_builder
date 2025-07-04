@@ -84,11 +84,13 @@ class BasicTab(BaseTab):
         screen_layout.addWidget(QLabel("너비:"))
         self.screen_width_edit = NumberLineEdit()
         self.screen_width_edit.setValue(self.config["screen_size"]["width"])
+        self.screen_width_edit.editingFinished.connect(self._on_monitor_size_changed)
         screen_layout.addWidget(self.screen_width_edit)
         
         screen_layout.addWidget(QLabel("높이:"))
         self.screen_height_edit = NumberLineEdit()
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
+        self.screen_height_edit.editingFinished.connect(self._on_monitor_size_changed)
         screen_layout.addWidget(self.screen_height_edit)
         
         screen_layout.addStretch(1)
@@ -214,9 +216,9 @@ class BasicTab(BaseTab):
 
         # 카드 미리보기와 고정 이미지 미리보기 모두 업데이트하도록 연결
         self.card_portrait_radio.toggled.connect(self._on_orientation_changed)
+        self.card_landscape_radio.toggled.connect(self._on_orientation_changed)
         
         orientation_layout.addWidget(self.card_portrait_radio)
-        self.card_landscape_radio.toggled.connect(self._on_orientation_changed)
         orientation_layout.addWidget(self.card_landscape_radio)
         
         card_layout.addRow("인쇄 방향:", orientation_layout)
@@ -722,8 +724,11 @@ class BasicTab(BaseTab):
         msg_box.setWindowTitle("오류")
         msg_box.exec()
 
-    def _on_orientation_changed(self):
+    def _on_orientation_changed(self, checked):
         """카드 방향 변경 시 호출되는 슬롯"""
+        if not checked:
+            return  # 체크가 된 경우에만 로직 실행
+
         # 1. 즉시 config 객체 업데이트
         if "card" not in self.config:
             self.config["card"] = {}
@@ -733,4 +738,10 @@ class BasicTab(BaseTab):
         self.update_card_preview()
         
         # 3. 다른 탭에 변경사항 전파
+        self.config_changed.emit()
+
+    def _on_monitor_size_changed(self):
+        """모니터 크기 변경 시 호출되는 슬롯"""
+        self.config["screen_size"]["width"] = self.screen_width_edit.value()
+        self.config["screen_size"]["height"] = self.screen_height_edit.value()
         self.config_changed.emit()
