@@ -245,10 +245,16 @@ class FrameScreen(QWidget):
         # 여백 추가하여 버튼과 충돌 방지
         preview_layout.addStretch()
         
-        # 초기 사진만 표시
-        self.showCapturedPhoto()
+        # 초기 사진만 표시 (showEvent로 이동하여 파일 로드 시점 문제를 해결)
+        # self.showCapturedPhoto()
         
         main_layout.addWidget(preview_widget)
+
+    def showEvent(self, event):
+        """위젯이 화면에 표시될 때 호출되어, 파일 생성 지연 문제를 해결합니다."""
+        super().showEvent(event)
+        self.showCapturedPhoto()
+        event.accept()
     
     def selectFrame(self, frame_path):
         """프레임 선택 시 호출"""
@@ -288,8 +294,40 @@ class FrameScreen(QWidget):
         return result.convert("RGB")
     
     def showCapturedPhoto(self):
-        """촬영된 사진만 표시"""
-        if os.path.exists(self.captured_photo_path):
+        """촬영된 사진을 프레임 크기에 맞춰서 미리 표시"""
+        if not os.path.exists(self.captured_photo_path):
+            self.preview_label.setText("캡처된 이미지를 찾을 수 없습니다.")
+            return
+
+        try:
+            # 사용 가능한 첫 번째 프레임의 크기를 가져옴
+            frame_files = glob.glob("resources/frames/*.png")
+            if not frame_files:
+                # 프레임이 없으면 원본 사진을 그대로 표시
+                pixmap = QPixmap(self.captured_photo_path)
+                scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.preview_label.setPixmap(scaled_pixmap)
+                return
+
+            # 첫 번째 프레임의 크기를 기준으로 사진 리사이즈
+            with Image.open(frame_files[0]) as frame_img:
+                frame_size = frame_img.size
+
+            with Image.open(self.captured_photo_path) as photo_img:
+                # 사진을 프레임 크기에 맞춤
+                resized_photo = photo_img.resize(frame_size, Image.LANCZOS)
+                
+                # PIL 이미지를 QPixmap으로 변환
+                qt_image = ImageQt.ImageQt(resized_photo.convert("RGB"))
+                pixmap = QPixmap.fromImage(qt_image)
+                
+                # 라벨 크기에 맞춰 최종 표시
+                scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                self.preview_label.setPixmap(scaled_pixmap)
+
+        except Exception as e:
+            print(f"사진 미리보기 오류: {e}")
+            # 오류 발생 시 원본 사진 표시
             pixmap = QPixmap(self.captured_photo_path)
             scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.preview_label.setPixmap(scaled_pixmap)
@@ -358,23 +396,3 @@ class FrameScreen(QWidget):
         # 카메라 화면으로 돌아가기
         camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
         self.stack.setCurrentIndex(camera_index)
-    
-    def addCloseButton(self):
-        """오른쪽 상단에 닫기 버튼 추가"""
-        self.close_button = QPushButton("X", self)
-        self.close_button.setFixedSize(200, 200)
-        self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
-        self.close_button.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(255, 92, 92, 0);  /* 완전히 투명하게 설정 */
-                color: rgba(255, 255, 255, 0);  /* 텍스트도 완전히 투명하게 설정 (보이지 않음) */
-                font-weight: bold;
-                border: none;
-                border-radius: 20px;
-                font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: rgba(224, 74, 74, 0);  /* 호버 시에도 완전히 투명하게 설정 */
-            }
-        """)
-        self.close_button.clicked.connect(self.main_window.closeApplication)
