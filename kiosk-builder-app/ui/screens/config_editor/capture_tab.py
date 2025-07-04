@@ -12,6 +12,7 @@ class CaptureTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
         self.image_preview_label = None
+        self.camera_preview_label = None  # 카메라 미리보기 라벨 추가
         self.init_ui()
         
     def init_ui(self):
@@ -55,6 +56,7 @@ class CaptureTab(BaseTab):
             # QSpinBox 대신 NumberLineEdit 사용
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["frame"][key])
+            line_edit.textChanged.connect(self._update_camera_preview)  # 시그널 연결
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
             frame_layout.addRow(f"{label_text}:", line_edit)
             self.frame_fields[key] = line_edit
@@ -113,8 +115,27 @@ class CaptureTab(BaseTab):
         # 좌측 설정 영역을 메인 레이아웃에 추가
         main_layout.addWidget(settings_widget, 1)
 
-        # 우측 미리보기 영역 추가
-        preview_group = QGroupBox("미리보기")
+        # 우측 미리보기 영역
+        previews_widget = QWidget()
+        previews_layout = QVBoxLayout(previews_widget)
+        previews_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 카메라 프레임 미리보기
+        camera_preview_group = QGroupBox("카메라 프레임 미리보기")
+        self.apply_left_aligned_group_style(camera_preview_group)
+        camera_preview_layout = QVBoxLayout(camera_preview_group)
+        
+        # DraggablePreviewLabel로 교체
+        self.camera_preview_label = DraggablePreviewLabel()
+        self.camera_preview_label.position_changed.connect(self._on_frame_position_changed)
+        self.camera_preview_label.setFixedSize(300, 300)
+        self.camera_preview_label.setAlignment(Qt.AlignCenter)
+        self.camera_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        camera_preview_layout.addWidget(self.camera_preview_label, 0, Qt.AlignHCenter)
+        previews_layout.addWidget(camera_preview_group)
+
+        # 카드 인쇄 미리보기
+        preview_group = QGroupBox("카드 인쇄 미리보기")
         self.apply_left_aligned_group_style(preview_group)
         preview_layout = QVBoxLayout(preview_group)
         
@@ -125,10 +146,23 @@ class CaptureTab(BaseTab):
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
-        main_layout.addWidget(preview_group, 1)
+        previews_layout.addWidget(preview_group)
+        main_layout.addWidget(previews_widget, 1)
 
         # 초기 미리보기 업데이트
         self._update_card_preview()
+        self._update_camera_preview() # 카메라 미리보기 업데이트 호출
+
+    def _on_frame_position_changed(self, x, y):
+        """드래그로 프레임 위치 변경 시 호출되는 슬롯"""
+        self.frame_fields['x'].blockSignals(True)
+        self.frame_fields['y'].blockSignals(True)
+        
+        self.frame_fields['x'].setValue(x)
+        self.frame_fields['y'].setValue(y)
+        
+        self.frame_fields['x'].blockSignals(False)
+        self.frame_fields['y'].blockSignals(False)
 
     def _on_photo_position_changed(self, x, y):
         """드래그로 사진 위치 변경 시 호출되는 슬롯"""
@@ -140,6 +174,37 @@ class CaptureTab(BaseTab):
         
         self.photo_fields['x'].blockSignals(False)
         self.photo_fields['y'].blockSignals(False)
+
+    def _update_camera_preview(self):
+        """카메라 프레임 설정 미리보기 업데이트"""
+        if not self.camera_preview_label:
+            return
+
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920 # 기본값
+            
+        monitor_pixmap = QPixmap(monitor_width, monitor_height)
+        monitor_pixmap.fill(Qt.black) # 모니터는 검은색으로 표시
+        
+        # "카메라 위치 및 크기" 값 가져오기
+        try:
+            width = self.frame_fields["width"].value()
+            height = self.frame_fields["height"].value()
+            x = self.frame_fields["x"].value()
+            y = self.frame_fields["y"].value()
+            frame_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            frame_rect = QRect()
+            
+        # 사각형 그리기
+        pen = QPen(QColor("lime"), 2, Qt.SolidLine) # 눈에 잘 띄는 색으로 변경
+        
+        self.camera_preview_label.set_pen(pen)
+        self.camera_preview_label.update_preview(monitor_pixmap, frame_rect)
 
     def _update_card_preview(self):
         """촬영 사진 인쇄 크기 설정 미리보기 업데이트"""
@@ -187,6 +252,7 @@ class CaptureTab(BaseTab):
 
         # 미리보기 업데이트
         self._update_card_preview()
+        self._update_camera_preview()
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
