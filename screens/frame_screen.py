@@ -385,10 +385,10 @@ class FrameScreen(QWidget):
     def onConfirm(self):
         """확인 버튼 클릭 시"""
         if self.selected_frame:
-            # 최종 합성 이미지 저장
-            final_image = self.compositeImages(self.captured_photo_path, self.selected_frame)
-            final_path = "resources/final_photo.jpg"
-            final_image.save(final_path, "JPEG", quality=95)
+            # 프레임 적용된 이미지 저장
+            framed_image = self.compositeImages(self.captured_photo_path, self.selected_frame)
+            framed_photo_path = "resources/framed_photo.jpg"
+            framed_image.save(framed_photo_path, "JPEG", quality=95)
             
             # 다음 화면으로 이동
             next_index = self.main_window.getNextScreenIndex()

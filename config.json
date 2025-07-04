@@ -9,10 +9,10 @@
         "height": 1080
     },
     "crop_area": {
-        "width": 1920,
-        "height": 1080,
-        "x": 0,
-        "y": 0
+        "width": 613,
+        "height": 976,
+        "x": 653,
+        "y": 52
     },
     "camera_count": {
         "number": 3,
@@ -21,6 +21,7 @@
     },
     "screen_order": [
         0,
+        1,
         4,
         5
     ],
@@ -31,7 +32,7 @@
         "height": 720
     },
     "photo": {
-        "exists": false,
+        "exists": true,
         "filename": "captured_image.jpg",
         "x": 143,
         "y": 314,
@@ -41,6 +42,14 @@
     "qr_uploaded_image": {
         "exists": false,
         "filename": "qr_uploaded_image.jpg",
+        "x": 143,
+        "y": 314,
+        "width": 350,
+        "height": 400
+    },
+    "framed_photo": {
+        "exists": false,
+        "filename": "framed_photo.jpg",
         "x": 143,
         "y": 314,
         "width": 350,
@@ -127,5 +136,12 @@
     "printer": {
         "print_mode": false,
         "panel_id": 1
+    },
+    "photo_frame": {
+        "amount": 0,
+        "font_size": 32,
+        "font_color": "green",
+        "x": 0,
+        "y": 0
     }
 }

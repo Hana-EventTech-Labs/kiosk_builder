@@ -43,31 +43,28 @@ class PrinterThread(QThread):
             "option": option
         })
     
+    def _load_image_from_config(self, section_name, default_filename):
+        """config.json의 특정 섹션에서 이미지 설정을 로드하여 추가합니다."""
+        image_config = config.get(section_name, {})
+        if image_config.get("exists", False):
+            print(f"{section_name}_config: {image_config}")
+            self.add_image(
+                image_filename=f"resources/{image_config.get('filename', default_filename)}",
+                x=image_config.get("x", 0),
+                y=image_config.get("y", 0),
+                width=image_config.get("width", 300),
+                height=image_config.get("height", 300)
+            )
+
     def load_contents(self):
         """config.json에서 이미지와 텍스트 로드"""
-        # 카메라로 촬영한 사진 로드 (photo 섹션)
-        if "photo" in config and config["photo"]["exists"]:
-            photo_config = config["photo"]
-            print(f"photo_config: {photo_config}")
-            self.add_image(
-                image_filename=f"resources/{photo_config.get('filename', 'captured_image.jpg')}",
-                x=photo_config.get("x", 0),
-                y=photo_config.get("y", 0),
-                width=photo_config.get("width", 300),
-                height=photo_config.get("height", 300)
-            )
-        
-        # QR 업로드 이미지 로드 (qr_uploaded_image 섹션)    
-        if "qr_uploaded_image" in config and config["qr_uploaded_image"]["exists"]:
-            qr_image_config = config["qr_uploaded_image"]
-            print(f"qr_image_config: {qr_image_config}")
-            self.add_image(
-                image_filename=f"resources/{qr_image_config.get('filename', 'qr_uploaded_image.jpg')}",
-                x=qr_image_config.get("x", 0),
-                y=qr_image_config.get("y", 0),
-                width=qr_image_config.get("width", 300),
-                height=qr_image_config.get("height", 300)
-            )
+        # framed_photo가 없는 경우에만 photo(원본) 로드
+        if not config.get("framed_photo", {}).get("exists", False):
+            self._load_image_from_config("photo", "captured_image.jpg")
+
+        # QR 업로드 이미지와 프레임 사진 로드
+        self._load_image_from_config("qr_uploaded_image", "qr_uploaded_image.jpg")
+        self._load_image_from_config("framed_photo", "framed_photo.jpg")
         
         # 일반 이미지 설정 불러오기
         expected_img_count = config.get("images", {}).get("count", 0)
