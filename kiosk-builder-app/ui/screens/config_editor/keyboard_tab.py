@@ -1,18 +1,31 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget)
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
+from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
+from ui.components.preview_label import DraggablePreviewLabel
 
 class KeyboardTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.keyboard_preview_label = None
         self.init_ui()
         
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
-        content_layout = self.create_tab_with_scroll()
+        scroll_content_layout = self.create_tab_with_scroll()
+
+        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
+        main_layout = QHBoxLayout()
+        scroll_content_layout.addLayout(main_layout)
+
+        # 설정 영역
+        settings_widget = QWidget()
+        content_layout = QVBoxLayout(settings_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
         
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
@@ -41,6 +54,7 @@ class KeyboardTab(BaseTab):
             # QSpinBox 대신 NumberLineEdit 사용
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["keyboard"][key])
+            line_edit.textChanged.connect(self._update_keyboard_preview)
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
             position_layout.addRow(f"{label_text}:", line_edit)
             self.keyboard_position_fields[key] = line_edit
@@ -187,6 +201,115 @@ class KeyboardTab(BaseTab):
         
         # 스트레치 추가
         content_layout.addStretch()
+
+        # 좌측 설정 영역을 메인 레이아웃에 추가
+        main_layout.addWidget(settings_widget, 1)
+
+        # 우측 미리보기 영역
+        previews_widget = QWidget()
+        previews_layout = QVBoxLayout(previews_widget)
+        previews_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # 키보드 미리보기
+        keyboard_preview_group = QGroupBox("키보드 미리보기")
+        self.apply_left_aligned_group_style(keyboard_preview_group)
+        keyboard_preview_layout = QVBoxLayout(keyboard_preview_group)
+        
+        self.keyboard_preview_label = DraggablePreviewLabel()
+        self.keyboard_preview_label.position_changed.connect(self._on_keyboard_position_changed)
+        self.keyboard_preview_label.setFixedSize(300, 300)
+        self.keyboard_preview_label.setAlignment(Qt.AlignCenter)
+        self.keyboard_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        keyboard_preview_layout.addWidget(self.keyboard_preview_label, 0, Qt.AlignHCenter)
+
+        # 버튼 레이아웃
+        keyboard_button_layout = QHBoxLayout()
+        fill_button_keyboard = QPushButton("채우기")
+        fill_button_keyboard.clicked.connect(self._fill_keyboard_frame)
+        center_button_keyboard = QPushButton("가운데 정렬")
+        center_button_keyboard.clicked.connect(self._center_keyboard_frame)
+        keyboard_button_layout.addWidget(fill_button_keyboard)
+        keyboard_button_layout.addWidget(center_button_keyboard)
+        keyboard_preview_layout.addLayout(keyboard_button_layout)
+        
+        previews_layout.addWidget(keyboard_preview_group)
+        main_layout.addWidget(previews_widget, 1)
+
+        # 초기 미리보기 업데이트
+        self._update_keyboard_preview()
+
+    def _on_keyboard_position_changed(self, x, y):
+        """드래그로 키보드 위치 변경 시 호출되는 슬롯"""
+        self.keyboard_position_fields['x'].blockSignals(True)
+        self.keyboard_position_fields['y'].blockSignals(True)
+        
+        self.keyboard_position_fields['x'].setValue(x)
+        self.keyboard_position_fields['y'].setValue(y)
+        
+        self.keyboard_position_fields['x'].blockSignals(False)
+        self.keyboard_position_fields['y'].blockSignals(False)
+    
+    def _fill_keyboard_frame(self):
+        """키보드를 모니터 크기에 맞게 채웁니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        self.keyboard_position_fields['width'].setValue(monitor_width)
+        self.keyboard_position_fields['height'].setValue(monitor_height)
+        self.keyboard_position_fields['x'].setValue(0)
+        self.keyboard_position_fields['y'].setValue(0)
+
+    def _center_keyboard_frame(self):
+        """키보드를 모니터의 중앙에 정렬합니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        keyboard_width = self.keyboard_position_fields['width'].value()
+        keyboard_height = self.keyboard_position_fields['height'].value()
+
+        center_x = (monitor_width - keyboard_width) / 2
+        center_y = (monitor_height - keyboard_height) / 2
+
+        self.keyboard_position_fields['x'].setValue(int(center_x))
+        self.keyboard_position_fields['y'].setValue(int(center_y))
+
+    def _update_keyboard_preview(self):
+        """키보드 설정 미리보기 업데이트"""
+        if not self.keyboard_preview_label:
+            return
+
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920 # 기본값
+            
+        monitor_pixmap = QPixmap(monitor_width, monitor_height)
+        monitor_pixmap.fill(Qt.black)
+        
+        # "키보드 위치 및 크기" 값 가져오기
+        try:
+            width = self.keyboard_position_fields["width"].value()
+            height = self.keyboard_position_fields["height"].value()
+            x = self.keyboard_position_fields["x"].value()
+            y = self.keyboard_position_fields["y"].value()
+            keyboard_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            keyboard_rect = QRect()
+            
+        # 사각형 그리기
+        pen = QPen(QColor("magenta"), 2, Qt.SolidLine)
+        
+        self.keyboard_preview_label.set_pen(pen)
+        self.keyboard_preview_label.update_preview(monitor_pixmap, keyboard_rect)
     
     def update_text_input_items(self, count):
         """텍스트 입력 항목 UI 업데이트"""
@@ -393,6 +516,9 @@ class KeyboardTab(BaseTab):
                 widget.update_color(config["keyboard"][key])
             else:
                 widget.setValue(config["keyboard"][key])
+
+        # 미리보기 업데이트
+        self._update_keyboard_preview()
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
