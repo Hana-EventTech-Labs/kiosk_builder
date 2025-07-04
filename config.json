@@ -32,15 +32,14 @@
         "height": 720
     },
     "photo": {
-        "exists": true,
         "filename": "captured_image.jpg",
         "x": 143,
         "y": 314,
         "width": 350,
-        "height": 400
+        "height": 400,
+        "background": ""
     },
     "qr_uploaded_image": {
-        "exists": false,
         "filename": "qr_uploaded_image.jpg",
         "x": 143,
         "y": 314,
@@ -48,7 +47,6 @@
         "height": 400
     },
     "framed_photo": {
-        "exists": false,
         "filename": "framed_photo.jpg",
         "x": 143,
         "y": 314,

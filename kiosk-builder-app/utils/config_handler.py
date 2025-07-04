@@ -52,7 +52,6 @@ class ConfigHandler:
                 "height": 720
             },
             "photo": {
-                "exists": True,
                 "filename": "captured_image.jpg",
                 "x": 143,
                 "y": 314,
@@ -61,7 +60,6 @@ class ConfigHandler:
                 "background": ""
             },
             "qr_uploaded_image": {
-                "exists": True,
                 "filename": "qr_uploaded_image.jpg",
                 "x": 143,
                 "y": 314,
