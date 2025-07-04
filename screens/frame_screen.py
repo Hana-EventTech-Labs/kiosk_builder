@@ -38,7 +38,6 @@ class FrameScreen(QWidget):
 
     def setupUI(self):
         self.setupBackground()
-        self.addCloseButton()
         
         # 메인 레이아웃
         main_layout = QHBoxLayout(self)
@@ -49,8 +48,8 @@ class FrameScreen(QWidget):
         # 오른쪽: 미리보기 영역
         self.setupPreview(main_layout)
         
-        # 하단 버튼들
-        self.setupButtons()
+        # 하단 버튼들은 미리보기 영역으로 이동
+        # self.setupButtons()
         self.addCloseButton()
         
     def setupBackground(self):
@@ -242,6 +241,51 @@ class FrameScreen(QWidget):
         self.preview_label.setText("프레임을 선택하면\n미리보기가 나타납니다")
         preview_layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
         
+        # 하단 버튼 레이아웃
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(20)
+        buttons_layout.setAlignment(Qt.AlignCenter)
+
+        # 다시 촬영 버튼
+        self.retake_button = QPushButton("다시 촬영")
+        self.retake_button.setFixedSize(150, 50)
+        self.retake_button.clicked.connect(self.onRetake)
+        self.retake_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+        buttons_layout.addWidget(self.retake_button)
+
+        # 확인 버튼
+        self.confirm_button = QPushButton("선택 완료")
+        self.confirm_button.setFixedSize(150, 50)
+        self.confirm_button.clicked.connect(self.onConfirm)
+        self.confirm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00FFC2;
+                color: black;
+                font-size: 18px;
+                font-weight: bold;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: #00E6A8;
+            }
+        """)
+        buttons_layout.addWidget(self.confirm_button)
+        
+        preview_layout.addLayout(buttons_layout)
+
         # 여백 추가하여 버튼과 충돌 방지
         preview_layout.addStretch()
         
@@ -332,50 +376,12 @@ class FrameScreen(QWidget):
             scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.preview_label.setPixmap(scaled_pixmap)
     
-    def setupButtons(self):
-        """하단 버튼들 설정"""
-        # 확인 버튼
-        self.confirm_button = QPushButton("선택 완료", self)  # 부모 위젯 명시적 설정
-        self.confirm_button.setFixedSize(150, 50)
-        self.confirm_button.move(self.screen_size[0] - 200, self.screen_size[1] - 100)
-        self.confirm_button.clicked.connect(self.onConfirm)
-        self.confirm_button.setStyleSheet("""
-            QPushButton {
-                background-color: #00FFC2;
-                color: black;
-                font-size: 18px;
-                font-weight: bold;
-                border: none;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #00E6A8;
-            }
-        """)
-        self.confirm_button.raise_()  # 버튼을 맨 앞으로 가져오기
-        self.confirm_button.show()    # 명시적으로 보이기
-        
-        # 다시 촬영 버튼
-        self.retake_button = QPushButton("다시 촬영", self)  # 부모 위젯 명시적 설정
-        self.retake_button.setFixedSize(150, 50)
-        self.retake_button.move(50, self.screen_size[1] - 100)
-        self.retake_button.clicked.connect(self.onRetake)
-        self.retake_button.setStyleSheet("""
-            QPushButton {
-                background-color: #ff6b6b;
-                color: white;
-                font-size: 18px;
-                font-weight: bold;
-                border: none;
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #ff5252;
-            }
-        """)
-        self.retake_button.raise_()  # 버튼을 맨 앞으로 가져오기
-        self.retake_button.show()    # 명시적으로 보이기
-    
+    def onRetake(self):
+        """다시 촬영 버튼 클릭 시"""
+        # 카메라 화면으로 돌아가기
+        camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
+        self.stack.setCurrentIndex(camera_index)
+
     def onConfirm(self):
         """확인 버튼 클릭 시"""
         if self.selected_frame:
@@ -390,9 +396,3 @@ class FrameScreen(QWidget):
         else:
             # 프레임 선택 안내
             QMessageBox.warning(self, "알림", "프레임을 선택해주세요!")
-    
-    def onRetake(self):
-        """다시 촬영 버튼 클릭 시"""
-        # 카메라 화면으로 돌아가기
-        camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
-        self.stack.setCurrentIndex(camera_index)
