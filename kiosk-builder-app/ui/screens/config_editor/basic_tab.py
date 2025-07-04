@@ -436,24 +436,16 @@ class BasicTab(BaseTab):
     
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
-        try:
-            # 체크된 체크박스의 screen_index를 가져와서 정렬
-            screen_order = sorted([
-                cb.property("screen_index") 
-                for cb in self.screen_order_checkboxes 
-                if cb.isChecked()
-            ])
-            
-            self.config["screen_order"] = screen_order
-            
-            # 메인 윈도우의 탭 활성화 상태 업데이트
-            main_window = self.window()
-            if hasattr(main_window, 'update_tab_enabled_states'):
-                main_window.update_tab_enabled_states()
+        # 체크된 체크박스의 screen_index를 가져와서 정렬하고 config 업데이트
+        self.config["screen_order"] = sorted([
+            cb.property("screen_index") 
+            for cb in self.screen_order_checkboxes 
+            if cb.isChecked()
+        ])
+        
+        # 설정 변경 신호 발생
+        self.config_changed.emit()
 
-        except Exception as e:
-            print(f"화면 순서 변경 중 오류 발생: {e}")
-    
     def on_camera_resolution_changed(self, index):
         """카메라 해상도 변경 시 호출되는 메소드"""
         selected_resolution = self.camera_resolution_combo.itemData(index)
