@@ -44,12 +44,19 @@ class PrinterThread(QThread):
         })
     
     def _load_image_from_config(self, section_name, default_filename):
-        """config.json의 특정 섹션에서 이미지 설정을 로드하여 추가합니다."""
+        """config.json의 특정 섹션에서 이미지 설정을 가져오고, 파일이 존재하면 로드합니다."""
         image_config = config.get(section_name, {})
-        if image_config.get("exists", False):
-            print(f"{section_name}_config: {image_config}")
+        filename = image_config.get('filename', default_filename)
+        
+        if not filename:
+            return
+            
+        filepath = os.path.join("resources", filename)
+
+        if os.path.exists(filepath):
+            print(f"이미지 파일 로드: {filepath}")
             self.add_image(
-                image_filename=f"resources/{image_config.get('filename', default_filename)}",
+                image_filename=filepath, # f-string 대신 전체 경로 전달
                 x=image_config.get("x", 0),
                 y=image_config.get("y", 0),
                 width=image_config.get("width", 300),
@@ -57,30 +64,38 @@ class PrinterThread(QThread):
             )
 
     def load_contents(self):
-        """config.json에서 이미지와 텍스트 로드"""
-        # framed_photo가 없는 경우에만 photo(원본) 로드
-        if not config.get("framed_photo", {}).get("exists", False):
+        """config.json과 실제 파일 시스템을 기반으로 이미지와 텍스트를 로드합니다."""
+        
+        # framed_photo 파일 경로 확인
+        framed_photo_config = config.get("framed_photo", {})
+        framed_photo_filename = framed_photo_config.get('filename', "framed_photo.jpg")
+        framed_photo_filepath = os.path.join("resources", framed_photo_filename) if framed_photo_filename else None
+
+        # framed_photo 파일이 존재하지 않는 경우에만 photo(원본) 로드 시도
+        if not framed_photo_filepath or not os.path.exists(framed_photo_filepath):
             self._load_image_from_config("photo", "captured_image.jpg")
 
-        # QR 업로드 이미지와 프레임 사진 로드
+        # QR 업로드 이미지와 프레임 사진 로드 시도
         self._load_image_from_config("qr_uploaded_image", "qr_uploaded_image.jpg")
         self._load_image_from_config("framed_photo", "framed_photo.jpg")
         
-        # 일반 이미지 설정 불러오기
-        expected_img_count = config.get("images", {}).get("count", 0)
+        # 고정 이미지 설정 불러오기 (images.items)
         img_items = config.get("images", {}).get("items", [])
         
-        if len(img_items) != expected_img_count:
-            print(f"경고: 설정된 이미지 수({expected_img_count})와 실제 이미지 항목 수({len(img_items)})가 다릅니다")
-        
         for img_config in img_items:
-            self.add_image(
-                image_filename=f"resources/{img_config.get('filename', 'captured_image.jpg')}",
-                x=img_config.get("x", 0),
-                y=img_config.get("y", 0),
-                width=img_config.get("width", 300),
-                height=img_config.get("height", 300)
-            )
+            filename = img_config.get('filename')
+            if not filename:
+                continue
+            
+            filepath = os.path.join("resources", filename)
+            if os.path.exists(filepath):
+                self.add_image(
+                    image_filename=filepath,
+                    x=img_config.get("x", 0),
+                    y=img_config.get("y", 0),
+                    width=img_config.get("width", 300),
+                    height=img_config.get("height", 300)
+                )
         
         # 텍스트 설정 불러오기
         expected_text_count = config.get("texts", {}).get("count", 0)
