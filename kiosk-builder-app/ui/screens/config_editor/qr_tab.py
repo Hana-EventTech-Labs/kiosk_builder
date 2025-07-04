@@ -11,6 +11,7 @@ class QRTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
         self.image_preview_label = None
+        self.qr_preview_label = None  # QR 코드 미리보기 라벨 추가
         self.init_ui()
         
     def init_ui(self):
@@ -52,21 +53,25 @@ class QRTab(BaseTab):
         # 미리보기 영역 위치 및 크기 설정
         preview_width_edit = NumberLineEdit()
         preview_width_edit.setValue(self.config["qr"]["preview_width"])
+        preview_width_edit.textChanged.connect(self._update_qr_preview)
         qr_layout.addRow("너비:", preview_width_edit)
         self.qr_fields["preview_width"] = preview_width_edit
         
         preview_height_edit = NumberLineEdit()
         preview_height_edit.setValue(self.config["qr"]["preview_height"])
+        preview_height_edit.textChanged.connect(self._update_qr_preview)
         qr_layout.addRow("높이:", preview_height_edit)
         self.qr_fields["preview_height"] = preview_height_edit
         
         x_edit = NumberLineEdit()
         x_edit.setValue(self.config["qr"]["x"])
+        x_edit.textChanged.connect(self._update_qr_preview)
         qr_layout.addRow("X 위치:", x_edit)
         self.qr_fields["x"] = x_edit
         
         y_edit = NumberLineEdit()
         y_edit.setValue(self.config["qr"]["y"])
+        y_edit.textChanged.connect(self._update_qr_preview)
         qr_layout.addRow("Y 위치:", y_edit)
         self.qr_fields["y"] = y_edit
         
@@ -97,8 +102,27 @@ class QRTab(BaseTab):
         # 좌측 설정 영역을 메인 레이아웃에 추가
         main_layout.addWidget(settings_widget, 1)
 
-        # 우측 미리보기 영역 추가
-        preview_group = QGroupBox("미리보기")
+        # 우측 미리보기 영역
+        previews_widget = QWidget()
+        previews_layout = QVBoxLayout(previews_widget)
+        previews_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # QR 코드 미리보기
+        qr_preview_group = QGroupBox("QR 코드 미리보기")
+        self.apply_left_aligned_group_style(qr_preview_group)
+        qr_preview_layout = QVBoxLayout(qr_preview_group)
+        
+        self.qr_preview_label = DraggablePreviewLabel()
+        self.qr_preview_label.position_changed.connect(self._on_qr_position_changed)
+        self.qr_preview_label.setFixedSize(300, 300)
+        self.qr_preview_label.setAlignment(Qt.AlignCenter)
+        self.qr_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        qr_preview_layout.addWidget(self.qr_preview_label, 0, Qt.AlignHCenter)
+        previews_layout.addWidget(qr_preview_group)
+
+        # 카드 인쇄 미리보기
+        preview_group = QGroupBox("카드 인쇄 미리보기")
         self.apply_left_aligned_group_style(preview_group)
         preview_layout = QVBoxLayout(preview_group)
         
@@ -109,10 +133,23 @@ class QRTab(BaseTab):
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
-        main_layout.addWidget(preview_group, 1)
+        previews_layout.addWidget(preview_group)
+        main_layout.addWidget(previews_widget, 1)
 
         # 초기 미리보기 업데이트
         self._update_card_preview()
+        self._update_qr_preview()
+
+    def _on_qr_position_changed(self, x, y):
+        """드래그로 QR 코드 위치 변경 시 호출되는 슬롯"""
+        self.qr_fields['x'].blockSignals(True)
+        self.qr_fields['y'].blockSignals(True)
+        
+        self.qr_fields['x'].setValue(x)
+        self.qr_fields['y'].setValue(y)
+        
+        self.qr_fields['x'].blockSignals(False)
+        self.qr_fields['y'].blockSignals(False)
 
     def _on_image_position_changed(self, x, y):
         """드래그로 이미지 위치 변경 시 호출되는 슬롯"""
@@ -124,6 +161,37 @@ class QRTab(BaseTab):
         
         self.qr_uploaded_fields['x'].blockSignals(False)
         self.qr_uploaded_fields['y'].blockSignals(False)
+
+    def _update_qr_preview(self):
+        """QR 코드 설정 미리보기 업데이트"""
+        if not self.qr_preview_label:
+            return
+
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920 # 기본값
+            
+        monitor_pixmap = QPixmap(monitor_width, monitor_height)
+        monitor_pixmap.fill(Qt.black)
+        
+        # "QR 코드 설정" 값 가져오기
+        try:
+            width = self.qr_fields["preview_width"].value()
+            height = self.qr_fields["preview_height"].value()
+            x = self.qr_fields["x"].value()
+            y = self.qr_fields["y"].value()
+            qr_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            qr_rect = QRect()
+            
+        # 사각형 그리기
+        pen = QPen(QColor("cyan"), 2, Qt.SolidLine)
+        
+        self.qr_preview_label.set_pen(pen)
+        self.qr_preview_label.update_preview(monitor_pixmap, qr_rect)
 
     def _update_card_preview(self):
         """이미지 인쇄 설정 미리보기 업데이트"""
@@ -164,6 +232,7 @@ class QRTab(BaseTab):
 
         # 미리보기 업데이트
         self._update_card_preview()
+        self._update_qr_preview()
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
