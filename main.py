@@ -105,7 +105,8 @@ class KioskApp(QMainWindow):
             temp_files = [
                 "resources/captured_image.jpg",
                 "resources/qr_uploaded_image.jpg",
-                "resources/input_texts.json"
+                "resources/input_texts.json",
+                "resources/final_photo.jpg"
             ]
             
             for file_path in temp_files:
