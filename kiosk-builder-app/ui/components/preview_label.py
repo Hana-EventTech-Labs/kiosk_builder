@@ -39,9 +39,17 @@ class DraggablePreviewLabel(QLabel):
         if self._original_size is None or self.width() == 0 or self.height() == 0:
             return
 
+        # 여백을 고려한 렌더링 영역 계산
+        padding = 10 
+        render_width = self.width() - padding
+        render_height = self.height() - padding
+
+        if render_width <= 0 or render_height <= 0:
+            return
+
         # KeepAspectRatio에 맞는 스케일 계산
-        scale_x = self._original_size.width() / self.width()
-        scale_y = self._original_size.height() / self.height()
+        scale_x = self._original_size.width() / render_width
+        scale_y = self._original_size.height() / render_height
         self._scale = max(scale_x, scale_y)
 
         # 중앙 정렬을 위한 오프셋 계산
