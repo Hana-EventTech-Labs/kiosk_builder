@@ -164,6 +164,17 @@ class BasicTab(BaseTab):
         self.crop_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         crop_preview_layout.addWidget(self.crop_preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        crop_button_layout = QHBoxLayout()
+        fill_button_crop = QPushButton("채우기")
+        fill_button_crop.clicked.connect(self._fill_crop_area)
+        center_button_crop = QPushButton("가운데 정렬")
+        center_button_crop.clicked.connect(self._center_crop_area)
+        crop_button_layout.addWidget(fill_button_crop)
+        crop_button_layout.addWidget(center_button_crop)
+        crop_preview_layout.addLayout(crop_button_layout)
+        
         crop_section_layout.addWidget(crop_preview_group, 1)
 
         content_layout.addWidget(crop_section_container)
@@ -423,6 +434,34 @@ class BasicTab(BaseTab):
             self.config["camera_size"]["width"] = selected_resolution[0]
             self.config["camera_size"]["height"] = selected_resolution[1]
         self._update_crop_preview()
+
+    def _fill_crop_area(self):
+        """실제 인쇄 영역을 카메라 해상도에 맞게 채웁니다."""
+        cam_resolution = self.camera_resolution_combo.currentData()
+        if not cam_resolution:
+            return
+        cam_width, cam_height = cam_resolution
+        
+        self.crop_fields['width'].setValue(cam_width)
+        self.crop_fields['height'].setValue(cam_height)
+        self.crop_fields['x'].setValue(0)
+        self.crop_fields['y'].setValue(0)
+
+    def _center_crop_area(self):
+        """실제 인쇄 영역을 카메라 해상도의 중앙에 정렬합니다."""
+        cam_resolution = self.camera_resolution_combo.currentData()
+        if not cam_resolution:
+            return
+        cam_width, cam_height = cam_resolution
+
+        crop_width = self.crop_fields['width'].value()
+        crop_height = self.crop_fields['height'].value()
+        
+        center_x = (cam_width - crop_width) / 2
+        center_y = (cam_height - crop_height) / 2
+        
+        self.crop_fields['x'].setValue(int(center_x))
+        self.crop_fields['y'].setValue(int(center_y))
 
     def _update_crop_preview(self):
         """실제 인쇄 영역 미리보기 업데이트"""

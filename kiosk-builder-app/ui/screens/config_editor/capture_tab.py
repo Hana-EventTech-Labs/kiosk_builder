@@ -132,6 +132,17 @@ class CaptureTab(BaseTab):
         self.camera_preview_label.setAlignment(Qt.AlignCenter)
         self.camera_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         camera_preview_layout.addWidget(self.camera_preview_label, 0, Qt.AlignHCenter)
+
+        # 버튼 레이아웃
+        camera_button_layout = QHBoxLayout()
+        fill_button_cam = QPushButton("채우기")
+        fill_button_cam.clicked.connect(self._fill_camera_frame)
+        center_button_cam = QPushButton("가운데 정렬")
+        center_button_cam.clicked.connect(self._center_camera_frame)
+        camera_button_layout.addWidget(fill_button_cam)
+        camera_button_layout.addWidget(center_button_cam)
+        camera_preview_layout.addLayout(camera_button_layout)
+
         previews_layout.addWidget(camera_preview_group)
 
         # 카드 인쇄 미리보기
@@ -146,12 +157,73 @@ class CaptureTab(BaseTab):
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        photo_button_layout = QHBoxLayout()
+        fill_button_photo = QPushButton("채우기")
+        fill_button_photo.clicked.connect(self._fill_photo_frame)
+        center_button_photo = QPushButton("가운데 정렬")
+        center_button_photo.clicked.connect(self._center_photo_frame)
+        photo_button_layout.addWidget(fill_button_photo)
+        photo_button_layout.addWidget(center_button_photo)
+        preview_layout.addLayout(photo_button_layout)
+        
         previews_layout.addWidget(preview_group)
         main_layout.addWidget(previews_widget, 1)
 
         # 초기 미리보기 업데이트
         self._update_card_preview()
         self._update_camera_preview() # 카메라 미리보기 업데이트 호출
+
+    def _fill_camera_frame(self):
+        """카메라 프레임을 모니터 크기에 맞게 채웁니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920 
+        
+        self.frame_fields['width'].setValue(monitor_width)
+        self.frame_fields['height'].setValue(monitor_height)
+        self.frame_fields['x'].setValue(0)
+        self.frame_fields['y'].setValue(0)
+
+    def _center_camera_frame(self):
+        """카메라 프레임을 모니터의 중앙에 정렬합니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        frame_width = self.frame_fields['width'].value()
+        frame_height = self.frame_fields['height'].value()
+        
+        center_x = (monitor_width - frame_width) / 2
+        center_y = (monitor_height - frame_height) / 2
+        
+        self.frame_fields['x'].setValue(int(center_x))
+        self.frame_fields['y'].setValue(int(center_y))
+
+    def _fill_photo_frame(self):
+        """촬영 사진을 카드 크기에 맞게 채웁니다."""
+        card_width, card_height = 636, 1012
+        self.photo_fields['width'].setValue(card_width)
+        self.photo_fields['height'].setValue(card_height)
+        self.photo_fields['x'].setValue(0)
+        self.photo_fields['y'].setValue(0)
+
+    def _center_photo_frame(self):
+        """촬영 사진을 카드의 중앙에 정렬합니다."""
+        card_width, card_height = 636, 1012
+        photo_width = self.photo_fields['width'].value()
+        photo_height = self.photo_fields['height'].value()
+        
+        center_x = (card_width - photo_width) / 2
+        center_y = (card_height - photo_height) / 2
+
+        self.photo_fields['x'].setValue(int(center_x))
+        self.photo_fields['y'].setValue(int(center_y))
 
     def _on_frame_position_changed(self, x, y):
         """드래그로 프레임 위치 변경 시 호출되는 슬롯"""

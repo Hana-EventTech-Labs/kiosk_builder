@@ -119,6 +119,17 @@ class QRTab(BaseTab):
         self.qr_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         qr_preview_layout.addWidget(self.qr_preview_label, 0, Qt.AlignHCenter)
+
+        # 버튼 레이아웃
+        qr_button_layout = QHBoxLayout()
+        fill_button_qr = QPushButton("채우기")
+        fill_button_qr.clicked.connect(self._fill_qr_frame)
+        center_button_qr = QPushButton("가운데 정렬")
+        center_button_qr.clicked.connect(self._center_qr_frame)
+        qr_button_layout.addWidget(fill_button_qr)
+        qr_button_layout.addWidget(center_button_qr)
+        qr_preview_layout.addLayout(qr_button_layout)
+
         previews_layout.addWidget(qr_preview_group)
 
         # 카드 인쇄 미리보기
@@ -133,12 +144,73 @@ class QRTab(BaseTab):
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
         
         preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        image_button_layout = QHBoxLayout()
+        fill_button_image = QPushButton("채우기")
+        fill_button_image.clicked.connect(self._fill_image_frame)
+        center_button_image = QPushButton("가운데 정렬")
+        center_button_image.clicked.connect(self._center_image_frame)
+        image_button_layout.addWidget(fill_button_image)
+        image_button_layout.addWidget(center_button_image)
+        preview_layout.addLayout(image_button_layout)
+        
         previews_layout.addWidget(preview_group)
         main_layout.addWidget(previews_widget, 1)
 
         # 초기 미리보기 업데이트
         self._update_card_preview()
         self._update_qr_preview()
+
+    def _fill_qr_frame(self):
+        """QR 코드를 모니터 크기에 맞게 채웁니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        self.qr_fields['preview_width'].setValue(monitor_width)
+        self.qr_fields['preview_height'].setValue(monitor_height)
+        self.qr_fields['x'].setValue(0)
+        self.qr_fields['y'].setValue(0)
+
+    def _center_qr_frame(self):
+        """QR 코드를 모니터의 중앙에 정렬합니다."""
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        qr_width = self.qr_fields['preview_width'].value()
+        qr_height = self.qr_fields['preview_height'].value()
+
+        center_x = (monitor_width - qr_width) / 2
+        center_y = (monitor_height - qr_height) / 2
+
+        self.qr_fields['x'].setValue(int(center_x))
+        self.qr_fields['y'].setValue(int(center_y))
+
+    def _fill_image_frame(self):
+        """업로드된 이미지를 카드 크기에 맞게 채웁니다."""
+        card_width, card_height = 636, 1012
+        self.qr_uploaded_fields['width'].setValue(card_width)
+        self.qr_uploaded_fields['height'].setValue(card_height)
+        self.qr_uploaded_fields['x'].setValue(0)
+        self.qr_uploaded_fields['y'].setValue(0)
+
+    def _center_image_frame(self):
+        """업로드된 이미지를 카드의 중앙에 정렬합니다."""
+        card_width, card_height = 636, 1012
+        image_width = self.qr_uploaded_fields['width'].value()
+        image_height = self.qr_uploaded_fields['height'].value()
+
+        center_x = (card_width - image_width) / 2
+        center_y = (card_height - image_height) / 2
+
+        self.qr_uploaded_fields['x'].setValue(int(center_x))
+        self.qr_uploaded_fields['y'].setValue(int(center_y))
 
     def _on_qr_position_changed(self, x, y):
         """드래그로 QR 코드 위치 변경 시 호출되는 슬롯"""
