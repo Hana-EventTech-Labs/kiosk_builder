@@ -51,6 +51,7 @@ class FrameScreen(QWidget):
         
         # 하단 버튼들
         self.setupButtons()
+        self.addCloseButton()
         
     def setupBackground(self):
         # 지원하는 배경 파일들 (우선순위 순)
@@ -357,3 +358,23 @@ class FrameScreen(QWidget):
         # 카메라 화면으로 돌아가기
         camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
         self.stack.setCurrentIndex(camera_index)
+    
+    def addCloseButton(self):
+        """오른쪽 상단에 닫기 버튼 추가"""
+        self.close_button = QPushButton("X", self)
+        self.close_button.setFixedSize(200, 200)
+        self.close_button.move(self.screen_size[0] - 50, 10)  # 오른쪽 상단 위치
+        self.close_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(255, 92, 92, 0);  /* 완전히 투명하게 설정 */
+                color: rgba(255, 255, 255, 0);  /* 텍스트도 완전히 투명하게 설정 (보이지 않음) */
+                font-weight: bold;
+                border: none;
+                border-radius: 20px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: rgba(224, 74, 74, 0);  /* 호버 시에도 완전히 투명하게 설정 */
+            }
+        """)
+        self.close_button.clicked.connect(self.main_window.closeApplication)
