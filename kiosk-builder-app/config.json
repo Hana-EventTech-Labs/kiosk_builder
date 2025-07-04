@@ -11,8 +11,8 @@
     "crop_area": {
         "width": 300,
         "height": 600,
-        "x": 793,
-        "y": 211
+        "x": 810,
+        "y": 240
     },
     "camera_count": {
         "number": 3,
@@ -22,20 +22,22 @@
     "screen_order": [
         0,
         1,
+        2,
         3,
         4,
-        5
+        5,
+        6
     ],
     "frame": {
-        "x": 0,
-        "y": 0,
+        "x": 420,
+        "y": 180,
         "width": 1080,
         "height": 720
     },
     "photo": {
         "filename": "captured_image.jpg",
-        "x": 155,
-        "y": 330,
+        "x": 168,
+        "y": 356,
         "width": 300,
         "height": 300,
         "background": ""
@@ -43,7 +45,7 @@
     "qr_uploaded_image": {
         "filename": "qr_uploaded_image.jpg",
         "x": 143,
-        "y": 314,
+        "y": 306,
         "width": 350,
         "height": 400
     },
@@ -117,8 +119,8 @@
     "qr": {
         "preview_width": 300,
         "preview_height": 300,
-        "x": 800,
-        "y": 600,
+        "x": 810,
+        "y": 390,
         "background": ""
     },
     "splash": {
@@ -160,5 +162,8 @@
         "font_color": 0,
         "x": 0,
         "y": 0
+    },
+    "card": {
+        "orientation": "portrait"
     }
 }

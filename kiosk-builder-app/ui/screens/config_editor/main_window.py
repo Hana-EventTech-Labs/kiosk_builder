@@ -103,6 +103,9 @@ class ConfigEditor(QMainWindow):
         # 버튼 추가
         self.button_manager.create_buttons(main_layout)
         
+        # TabManager의 config_changed 시그널 연결
+        self.tab_manager.config_changed.connect(self.on_config_changed_globally)
+
         # 메뉴바 생성
         self.menu_manager.create_menu_bar()
         
@@ -134,4 +137,10 @@ class ConfigEditor(QMainWindow):
         description = QLabel("키오스크 애플리케이션 설정을 편집하세요. 각 탭에서 특정 화면과 관련된 설정을 변경할 수 있습니다.")
         description.setStyleSheet(f"color: {COLORS['text_muted']}; font-size: 13px; margin-bottom: 0px;")
         layout.addWidget(description)
+
+    def on_config_changed_globally(self):
+        """전역 설정 변경 시 호출되는 슬롯"""
+        self.statusBar().showMessage("카드 방향 설정이 모든 탭에 실시간으로 반영되었습니다.", 3000)
+        # 저장 버튼 상태 업데이트도 필요
+        self.config_handler_ui.update_save_button_state()
 

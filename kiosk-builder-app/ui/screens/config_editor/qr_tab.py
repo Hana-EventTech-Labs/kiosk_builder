@@ -194,7 +194,10 @@ class QRTab(BaseTab):
 
     def _fill_image_frame(self):
         """업로드된 이미지를 카드 크기에 맞게 채웁니다."""
-        card_width, card_height = 636, 1012
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+        
         self.qr_uploaded_fields['width'].setValue(card_width)
         self.qr_uploaded_fields['height'].setValue(card_height)
         self.qr_uploaded_fields['x'].setValue(0)
@@ -202,7 +205,10 @@ class QRTab(BaseTab):
 
     def _center_image_frame(self):
         """업로드된 이미지를 카드의 중앙에 정렬합니다."""
-        card_width, card_height = 636, 1012
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
         image_width = self.qr_uploaded_fields['width'].value()
         image_height = self.qr_uploaded_fields['height'].value()
 
@@ -270,7 +276,11 @@ class QRTab(BaseTab):
         if not self.image_preview_label:
             return
 
-        card_width, card_height = 636, 1012
+        # 전역 카드 방향 설정 사용
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+        
         card_pixmap = QPixmap(card_width, card_height)
         card_pixmap.fill(Qt.white)
 

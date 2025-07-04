@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                              QLabel, QLineEdit, QPushButton, QSpinBox, QWidget)
+                              QLabel, QLineEdit, QPushButton, QSpinBox, QWidget, QRadioButton)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
@@ -207,7 +207,10 @@ class CaptureTab(BaseTab):
 
     def _fill_photo_frame(self):
         """촬영 사진을 카드 크기에 맞게 채웁니다."""
-        card_width, card_height = 636, 1012
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
         self.photo_fields['width'].setValue(card_width)
         self.photo_fields['height'].setValue(card_height)
         self.photo_fields['x'].setValue(0)
@@ -215,7 +218,10 @@ class CaptureTab(BaseTab):
 
     def _center_photo_frame(self):
         """촬영 사진을 카드의 중앙에 정렬합니다."""
-        card_width, card_height = 636, 1012
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
         photo_width = self.photo_fields['width'].value()
         photo_height = self.photo_fields['height'].value()
         
@@ -283,8 +289,11 @@ class CaptureTab(BaseTab):
         if not self.image_preview_label:
             return
 
-        # 카드 크기 (세로 기준)
-        card_width, card_height = 636, 1012
+        # 카드 크기 (전역 설정 기준)
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+        
         card_pixmap = QPixmap(card_width, card_height)
         card_pixmap.fill(Qt.white)
         

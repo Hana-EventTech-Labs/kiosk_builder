@@ -4,7 +4,7 @@ import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
                              QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QRect
+from PySide6.QtCore import Qt, QRect, Signal
 from ui.components.inputs import NumberLineEdit, ModernLineEdit  # ModernLineEdit 추가
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
@@ -12,12 +12,14 @@ from ui.components.preview_label import DraggablePreviewLabel
 from utils.printer_thread import PrinterThread
 
 class BasicTab(BaseTab):
+    config_changed = Signal()
+
     def __init__(self, config):
         super().__init__(config)
         self.screen_order_checkboxes = []
         self.crop_preview_label = None
-        self.portrait_radio = None
-        self.landscape_radio = None
+        self.card_portrait_radio = None
+        self.card_landscape_radio = None
         self.print_count_edit = None
         self.print_button = None
         self.printer_thread = None
@@ -182,6 +184,9 @@ class BasicTab(BaseTab):
         # 프린터 설정 추가
         self.init_printer_settings(content_layout)
         
+        # 카드 설정 추가
+        self.init_card_settings(content_layout)
+        
         # 이미지 설정 추가
         self.init_image_settings(content_layout)
         
@@ -189,6 +194,33 @@ class BasicTab(BaseTab):
         content_layout.addStretch()
         
         self._update_crop_preview()
+        
+    def init_card_settings(self, parent_layout):
+        """카드 방향 설정 초기화"""
+        card_group = QGroupBox("카드 설정")
+        self.apply_left_aligned_group_style(card_group)
+        card_layout = QFormLayout(card_group)
+        
+        orientation_layout = QHBoxLayout()
+        self.card_portrait_radio = QRadioButton("세로")
+        self.card_landscape_radio = QRadioButton("가로")
+        
+        # config에서 'card' 설정을 안전하게 가져오기
+        card_config = self.config.get("card", {})
+        if card_config.get("orientation", "portrait") == "portrait":
+            self.card_portrait_radio.setChecked(True)
+        else:
+            self.card_landscape_radio.setChecked(True)
+
+        # 카드 미리보기와 고정 이미지 미리보기 모두 업데이트하도록 연결
+        self.card_portrait_radio.toggled.connect(self._on_orientation_changed)
+        
+        orientation_layout.addWidget(self.card_portrait_radio)
+        self.card_landscape_radio.toggled.connect(self._on_orientation_changed)
+        orientation_layout.addWidget(self.card_landscape_radio)
+        
+        card_layout.addRow("인쇄 방향:", orientation_layout)
+        parent_layout.addWidget(card_group)
         
     def init_printer_settings(self, parent_layout):
         """프린터 설정 초기화"""
@@ -309,18 +341,6 @@ class BasicTab(BaseTab):
         filename_layout.addWidget(browse_button)
         item_layout.addRow("파일명:", filename_layout)
 
-        orientation_layout = QHBoxLayout()
-        self.portrait_radio = QRadioButton("세로")
-        self.landscape_radio = QRadioButton("가로")
-        if item_data.get("orientation", "portrait") == "portrait":
-            self.portrait_radio.setChecked(True)
-        else:
-            self.landscape_radio.setChecked(True)
-        orientation_layout.addWidget(self.portrait_radio)
-        orientation_layout.addWidget(self.landscape_radio)
-        item_layout.addRow("인쇄 방향:", orientation_layout)
-        self.portrait_radio.toggled.connect(self.update_card_preview)
-
         for key, label in [("width", "너비"), ("height", "높이"), ("x", "X 위치"), ("y", "Y 위치")]:
             line_edit = NumberLineEdit()
             line_edit.setValue(item_data.get(key, 0))
@@ -390,7 +410,12 @@ class BasicTab(BaseTab):
         y = fields["y"].value()
         width = fields["width"].value()
         height = fields["height"].value()
-        is_portrait = self.portrait_radio.isChecked()
+
+        # 전역 카드 방향 설정 사용
+        if not self.card_portrait_radio: # UI가 아직 생성되지 않은 경우
+            is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        else:
+            is_portrait = self.card_portrait_radio.isChecked()
 
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
@@ -539,6 +564,14 @@ class BasicTab(BaseTab):
         for key, widget in self.crop_fields.items():
             widget.setValue(config["crop_area"][key])
         
+        # 카드 방향 업데이트
+        if self.card_portrait_radio:
+            orientation = config.get("card", {}).get("orientation", "portrait")
+            if orientation == "portrait":
+                self.card_portrait_radio.setChecked(True)
+            else:
+                self.card_landscape_radio.setChecked(True)
+        
         # 프린터 설정 업데이트
         current_print_mode = config.get("printer", {}).get("print_mode", False)
         if current_print_mode:
@@ -573,13 +606,6 @@ class BasicTab(BaseTab):
                     fields["y"].setValue(item["y"])
                     fields["width"].setValue(item["width"])
                     fields["height"].setValue(item["height"])
-                    
-                    # 방향 라디오 버튼 업데이트
-                    if self.portrait_radio and "orientation" in item:
-                        if item["orientation"] == "portrait":
-                            self.portrait_radio.setChecked(True)
-                        else:
-                            self.landscape_radio.setChecked(True)
             
         self.update_card_preview()
         self._update_crop_preview()
@@ -590,6 +616,14 @@ class BasicTab(BaseTab):
         config["screen_size"]["width"] = self.screen_width_edit.value()
         config["screen_size"]["height"] = self.screen_height_edit.value()
         
+        # 카드 방향 저장
+        if "card" not in config:
+            config["card"] = {}
+        if self.card_portrait_radio:
+            config["card"]["orientation"] = "portrait" if self.card_portrait_radio.isChecked() else "landscape"
+        else: # UI 로드 전의 경우를 대비
+            config["card"]["orientation"] = config.get("card", {}).get("orientation", "portrait")
+
         # 실제 인쇄 영역 설정 저장
         for key, widget in self.crop_fields.items():
             config["crop_area"][key] = widget.value()
@@ -629,8 +663,7 @@ class BasicTab(BaseTab):
                 "x": fields["x"].value(),
                 "y": fields["y"].value(),
                 "width": fields["width"].value(),
-                "height": fields["height"].value(),
-                "orientation": "portrait" if self.portrait_radio.isChecked() else "landscape"
+                "height": fields["height"].value()
             }
             config["images"]["items"].append(item)
 
@@ -688,3 +721,16 @@ class BasicTab(BaseTab):
         msg_box.setInformativeText(message)
         msg_box.setWindowTitle("오류")
         msg_box.exec()
+
+    def _on_orientation_changed(self):
+        """카드 방향 변경 시 호출되는 슬롯"""
+        # 1. 즉시 config 객체 업데이트
+        if "card" not in self.config:
+            self.config["card"] = {}
+        self.config["card"]["orientation"] = "portrait" if self.card_portrait_radio.isChecked() else "landscape"
+        
+        # 2. BasicTab의 미리보기 업데이트
+        self.update_card_preview()
+        
+        # 3. 다른 탭에 변경사항 전파
+        self.config_changed.emit()

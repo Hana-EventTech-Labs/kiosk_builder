@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QTabWidget
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal, QObject
 from ui.styles.colors import COLORS
 
 from ..basic_tab import BasicTab
@@ -11,8 +11,11 @@ from ..processing_tab import ProcessingTab
 from ..complete_tab import CompleteTab
 from ..frame_tab import FrameTab
 
-class TabManager:
+class TabManager(QObject):
+    config_changed = Signal()
+
     def __init__(self, main_window):
+        super().__init__(main_window)
         self.main_window = main_window
         self.tab_widget = None
         self.tabs = {}
@@ -34,6 +37,7 @@ class TabManager:
         config = self.main_window.config
         
         self.tabs['basic'] = BasicTab(config)
+        self.tabs['basic'].config_changed.connect(self.on_config_changed_from_tab)
         self.tab_widget.addTab(self.tabs['basic'], "기본 설정")
         
         self.tabs['splash'] = SplashTab(config)
@@ -56,6 +60,10 @@ class TabManager:
         
         self.tabs['complete'] = CompleteTab(config)
         self.tab_widget.addTab(self.tabs['complete'], "발급완료 화면(6)")
+
+    def on_config_changed_from_tab(self):
+        """특정 탭에서 config가 변경되었을 때 호출되는 슬롯"""
+        self.update_ui_from_config(self.main_window.config)
 
     def update_tab_enabled_states(self):
         """화면 순서에 따라 탭 활성화/비활성화"""
