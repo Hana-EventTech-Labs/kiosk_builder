@@ -13,6 +13,8 @@ from ..frame_tab import FrameTab
 
 class TabManager(QObject):
     config_changed = Signal()
+    # 새로운 실시간 업데이트 시그널 추가
+    real_time_update_requested = Signal()
 
     def __init__(self, main_window):
         super().__init__(main_window)
@@ -38,19 +40,31 @@ class TabManager(QObject):
         
         self.tabs['basic'] = BasicTab(config)
         self.tabs['basic'].config_changed.connect(self.on_config_changed_from_tab)
+        # BasicTab에 tab_manager 참조 설정
+        if hasattr(self.tabs['basic'], 'set_tab_manager'):
+            self.tabs['basic'].set_tab_manager(self)
         self.tab_widget.addTab(self.tabs['basic'], "기본 설정")
         
         self.tabs['splash'] = SplashTab(config)
         self.tab_widget.addTab(self.tabs['splash'], "스플래쉬 화면(0)")
         
         self.tabs['capture'] = CaptureTab(config)
+        # CaptureTab에 tab_manager 참조 설정
+        if hasattr(self.tabs['capture'], 'set_tab_manager'):
+            self.tabs['capture'].set_tab_manager(self)
         self.tab_widget.addTab(self.tabs['capture'], "촬영 화면(1)")
         
         self.tabs['keyboard'] = KeyboardTab(config)
+        # KeyboardTab에 tab_manager 참조 설정
+        if hasattr(self.tabs['keyboard'], 'set_tab_manager'):
+            self.tabs['keyboard'].set_tab_manager(self)
         self.tab_widget.addTab(self.tabs['keyboard'], "키보드 화면(2)")
         
         self.tabs['qr'] = QRTab(config)
         self.tab_widget.addTab(self.tabs['qr'], "QR코드 화면(3)")
+        # QRTab에 tab_manager 참조 설정
+        if hasattr(self.tabs['qr'], 'set_tab_manager'):
+            self.tabs['qr'].set_tab_manager(self)
         
         self.tabs['frame'] = FrameTab(config)
         self.tab_widget.addTab(self.tabs['frame'], "프레임 화면(4)")
@@ -60,6 +74,91 @@ class TabManager(QObject):
         
         self.tabs['complete'] = CompleteTab(config)
         self.tab_widget.addTab(self.tabs['complete'], "발급완료 화면(6)")
+        
+        # 실시간 업데이트 시그널 연결
+        self._connect_real_time_signals()
+
+    def _connect_real_time_signals(self):
+        """실시간 업데이트를 위한 시그널 연결"""
+        # 각 탭에서 DraggablePreviewLabel의 position_changed 시그널을 연결
+        self._connect_draggable_signals()
+        
+        # 실시간 업데이트 시그널을 processing_tab의 미리보기 업데이트에 연결
+        self.real_time_update_requested.connect(self._update_processing_preview)
+
+    def _connect_draggable_signals(self):
+        """각 탭의 DraggablePreviewLabel 시그널 연결"""
+        try:
+            # capture_tab의 드래그 가능한 라벨들
+            if hasattr(self.tabs['capture'], 'camera_preview_label'):
+                self.tabs['capture'].camera_preview_label.position_changed.connect(self._on_position_changed)
+            if hasattr(self.tabs['capture'], 'image_preview_label'):
+                self.tabs['capture'].image_preview_label.position_changed.connect(self._on_position_changed)
+            
+            # keyboard_tab의 드래그 가능한 라벨들
+            if hasattr(self.tabs['keyboard'], 'keyboard_preview_label'):
+                self.tabs['keyboard'].keyboard_preview_label.position_changed.connect(self._on_position_changed)
+            
+            # qr_tab의 드래그 가능한 라벨들
+            if hasattr(self.tabs['qr'], 'qr_preview_label'):
+                self.tabs['qr'].qr_preview_label.position_changed.connect(self._on_position_changed)
+            if hasattr(self.tabs['qr'], 'image_preview_label'):
+                self.tabs['qr'].image_preview_label.position_changed.connect(self._on_position_changed)
+            
+            # basic_tab의 드래그 가능한 라벨들
+            if hasattr(self.tabs['basic'], 'crop_preview_label'):
+                self.tabs['basic'].crop_preview_label.position_changed.connect(self._on_position_changed)
+            if hasattr(self.tabs['basic'], 'image_preview_label'):
+                self.tabs['basic'].image_preview_label.position_changed.connect(self._on_position_changed)
+            
+            # keyboard_tab의 동적 생성되는 라벨들은 별도로 처리
+            self._connect_keyboard_dynamic_signals()
+                
+        except Exception as e:
+            print(f"드래그 시그널 연결 중 오류 발생: {e}")
+
+    def _connect_keyboard_dynamic_signals(self):
+        """keyboard_tab의 동적으로 생성되는 라벨들의 시그널 연결"""
+        try:
+            keyboard_tab = self.tabs['keyboard']
+            
+            # 텍스트 입력 미리보기 라벨들
+            if hasattr(keyboard_tab, 'text_input_preview_labels'):
+                for i, label in enumerate(keyboard_tab.text_input_preview_labels):
+                    if hasattr(label, 'position_changed'):
+                        label.position_changed.connect(self._on_position_changed)
+            
+            # 고정 텍스트 미리보기 라벨들
+            if hasattr(keyboard_tab, 'text_preview_labels'):
+                for i, label in enumerate(keyboard_tab.text_preview_labels):
+                    if hasattr(label, 'position_changed'):
+                        label.position_changed.connect(self._on_position_changed)
+                        
+        except Exception as e:
+            print(f"키보드 탭 동적 시그널 연결 중 오류 발생: {e}")
+
+    def _on_position_changed(self, x, y):
+        """위치 변경 시 호출되는 슬롯"""
+        # 현재 탭의 config를 업데이트
+        self._update_current_tab_config()
+        
+        # 실시간 업데이트 요청
+        self.real_time_update_requested.emit()
+
+    def _update_current_tab_config(self):
+        """현재 탭의 설정을 config에 반영"""
+        current_tab_index = self.tab_widget.currentIndex()
+        current_tab = self.tab_widget.widget(current_tab_index)
+        
+        if hasattr(current_tab, 'update_config'):
+            current_tab.update_config(self.main_window.config)
+
+    def _update_processing_preview(self):
+        """processing_tab의 미리보기 업데이트"""
+        if 'processing' in self.tabs:
+            processing_tab = self.tabs['processing']
+            if hasattr(processing_tab, '_update_final_card_preview'):
+                processing_tab._update_final_card_preview()
 
     def on_config_changed_from_tab(self):
         """특정 탭에서 config가 변경되었을 때 호출되는 슬롯"""
@@ -127,3 +226,7 @@ class TabManager(QObject):
         for tab in self.tabs.values():
             if hasattr(tab, 'update_config'):
                 tab.update_config(config)
+
+    def reconnect_dynamic_signals(self):
+        """동적으로 생성되는 라벨들의 시그널 재연결 (탭에서 호출)"""
+        self._connect_keyboard_dynamic_signals()

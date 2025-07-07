@@ -11,6 +11,7 @@ from ui.components.preview_label import DraggablePreviewLabel
 class CaptureTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.tab_manager = None  # tab_manager 참조 추가
         self.image_preview_label = None
         self.camera_preview_label = None  # 카메라 미리보기 라벨 추가
         self.init_ui()
@@ -241,6 +242,10 @@ class CaptureTab(BaseTab):
         
         self.frame_fields['x'].blockSignals(False)
         self.frame_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 시그널 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _on_photo_position_changed(self, x, y):
         """드래그로 사진 위치 변경 시 호출되는 슬롯"""
@@ -252,6 +257,10 @@ class CaptureTab(BaseTab):
         
         self.photo_fields['x'].blockSignals(False)
         self.photo_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 시그널 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _update_camera_preview(self):
         """카메라 프레임 설정 미리보기 업데이트"""
@@ -353,3 +362,7 @@ class CaptureTab(BaseTab):
         config["camera_count"]["number"] = self.camera_count_fields["number"].value()
         config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
         config["camera_count"]["font_color"] = self.camera_count_fields["font_color"].color
+
+    def set_tab_manager(self, tab_manager):
+        """tab_manager 참조 설정"""
+        self.tab_manager = tab_manager

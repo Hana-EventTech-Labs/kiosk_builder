@@ -10,9 +10,14 @@ from ui.components.preview_label import DraggablePreviewLabel
 class QRTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.tab_manager = None  # TabManager 참조 추가
         self.image_preview_label = None
         self.qr_preview_label = None  # QR 코드 미리보기 라벨 추가
         self.init_ui()
+        
+    def set_tab_manager(self, tab_manager):
+        """TabManager 참조를 설정합니다."""
+        self.tab_manager = tab_manager
         
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
@@ -228,6 +233,10 @@ class QRTab(BaseTab):
         
         self.qr_fields['x'].blockSignals(False)
         self.qr_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 신호 방출
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _on_image_position_changed(self, x, y):
         """드래그로 이미지 위치 변경 시 호출되는 슬롯"""
@@ -239,6 +248,10 @@ class QRTab(BaseTab):
         
         self.qr_uploaded_fields['x'].blockSignals(False)
         self.qr_uploaded_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 신호 방출
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _update_qr_preview(self):
         """QR 코드 설정 미리보기 업데이트"""

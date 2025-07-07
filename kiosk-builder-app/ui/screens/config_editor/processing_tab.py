@@ -116,10 +116,11 @@ class ProcessingTab(BaseTab):
         
         final_preview_layout.addWidget(self.final_card_preview_label, 0, Qt.AlignHCenter)
         
-        # 미리보기 업데이트 버튼
-        update_preview_button = QPushButton("미리보기 업데이트")
-        update_preview_button.clicked.connect(self._update_final_card_preview)
-        final_preview_layout.addWidget(update_preview_button, 0, Qt.AlignHCenter)
+        # 실시간 업데이트 안내 라벨 추가
+        info_label = QLabel("다른 탭에서 이미지를 이동하면 실시간으로 미리보기가 업데이트됩니다.")
+        info_label.setStyleSheet("color: #666; font-style: italic; text-align: center;")
+        info_label.setWordWrap(True)
+        final_preview_layout.addWidget(info_label, 0, Qt.AlignHCenter)
         
         preview_layout.addWidget(final_preview_group)
         preview_layout.addStretch()

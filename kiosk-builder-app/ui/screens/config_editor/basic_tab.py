@@ -23,6 +23,7 @@ class BasicTab(BaseTab):
         self.print_count_edit = None
         self.print_button = None
         self.printer_thread = None
+        self.tab_manager = None  # tab_manager 참조 추가
         self.init_ui()
         
     def init_ui(self):
@@ -523,6 +524,10 @@ class BasicTab(BaseTab):
         
         self.crop_fields['x'].blockSignals(False)
         self.crop_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 시그널 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _on_image_position_changed(self, x, y):
         """드래그로 고정 이미지 위치 변경 시 호출되는 슬롯"""
@@ -538,6 +543,10 @@ class BasicTab(BaseTab):
         
         fields['x'].blockSignals(False)
         fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 시그널 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -737,3 +746,7 @@ class BasicTab(BaseTab):
         self.config["screen_size"]["width"] = self.screen_width_edit.value()
         self.config["screen_size"]["height"] = self.screen_height_edit.value()
         self.config_changed.emit()
+
+    def set_tab_manager(self, tab_manager):
+        """tab_manager 참조 설정"""
+        self.tab_manager = tab_manager

@@ -16,7 +16,12 @@ class KeyboardTab(BaseTab):
         self.text_input_preview_container = None
         self.fixed_text_preview_labels = []  # 고정 텍스트 미리보기 라벨들
         self.fixed_text_preview_container = None
+        self.tab_manager = None  # tab_manager 참조 추가
         self.init_ui()
+        
+    def set_tab_manager(self, tab_manager):
+        """tab_manager 참조 설정"""
+        self.tab_manager = tab_manager
         
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
@@ -203,6 +208,10 @@ class KeyboardTab(BaseTab):
         
         self.keyboard_position_fields['x'].blockSignals(False)
         self.keyboard_position_fields['y'].blockSignals(False)
+        
+        # 실시간 업데이트 시그널 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def _on_text_input_position_changed(self, index, x, y):
         """드래그로 텍스트 입력 위치 변경 시 호출되는 슬롯"""
@@ -216,6 +225,10 @@ class KeyboardTab(BaseTab):
             
             fields['x'].blockSignals(False)
             fields['y'].blockSignals(False)
+            
+            # 실시간 업데이트 시그널 발생
+            if self.tab_manager:
+                self.tab_manager.real_time_update_requested.emit()
 
     def _on_fixed_text_position_changed(self, index, x, y):
         """고정 텍스트 위치 변경 시 호출"""
@@ -229,6 +242,10 @@ class KeyboardTab(BaseTab):
             
             fields['x'].blockSignals(False)
             fields['y'].blockSignals(False)
+            
+            # 실시간 업데이트 시그널 발생
+            if self.tab_manager:
+                self.tab_manager.real_time_update_requested.emit()
 
     def _fill_keyboard_frame(self):
         """키보드를 모니터 크기에 맞게 채웁니다."""
@@ -372,6 +389,10 @@ class KeyboardTab(BaseTab):
         # 각 입력 필드에 대해 미리보기 생성
         for i, fields in enumerate(self.text_input_item_fields):
             self._create_text_input_preview(i, fields)
+        
+        # 동적 시그널 재연결
+        if self.tab_manager:
+            self.tab_manager.reconnect_dynamic_signals()
 
     def _create_text_input_preview(self, index, fields):
         """개별 텍스트 입력 미리보기 생성"""
@@ -451,6 +472,10 @@ class KeyboardTab(BaseTab):
         # 각 고정 텍스트에 대해 미리보기 생성
         for i, fields in enumerate(self.text_item_fields):
             self._create_fixed_text_preview(i, fields)
+        
+        # 동적 시그널 재연결
+        if self.tab_manager:
+            self.tab_manager.reconnect_dynamic_signals()
 
     def _create_fixed_text_preview(self, index, fields):
         """개별 고정 텍스트 미리보기 생성"""
