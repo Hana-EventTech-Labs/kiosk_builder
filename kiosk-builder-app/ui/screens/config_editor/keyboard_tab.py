@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
-                              QLabel, QLineEdit, QPushButton, QSpinBox, QWidget)
+                              QLabel, QLineEdit, QPushButton, QSpinBox, QWidget, QGridLayout)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
@@ -18,212 +18,56 @@ class KeyboardTab(BaseTab):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
         scroll_content_layout = self.create_tab_with_scroll()
 
-        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
-        main_layout = QHBoxLayout()
+        # 메인 레이아웃을 QGridLayout으로 변경
+        main_layout = QGridLayout()
+        main_layout.setColumnStretch(0, 1)
+        main_layout.setColumnStretch(1, 1)
         scroll_content_layout.addLayout(main_layout)
 
-        # 설정 영역
-        settings_widget = QWidget()
-        content_layout = QVBoxLayout(settings_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-        
+        # -- 좌측 상단 위젯 (배경, 키보드 위치) --
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0,0,0,0)
+        left_layout.setSpacing(10)
+
         # 배경화면 설정
         bg_group = QGroupBox("배경화면 설정")
         self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
-        
-        # 원본 파일명 표시
         self.keyboard_bg_edit = QLineEdit(self.config["text_input"].get("background", ""))
         bg_layout.addWidget(self.keyboard_bg_edit, 1)
-        
-        # 배경화면 파일 선택 버튼 추가
-        browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_background_file(self, self.keyboard_bg_edit, "2"))
-        bg_layout.addWidget(browse_button)
-        
-        content_layout.addWidget(bg_group)
+        browse_button_bg = QPushButton("찾기...")
+        browse_button_bg.clicked.connect(lambda checked: FileHandler.browse_background_file(self, self.keyboard_bg_edit, "2"))
+        bg_layout.addWidget(browse_button_bg)
         
         # 키보드 위치 및 크기
         position_group = QGroupBox("키보드 위치 및 크기")
         self.apply_left_aligned_group_style(position_group)
         position_layout = QFormLayout(position_group)
-        
         self.keyboard_position_fields = {}
-        
         for key in ["width", "height", "x", "y"]:
-            # QSpinBox 대신 NumberLineEdit 사용
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["keyboard"][key])
             line_edit.textChanged.connect(self._update_keyboard_preview)
             label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
             position_layout.addRow(f"{label_text}:", line_edit)
             self.keyboard_position_fields[key] = line_edit
-        
-        content_layout.addWidget(position_group)
-        
-        # 텍스트 입력 설정
-        text_input_group = QGroupBox("사용자 입력 필드 설정")
-        self.apply_left_aligned_group_style(text_input_group)
-        text_input_layout = QVBoxLayout(text_input_group)
-        
-        # 텍스트 입력 기본 설정
-        basic_settings_layout = QFormLayout()
-        self.text_input_fields = {}
-        
-        # 공통 설정 필드 (각 항목별 설정이 아닌 전체 설정)
-        settings_map = {
-            "margin_top": "상단 여백",
-            "margin_left": "왼쪽 여백",
-            "margin_right": "오른쪽 여백",
-            "spacing": "간격"
-        }
-        
-        for key in ["margin_top", "margin_left", "margin_right", "spacing"]:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["text_input"][key])
-            basic_settings_layout.addRow(f"{settings_map[key]}:", line_edit)
-            self.text_input_fields[key] = line_edit
-            
-        text_input_layout.addLayout(basic_settings_layout)
-        
-        # 텍스트 입력 개수 설정
-        text_input_count_layout = QHBoxLayout()
-        text_input_count_label = QLabel("사용자 입력 필드 개수:")
-        self.text_input_count_spinbox = QSpinBox()
-        self.text_input_count_spinbox.setRange(1, 10)  # 최소값을 0에서 1로 변경
-        # 설정값이 0이면 1로 설정, 아니면 설정값 사용
-        count_value = max(1, self.config["text_input"]["count"])
-        self.text_input_count_spinbox.setValue(count_value)
-        self.text_input_count_spinbox.valueChanged.connect(self.update_text_input_items)
-        text_input_count_layout.addWidget(text_input_count_label)
-        text_input_count_layout.addWidget(self.text_input_count_spinbox)
-        text_input_count_layout.addStretch()
 
-        text_input_layout.addLayout(text_input_count_layout)
-        
-        # 텍스트 입력 항목 컨테이너
-        self.text_input_items_container = QWidget()
-        self.text_input_items_layout = QVBoxLayout(self.text_input_items_container)
-        self.text_input_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 텍스트 입력 항목 필드 초기화
-        self.text_input_item_fields = []
-        self.update_text_input_items(count_value)
-        
-        text_input_layout.addWidget(self.text_input_items_container)
-        content_layout.addWidget(text_input_group)
-        
-        # 텍스트 설정
-        texts_group = QGroupBox("고정 텍스트 설정")
-        self.apply_left_aligned_group_style(texts_group)
-        texts_layout = QVBoxLayout(texts_group)
-        
-        # 텍스트 개수 설정
-        text_count_layout = QHBoxLayout()
-        # text_count_label = QLabel("고정 텍스트 개수:")
-        self.text_count_spinbox = QSpinBox()
-        self.text_count_spinbox.setRange(0, 10)
-        self.text_count_spinbox.setValue(self.config["texts"]["count"])
-        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
-        # text_count_layout.addWidget(text_count_label)
-        text_count_layout.addWidget(self.text_count_spinbox)
-        text_count_layout.addStretch()
-        
-        texts_layout.addLayout(text_count_layout)
-        
-        # 텍스트 항목 컨테이너
-        self.text_items_container = QWidget()
-        self.text_items_layout = QVBoxLayout(self.text_items_container)
-        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        self.update_text_items(self.config["texts"]["count"])
-        
-        texts_layout.addWidget(self.text_items_container)
-        content_layout.addWidget(texts_group)
-        
-        # 키보드 스타일
-        style_group = QGroupBox("키보드 스타일")
-        self.apply_left_aligned_group_style(style_group)
-        style_layout = QFormLayout(style_group)
-        
-        self.keyboard_style_fields = {}
-        
-        # 색상 필드
-        color_keys = ["bg_color", "border_color", "button_bg_color", "button_text_color", 
-                    "button_pressed_color", "hangul_btn_color", "shift_btn_color", 
-                    "backspace_btn_color", "next_btn_color"]
-        
-        # 색상 필드 이름 매핑
-        color_labels = {
-            "bg_color": "배경 색상",
-            "border_color": "테두리 색상",
-            "button_bg_color": "버튼 배경 색상",
-            "button_text_color": "버튼 텍스트 색상",
-            "button_pressed_color": "버튼 누름 색상",
-            "hangul_btn_color": "한글 버튼 색상",
-            "shift_btn_color": "시프트 버튼 색상",
-            "backspace_btn_color": "지우기 버튼 색상",
-            "next_btn_color": "다음 버튼 색상"
-        }
-                    
-        for key in color_keys:
-            color_button = ColorPickerButton(self.config["keyboard"][key])
-            style_layout.addRow(f"{color_labels[key]}:", color_button)
-            self.keyboard_style_fields[key] = color_button
-        
-        # 숫자 필드
-        number_keys = ["border_width", "border_radius", "padding", "font_size", 
-                    "button_radius", "special_btn_width", "max_hangul", 
-                    "max_lowercase", "max_uppercase"]
-        
-        # 숫자 필드 이름 매핑
-        number_labels = {
-            "border_width": "테두리 두께",
-            "border_radius": "테두리 둥글기",
-            "padding": "내부 여백",
-            "font_size": "폰트 크기",
-            "button_radius": "버튼 둥글기",
-            "special_btn_width": "특수 버튼 너비",
-            "max_hangul": "최대 한글 자수",
-            "max_lowercase": "최대 소문자 자수",
-            "max_uppercase": "최대 대문자 자수"
-        }
-                    
-        for key in number_keys:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["keyboard"][key])
-            style_layout.addRow(f"{number_labels[key]}:", line_edit)
-            self.keyboard_style_fields[key] = line_edit
-        
-        content_layout.addWidget(style_group)
-        
-        # 스트레치 추가
-        content_layout.addStretch()
+        # 위젯들을 아래로 밀기 위해 stretch 추가
+        left_layout.addStretch(1)
+        left_layout.addWidget(bg_group)
+        left_layout.addWidget(position_group)
 
-        # 좌측 설정 영역을 메인 레이아웃에 추가
-        main_layout.addWidget(settings_widget, 1)
-
-        # 우측 미리보기 영역
-        previews_widget = QWidget()
-        previews_layout = QVBoxLayout(previews_widget)
-        previews_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # 키보드 미리보기
+        # -- 우측 상단 위젯 (미리보기) --
         keyboard_preview_group = QGroupBox("키보드 미리보기")
         self.apply_left_aligned_group_style(keyboard_preview_group)
         keyboard_preview_layout = QVBoxLayout(keyboard_preview_group)
-        
         self.keyboard_preview_label = DraggablePreviewLabel()
         self.keyboard_preview_label.position_changed.connect(self._on_keyboard_position_changed)
         self.keyboard_preview_label.setFixedSize(300, 300)
         self.keyboard_preview_label.setAlignment(Qt.AlignCenter)
         self.keyboard_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
-        
         keyboard_preview_layout.addWidget(self.keyboard_preview_label, 0, Qt.AlignHCenter)
-
-        # 버튼 레이아웃
         keyboard_button_layout = QHBoxLayout()
         fill_button_keyboard = QPushButton("채우기")
         fill_button_keyboard.clicked.connect(self._fill_keyboard_frame)
@@ -232,9 +76,91 @@ class KeyboardTab(BaseTab):
         keyboard_button_layout.addWidget(fill_button_keyboard)
         keyboard_button_layout.addWidget(center_button_keyboard)
         keyboard_preview_layout.addLayout(keyboard_button_layout)
+
+        # -- 하단 위젯 (나머지 설정들) --
+        bottom_widget = QWidget()
+        bottom_layout = QVBoxLayout(bottom_widget)
+        bottom_layout.setContentsMargins(0, 10, 0, 0)
+        bottom_layout.setSpacing(10)
+        bottom_widget.setLayout(bottom_layout)
         
-        previews_layout.addWidget(keyboard_preview_group)
-        main_layout.addWidget(previews_widget, 1)
+        # 사용자 입력 필드 설정
+        text_input_group = QGroupBox("사용자 입력 필드 설정")
+        self.apply_left_aligned_group_style(text_input_group)
+        text_input_layout = QVBoxLayout(text_input_group)
+        basic_settings_layout = QFormLayout()
+        self.text_input_fields = {}
+        settings_map = {"margin_top": "상단 여백", "margin_left": "왼쪽 여백", "margin_right": "오른쪽 여백", "spacing": "간격"}
+        for key in settings_map:
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["text_input"][key])
+            basic_settings_layout.addRow(f"{settings_map[key]}:", line_edit)
+            self.text_input_fields[key] = line_edit
+        text_input_layout.addLayout(basic_settings_layout)
+        text_input_count_layout = QHBoxLayout()
+        self.text_input_count_spinbox = QSpinBox()
+        self.text_input_count_spinbox.setRange(1, 10)
+        count_value = max(1, self.config["text_input"]["count"])
+        self.text_input_count_spinbox.setValue(count_value)
+        self.text_input_count_spinbox.valueChanged.connect(self.update_text_input_items)
+        text_input_count_layout.addWidget(QLabel("사용자 입력 필드 개수:"))
+        text_input_count_layout.addWidget(self.text_input_count_spinbox)
+        text_input_count_layout.addStretch()
+        text_input_layout.addLayout(text_input_count_layout)
+        self.text_input_items_container = QWidget()
+        self.text_input_items_layout = QVBoxLayout(self.text_input_items_container)
+        self.text_input_items_layout.setContentsMargins(0, 0, 0, 0)
+        self.text_input_item_fields = []
+        self.update_text_input_items(count_value)
+        text_input_layout.addWidget(self.text_input_items_container)
+        bottom_layout.addWidget(text_input_group)
+
+        # 고정 텍스트 설정
+        texts_group = QGroupBox("고정 텍스트 설정")
+        self.apply_left_aligned_group_style(texts_group)
+        texts_layout = QVBoxLayout(texts_group)
+        text_count_layout = QHBoxLayout()
+        self.text_count_spinbox = QSpinBox()
+        self.text_count_spinbox.setRange(0, 10)
+        self.text_count_spinbox.setValue(self.config["texts"]["count"])
+        self.text_count_spinbox.valueChanged.connect(self.update_text_items)
+        text_count_layout.addWidget(self.text_count_spinbox)
+        text_count_layout.addStretch()
+        texts_layout.addLayout(text_count_layout)
+        self.text_items_container = QWidget()
+        self.text_items_layout = QVBoxLayout(self.text_items_container)
+        self.text_items_layout.setContentsMargins(0, 0, 0, 0)
+        self.text_item_fields = []
+        self.update_text_items(self.config["texts"]["count"])
+        texts_layout.addWidget(self.text_items_container)
+        bottom_layout.addWidget(texts_group)
+
+        # 키보드 스타일
+        style_group = QGroupBox("키보드 스타일")
+        self.apply_left_aligned_group_style(style_group)
+        style_layout = QFormLayout(style_group)
+        self.keyboard_style_fields = {}
+        color_keys = ["bg_color", "border_color", "button_bg_color", "button_text_color", "button_pressed_color", "hangul_btn_color", "shift_btn_color", "backspace_btn_color", "next_btn_color"]
+        color_labels = {"bg_color": "배경 색상", "border_color": "테두리 색상", "button_bg_color": "버튼 배경 색상", "button_text_color": "버튼 텍스트 색상", "button_pressed_color": "버튼 누름 색상", "hangul_btn_color": "한글 버튼 색상", "shift_btn_color": "시프트 버튼 색상", "backspace_btn_color": "지우기 버튼 색상", "next_btn_color": "다음 버튼 색상"}
+        for key in color_keys:
+            color_button = ColorPickerButton(self.config["keyboard"][key])
+            style_layout.addRow(f"{color_labels[key]}:", color_button)
+            self.keyboard_style_fields[key] = color_button
+        number_keys = ["border_width", "border_radius", "padding", "font_size", "button_radius", "special_btn_width", "max_hangul", "max_lowercase", "max_uppercase"]
+        number_labels = {"border_width": "테두리 두께", "border_radius": "테두리 둥글기", "padding": "내부 여백", "font_size": "폰트 크기", "button_radius": "버튼 둥글기", "special_btn_width": "특수 버튼 너비", "max_hangul": "최대 한글 자수", "max_lowercase": "최대 소문자 자수", "max_uppercase": "최대 대문자 자수"}
+        for key in number_keys:
+            line_edit = NumberLineEdit()
+            line_edit.setValue(self.config["keyboard"][key])
+            style_layout.addRow(f"{number_labels[key]}:", line_edit)
+            self.keyboard_style_fields[key] = line_edit
+        bottom_layout.addWidget(style_group)
+
+        # -- 그리드에 위젯 배치 --
+        main_layout.addWidget(left_widget, 0, 0)
+        main_layout.addWidget(keyboard_preview_group, 0, 1)
+        main_layout.addWidget(bottom_widget, 1, 0, 1, 2)
+        
+        main_layout.setRowStretch(1, 1) # 하단 영역이 남는 공간을 차지하도록
 
         # 초기 미리보기 업데이트
         self._update_keyboard_preview()
