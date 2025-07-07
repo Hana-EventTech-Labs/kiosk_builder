@@ -87,7 +87,7 @@ class TabManager(QObject):
         self.real_time_update_requested.connect(self._update_processing_preview)
 
     def _connect_draggable_signals(self):
-        """각 탭의 DraggablePreviewLabel 시그널 연결"""
+        """각 탭의 정적 DraggablePreviewLabel 시그널 연결"""
         try:
             # capture_tab의 드래그 가능한 라벨들
             if hasattr(self.tabs['capture'], 'camera_preview_label'):
@@ -95,7 +95,7 @@ class TabManager(QObject):
             if hasattr(self.tabs['capture'], 'image_preview_label'):
                 self.tabs['capture'].image_preview_label.position_changed.connect(self._on_position_changed)
             
-            # keyboard_tab의 드래그 가능한 라벨들
+            # keyboard_tab의 정적 드래그 가능한 라벨
             if hasattr(self.tabs['keyboard'], 'keyboard_preview_label'):
                 self.tabs['keyboard'].keyboard_preview_label.position_changed.connect(self._on_position_changed)
             
@@ -105,14 +105,12 @@ class TabManager(QObject):
             if hasattr(self.tabs['qr'], 'image_preview_label'):
                 self.tabs['qr'].image_preview_label.position_changed.connect(self._on_position_changed)
             
-            # basic_tab의 드래그 가능한 라벨들
+            # basic_tab의 정적 드래그 가능한 라벨
             if hasattr(self.tabs['basic'], 'crop_preview_label'):
                 self.tabs['basic'].crop_preview_label.position_changed.connect(self._on_position_changed)
-            if hasattr(self.tabs['basic'], 'image_preview_label'):
-                self.tabs['basic'].image_preview_label.position_changed.connect(self._on_position_changed)
             
-            # keyboard_tab의 동적 생성되는 라벨들은 별도로 처리
-            self._connect_keyboard_dynamic_signals()
+            # 동적으로 생성되는 라벨들의 신호 연결
+            self.reconnect_dynamic_signals()
                 
         except Exception as e:
             print(f"드래그 시그널 연결 중 오류 발생: {e}")
@@ -128,7 +126,7 @@ class TabManager(QObject):
                     if hasattr(label, 'position_changed'):
                         label.position_changed.connect(self._on_position_changed)
             
-            # 고정 텍스트 미리보기 라벨들 (속성명 수정)
+            # 고정 텍스트 미리보기 라벨들
             if hasattr(keyboard_tab, 'fixed_text_preview_labels'):
                 for i, label in enumerate(keyboard_tab.fixed_text_preview_labels):
                     if hasattr(label, 'position_changed'):
