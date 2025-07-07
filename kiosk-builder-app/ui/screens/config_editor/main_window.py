@@ -10,7 +10,7 @@ import sys
 # 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 
-from utils.config_handler import ConfigHandler
+from utils.config_manager import ConfigManager
 from utils.auth_manager import AuthManager
 # from utils.auto_updater import AutoUpdater  # 이 줄 삭제
 from ui.styles.colors import COLORS
@@ -54,9 +54,9 @@ class ConfigEditor(QMainWindow):
         self.current_version = get_version() if VERSION_AVAILABLE else "1.0.0"
         
         # 핵심 매니저들 초기화
-        self.config_handler = ConfigHandler()
+        self.config_manager = ConfigManager.get_instance()
         self.auth_manager = AuthManager()
-        self.config = copy.deepcopy(self.config_handler.config)
+        self.config = self.config_manager.get_config()
         
         # GitHub 설정 (필요하면 나중에 제거)
         # self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"

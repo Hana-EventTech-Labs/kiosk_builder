@@ -17,7 +17,7 @@ class ConfigHandlerUI:
             self._show_message_box("폰트 파일 누락", error_msg, QMessageBox.Warning)
             return
         
-        if self.main_window.config_handler.save_config(self.main_window.config):
+        if self.main_window.config_manager.save_config():
             self._show_message_box("저장 완료", "설정이 저장되었습니다.", QMessageBox.Information)
             self.main_window.statusBar().showMessage("설정이 성공적으로 저장되었습니다.")
             self.update_save_button_state()
@@ -26,13 +26,13 @@ class ConfigHandlerUI:
 
     def reload_config(self):
         """설정 다시 로드"""
-        self.main_window.config = copy.deepcopy(self.main_window.config_handler.load_config())
+        self.main_window.config = self.main_window.config_manager.reload_config()
         self.main_window.tab_manager.update_ui_from_config(self.main_window.config)
         self._show_message_box("설정 로드", "설정이 다시 로드되었습니다.", QMessageBox.Information)
 
     def update_save_button_state(self):
         """저장 버튼 상태 업데이트"""
-        enabled = os.path.exists(self.main_window.config_handler.config_path)
+        enabled = os.path.exists(self.main_window.config_manager.config_path)
         self.main_window.button_manager.update_save_button_state(enabled)
 
     def _check_missing_fonts(self):
