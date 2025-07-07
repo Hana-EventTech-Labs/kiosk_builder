@@ -262,6 +262,11 @@ class ProcessingTab(BaseTab):
     def _draw_basic_images(self, painter, card_width, card_height):
         """기본 이미지들 그리기"""
         try:
+            # 이미지 개수 확인
+            image_count = self.config.get("images", {}).get("count", 0)
+            if image_count == 0:
+                return  # 이미지 개수가 0이면 그리지 않음
+                
             images = self.config.get("images", {}).get("items", [])
             
             for i, image in enumerate(images):

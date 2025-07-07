@@ -128,14 +128,29 @@ class TabManager(QObject):
                     if hasattr(label, 'position_changed'):
                         label.position_changed.connect(self._on_position_changed)
             
-            # 고정 텍스트 미리보기 라벨들
-            if hasattr(keyboard_tab, 'text_preview_labels'):
-                for i, label in enumerate(keyboard_tab.text_preview_labels):
+            # 고정 텍스트 미리보기 라벨들 (속성명 수정)
+            if hasattr(keyboard_tab, 'fixed_text_preview_labels'):
+                for i, label in enumerate(keyboard_tab.fixed_text_preview_labels):
                     if hasattr(label, 'position_changed'):
                         label.position_changed.connect(self._on_position_changed)
                         
         except Exception as e:
             print(f"키보드 탭 동적 시그널 연결 중 오류 발생: {e}")
+
+    def _connect_basic_dynamic_signals(self):
+        """basic_tab의 동적으로 생성되는 라벨들의 시그널 연결"""
+        try:
+            basic_tab = self.tabs['basic']
+            
+            # 고정 이미지 미리보기 라벨
+            if hasattr(basic_tab, 'image_preview_label') and basic_tab.image_preview_label:
+                if hasattr(basic_tab.image_preview_label, 'position_changed'):
+                    # 경고 메시지 없이 안전하게 연결 (기존 연결 해제 시도하지 않음)
+                    # 중복 연결되어도 Qt에서 자동으로 처리하므로 문제없음
+                    basic_tab.image_preview_label.position_changed.connect(self._on_position_changed)
+                        
+        except Exception as e:
+            print(f"기본 탭 동적 시그널 연결 중 오류 발생: {e}")
 
     def _on_position_changed(self, x, y):
         """위치 변경 시 호출되는 슬롯"""
@@ -230,3 +245,4 @@ class TabManager(QObject):
     def reconnect_dynamic_signals(self):
         """동적으로 생성되는 라벨들의 시그널 재연결 (탭에서 호출)"""
         self._connect_keyboard_dynamic_signals()
+        self._connect_basic_dynamic_signals()

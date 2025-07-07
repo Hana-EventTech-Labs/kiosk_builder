@@ -308,6 +308,9 @@ class BasicTab(BaseTab):
         
     def update_image_items(self, count):
         """이미지 항목 UI 업데이트"""
+        # config 업데이트
+        self.config["images"]["count"] = count
+        
         # 기존 위젯 제거
         for i in reversed(range(self.image_items_layout.count())):
             item = self.image_items_layout.itemAt(i)
@@ -326,6 +329,14 @@ class BasicTab(BaseTab):
             self.image_items_layout.addWidget(main_container)
             self.image_item_fields.append(item_fields)
             self.update_card_preview()
+            
+            # 새로 생성된 라벨의 동적 신호 재연결
+            if self.tab_manager:
+                self.tab_manager.reconnect_dynamic_signals()
+        
+        # 실시간 업데이트 신호 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
 
     def create_image_settings_ui(self, item_data):
         main_container = QWidget()
@@ -400,6 +411,9 @@ class BasicTab(BaseTab):
                 shutil.copy(source_path, destination_path)
                 filename_edit.setText(filename)
                 self.update_card_preview()
+                # 실시간 업데이트 신호 발생
+                if self.tab_manager:
+                    self.tab_manager.real_time_update_requested.emit()
             except Exception as e:
                 print(f"이미지 복사 오류: {e}")
 
@@ -434,7 +448,11 @@ class BasicTab(BaseTab):
         image_rect = QRect(x, y, width, height)
         
         self.image_preview_label.update_preview(card_pixmap, image_rect, overlay_pixmap)
-    
+        
+        # 실시간 업데이트 신호 발생
+        if self.tab_manager:
+            self.tab_manager.real_time_update_requested.emit()
+
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
         # 체크된 체크박스의 screen_index를 가져와서 정렬하고 config 업데이트
