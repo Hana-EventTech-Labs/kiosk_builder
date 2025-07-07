@@ -12,6 +12,10 @@ class KeyboardTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
         self.keyboard_preview_label = None
+        self.text_input_preview_labels = []  # 사용자 입력 설정 미리보기 라벨들
+        self.text_input_preview_container = None
+        self.fixed_text_preview_labels = []  # 고정 텍스트 미리보기 라벨들
+        self.fixed_text_preview_container = None
         self.init_ui()
         
     def init_ui(self):
@@ -58,7 +62,13 @@ class KeyboardTab(BaseTab):
         left_layout.addWidget(bg_group)
         left_layout.addWidget(position_group)
 
-        # -- 우측 상단 위젯 (미리보기) --
+        # -- 우측 상단 위젯 (미리보기들) --
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(10)
+
+        # 키보드 미리보기
         keyboard_preview_group = QGroupBox("키보드 미리보기")
         self.apply_left_aligned_group_style(keyboard_preview_group)
         keyboard_preview_layout = QVBoxLayout(keyboard_preview_group)
@@ -76,6 +86,23 @@ class KeyboardTab(BaseTab):
         keyboard_button_layout.addWidget(fill_button_keyboard)
         keyboard_button_layout.addWidget(center_button_keyboard)
         keyboard_preview_layout.addLayout(keyboard_button_layout)
+
+        # 사용자 입력 설정 미리보기 컨테이너
+        self.text_input_preview_container = QWidget()
+        self.text_input_preview_layout = QVBoxLayout(self.text_input_preview_container)
+        self.text_input_preview_layout.setContentsMargins(0, 0, 0, 0)
+        self.text_input_preview_layout.setSpacing(10)
+
+        # 고정 텍스트 미리보기 컨테이너
+        self.fixed_text_preview_container = QWidget()
+        self.fixed_text_preview_layout = QVBoxLayout(self.fixed_text_preview_container)
+        self.fixed_text_preview_layout.setContentsMargins(0, 0, 0, 0)
+        self.fixed_text_preview_layout.setSpacing(10)
+
+        right_layout.addWidget(keyboard_preview_group)
+        right_layout.addWidget(self.text_input_preview_container)
+        right_layout.addWidget(self.fixed_text_preview_container)
+        right_layout.addStretch()
 
         # -- 하단 위젯 (나머지 설정들) --
         bottom_widget = QWidget()
@@ -157,13 +184,14 @@ class KeyboardTab(BaseTab):
 
         # -- 그리드에 위젯 배치 --
         main_layout.addWidget(left_widget, 0, 0)
-        main_layout.addWidget(keyboard_preview_group, 0, 1)
-        main_layout.addWidget(bottom_widget, 1, 0, 1, 2)
+        main_layout.addWidget(right_widget, 0, 1, 2, 1)  # 0행부터 2행까지 우측 전체 영역 사용
+        main_layout.addWidget(bottom_widget, 1, 0, 1, 1)  # 1, 1로 변경하여 왼쪽 반만 사용
         
         main_layout.setRowStretch(1, 1) # 하단 영역이 남는 공간을 차지하도록
 
         # 초기 미리보기 업데이트
         self._update_keyboard_preview()
+        self._update_text_input_previews()
 
     def _on_keyboard_position_changed(self, x, y):
         """드래그로 키보드 위치 변경 시 호출되는 슬롯"""
@@ -175,7 +203,33 @@ class KeyboardTab(BaseTab):
         
         self.keyboard_position_fields['x'].blockSignals(False)
         self.keyboard_position_fields['y'].blockSignals(False)
-    
+
+    def _on_text_input_position_changed(self, index, x, y):
+        """드래그로 텍스트 입력 위치 변경 시 호출되는 슬롯"""
+        if index < len(self.text_input_item_fields):
+            fields = self.text_input_item_fields[index]
+            fields['x'].blockSignals(True)
+            fields['y'].blockSignals(True)
+            
+            fields['x'].setValue(x)
+            fields['y'].setValue(y)
+            
+            fields['x'].blockSignals(False)
+            fields['y'].blockSignals(False)
+
+    def _on_fixed_text_position_changed(self, index, x, y):
+        """고정 텍스트 위치 변경 시 호출"""
+        if index < len(self.text_item_fields):
+            fields = self.text_item_fields[index]
+            fields['x'].blockSignals(True)
+            fields['y'].blockSignals(True)
+            
+            fields['x'].setValue(x)
+            fields['y'].setValue(y)
+            
+            fields['x'].blockSignals(False)
+            fields['y'].blockSignals(False)
+
     def _fill_keyboard_frame(self):
         """키보드를 모니터 크기에 맞게 채웁니다."""
         try:
@@ -205,6 +259,74 @@ class KeyboardTab(BaseTab):
 
         self.keyboard_position_fields['x'].setValue(int(center_x))
         self.keyboard_position_fields['y'].setValue(int(center_y))
+
+    def _fill_text_input_frame(self, index):
+        """텍스트 입력을 카드 크기에 맞게 채웁니다."""
+        if index >= len(self.text_input_item_fields):
+            return
+            
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.text_input_item_fields[index]
+        fields['width'].setValue(card_width)
+        fields['height'].setValue(card_height)
+        fields['x'].setValue(0)
+        fields['y'].setValue(0)
+
+    def _center_text_input_frame(self, index):
+        """텍스트 입력을 카드의 중앙에 정렬합니다."""
+        if index >= len(self.text_input_item_fields):
+            return
+            
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.text_input_item_fields[index]
+        input_width = fields['width'].value()
+        input_height = fields['height'].value()
+
+        center_x = (card_width - input_width) / 2
+        center_y = (card_height - input_height) / 2
+
+        fields['x'].setValue(int(center_x))
+        fields['y'].setValue(int(center_y))
+
+    def _fill_fixed_text_frame(self, index):
+        """고정 텍스트를 카드 크기에 맞게 채웁니다."""
+        if index >= len(self.text_item_fields):
+            return
+            
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.text_item_fields[index]
+        fields['width'].setValue(card_width)
+        fields['height'].setValue(card_height)
+        fields['x'].setValue(0)
+        fields['y'].setValue(0)
+
+    def _center_fixed_text_frame(self, index):
+        """고정 텍스트를 카드의 중앙에 정렬합니다."""
+        if index >= len(self.text_item_fields):
+            return
+            
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.text_item_fields[index]
+        text_width = fields['width'].value()
+        text_height = fields['height'].value()
+
+        center_x = (card_width - text_width) / 2
+        center_y = (card_height - text_height) / 2
+
+        fields['x'].setValue(int(center_x))
+        fields['y'].setValue(int(center_y))
 
     def _update_keyboard_preview(self):
         """키보드 설정 미리보기 업데이트"""
@@ -236,7 +358,165 @@ class KeyboardTab(BaseTab):
         
         self.keyboard_preview_label.set_pen(pen)
         self.keyboard_preview_label.update_preview(monitor_pixmap, keyboard_rect)
-    
+
+    def _update_text_input_previews(self):
+        """사용자 입력 설정 미리보기들 업데이트"""
+        # 기존 미리보기 제거
+        for i in reversed(range(self.text_input_preview_layout.count())):
+            item = self.text_input_preview_layout.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.text_input_preview_labels = []
+        
+        # 각 입력 필드에 대해 미리보기 생성
+        for i, fields in enumerate(self.text_input_item_fields):
+            self._create_text_input_preview(i, fields)
+
+    def _create_text_input_preview(self, index, fields):
+        """개별 텍스트 입력 미리보기 생성"""
+        # 미리보기 그룹 생성
+        preview_group = QGroupBox(f"텍스트 입력 {index+1} 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        
+        # 미리보기 라벨 생성
+        preview_label = DraggablePreviewLabel()
+        preview_label.position_changed.connect(lambda x, y, idx=index: self._on_text_input_position_changed(idx, x, y))
+        preview_label.setFixedSize(300, 300)
+        preview_label.setAlignment(Qt.AlignCenter)
+        preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        preview_layout.addWidget(preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        fill_button = QPushButton("채우기")
+        fill_button.clicked.connect(lambda checked, idx=index: self._fill_text_input_frame(idx))
+        center_button = QPushButton("가운데 정렬")
+        center_button.clicked.connect(lambda checked, idx=index: self._center_text_input_frame(idx))
+        button_layout.addWidget(fill_button)
+        button_layout.addWidget(center_button)
+        preview_layout.addLayout(button_layout)
+        
+        # 컨테이너에 추가
+        self.text_input_preview_layout.addWidget(preview_group)
+        self.text_input_preview_labels.append(preview_label)
+        
+        # 초기 미리보기 업데이트
+        self._update_single_text_input_preview(index, fields)
+
+    def _update_single_text_input_preview(self, index, fields):
+        """개별 텍스트 입력 미리보기 업데이트"""
+        if index >= len(self.text_input_preview_labels):
+            return
+            
+        preview_label = self.text_input_preview_labels[index]
+        
+        # 카드 크기 (전역 설정 기준)
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+        
+        card_pixmap = QPixmap(card_width, card_height)
+        card_pixmap.fill(Qt.white)
+        
+        try:
+            width = fields["width"].value()
+            height = fields["height"].value()
+            x = fields["x"].value()
+            y = fields["y"].value()
+            input_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            input_rect = QRect()
+            
+        # 사각형 그리기
+        colors = [QColor("red"), QColor("blue"), QColor("green"), QColor("orange"), QColor("purple")]
+        color = colors[index % len(colors)]
+        pen = QPen(color, 2, Qt.SolidLine)
+        
+        preview_label.set_pen(pen)
+        preview_label.update_preview(card_pixmap, input_rect)
+
+    def _update_fixed_text_previews(self):
+        """고정 텍스트 미리보기들 업데이트"""
+        # 기존 미리보기 제거
+        for i in reversed(range(self.fixed_text_preview_layout.count())):
+            item = self.fixed_text_preview_layout.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.fixed_text_preview_labels = []
+        
+        # 각 고정 텍스트에 대해 미리보기 생성
+        for i, fields in enumerate(self.text_item_fields):
+            self._create_fixed_text_preview(i, fields)
+
+    def _create_fixed_text_preview(self, index, fields):
+        """개별 고정 텍스트 미리보기 생성"""
+        # 미리보기 그룹 생성
+        preview_group = QGroupBox(f"고정 텍스트 {index+1} 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        
+        # 미리보기 라벨 생성
+        preview_label = DraggablePreviewLabel()
+        preview_label.position_changed.connect(lambda x, y, idx=index: self._on_fixed_text_position_changed(idx, x, y))
+        preview_label.setFixedSize(300, 300)
+        preview_label.setAlignment(Qt.AlignCenter)
+        preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        preview_layout.addWidget(preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        fill_button = QPushButton("채우기")
+        fill_button.clicked.connect(lambda checked, idx=index: self._fill_fixed_text_frame(idx))
+        center_button = QPushButton("가운데 정렬")
+        center_button.clicked.connect(lambda checked, idx=index: self._center_fixed_text_frame(idx))
+        button_layout.addWidget(fill_button)
+        button_layout.addWidget(center_button)
+        preview_layout.addLayout(button_layout)
+        
+        # 컨테이너에 추가
+        self.fixed_text_preview_layout.addWidget(preview_group)
+        self.fixed_text_preview_labels.append(preview_label)
+        
+        # 초기 미리보기 업데이트
+        self._update_single_fixed_text_preview(index, fields)
+
+    def _update_single_fixed_text_preview(self, index, fields):
+        """개별 고정 텍스트 미리보기 업데이트"""
+        if index >= len(self.fixed_text_preview_labels):
+            return
+            
+        preview_label = self.fixed_text_preview_labels[index]
+        
+        # 카드 크기 (전역 설정 기준)
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+        
+        card_pixmap = QPixmap(card_width, card_height)
+        card_pixmap.fill(Qt.white)
+        
+        try:
+            width = fields["width"].value()
+            height = fields["height"].value()
+            x = fields["x"].value()
+            y = fields["y"].value()
+            text_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            text_rect = QRect()
+            
+        # 사각형 그리기
+        colors = [QColor("cyan"), QColor("magenta"), QColor("yellow"), QColor("brown"), QColor("gray")]
+        color = colors[index % len(colors)]
+        pen = QPen(color, 2, Qt.SolidLine)
+        
+        preview_label.set_pen(pen)
+        preview_label.update_preview(card_pixmap, text_rect)
+
     def update_text_input_items(self, count):
         """텍스트 입력 항목 UI 업데이트"""
         # 기존 위젯 제거
@@ -287,6 +567,7 @@ class KeyboardTab(BaseTab):
                 # QSpinBox 대신 NumberLineEdit 사용
                 line_edit = NumberLineEdit()
                 line_edit.setValue(item_data.get(key, 0))
+                line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
                 label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
                 item_layout.addRow(f"{label_text}:", line_edit)
                 item_fields[key] = line_edit
@@ -326,6 +607,9 @@ class KeyboardTab(BaseTab):
         
         # UI 업데이트
         self.text_input_items_container.updateGeometry()
+        
+        # 미리보기 업데이트
+        self._update_text_input_previews()
     
     def update_text_items(self, count):
         """텍스트 항목 UI 업데이트"""
@@ -373,6 +657,7 @@ class KeyboardTab(BaseTab):
                 # QSpinBox 대신 NumberLineEdit 사용
                 line_edit = NumberLineEdit()
                 line_edit.setValue(item_data[key])
+                line_edit.textChanged.connect(lambda text, idx=i: self._update_single_fixed_text_preview(idx, self.text_item_fields[idx]) if idx < len(self.text_item_fields) else None)
                 label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
                 item_layout.addRow(f"{label_text}:", line_edit)
                 item_fields[key] = line_edit
@@ -406,7 +691,15 @@ class KeyboardTab(BaseTab):
         
         # UI 업데이트
         self.text_items_container.updateGeometry()
-    
+        
+        # 미리보기 업데이트
+        self._update_fixed_text_previews()
+
+        # 미리보기 업데이트
+        self._update_keyboard_preview()
+        self._update_text_input_previews()
+        self._update_fixed_text_previews()
+
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
         self.config = config
@@ -445,6 +738,7 @@ class KeyboardTab(BaseTab):
 
         # 미리보기 업데이트
         self._update_keyboard_preview()
+        self._update_text_input_previews()
     
     def update_config(self, config):
         """UI 값을 config에 반영"""
