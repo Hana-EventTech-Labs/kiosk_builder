@@ -61,8 +61,7 @@ class DistributionHandler:
             QMessageBox.warning(
                 self.main_window,
                 "경고",
-                "앱 이름을 입력해주세요.",
-                QMessageBox.Warning
+                "앱 이름을 입력해주세요."
             )
             return False
 
