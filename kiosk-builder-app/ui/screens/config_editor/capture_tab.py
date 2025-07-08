@@ -11,7 +11,7 @@ from ui.components.preview_label import DraggablePreviewLabel
 class CaptureTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
-        self.tab_manager = None  # tab_manager 참조 추가
+
         self.image_preview_label = None
         self.camera_preview_label = None  # 카메라 미리보기 라벨 추가
         self.init_ui()
@@ -188,6 +188,8 @@ class CaptureTab(BaseTab):
         self.frame_fields['height'].setValue(monitor_height)
         self.frame_fields['x'].setValue(0)
         self.frame_fields['y'].setValue(0)
+        
+        self.request_real_time_update()
 
     def _center_camera_frame(self):
         """카메라 프레임을 모니터의 중앙에 정렬합니다."""
@@ -205,6 +207,8 @@ class CaptureTab(BaseTab):
         
         self.frame_fields['x'].setValue(int(center_x))
         self.frame_fields['y'].setValue(int(center_y))
+        
+        self.request_real_time_update()
 
     def _fill_photo_frame(self):
         """촬영 사진을 카드 크기에 맞게 채웁니다."""
@@ -216,6 +220,8 @@ class CaptureTab(BaseTab):
         self.photo_fields['height'].setValue(card_height)
         self.photo_fields['x'].setValue(0)
         self.photo_fields['y'].setValue(0)
+
+        self.request_real_time_update()
 
     def _center_photo_frame(self):
         """촬영 사진을 카드의 중앙에 정렬합니다."""
@@ -232,6 +238,8 @@ class CaptureTab(BaseTab):
         self.photo_fields['x'].setValue(int(center_x))
         self.photo_fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
+
     def _on_frame_position_changed(self, x, y):
         """드래그로 프레임 위치 변경 시 호출되는 슬롯"""
         self.frame_fields['x'].blockSignals(True)
@@ -243,9 +251,7 @@ class CaptureTab(BaseTab):
         self.frame_fields['x'].blockSignals(False)
         self.frame_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 시그널 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _on_photo_position_changed(self, x, y):
         """드래그로 사진 위치 변경 시 호출되는 슬롯"""
@@ -258,9 +264,7 @@ class CaptureTab(BaseTab):
         self.photo_fields['x'].blockSignals(False)
         self.photo_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 시그널 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _update_camera_preview(self):
         """카메라 프레임 설정 미리보기 업데이트"""
@@ -292,6 +296,8 @@ class CaptureTab(BaseTab):
         
         self.camera_preview_label.set_pen(pen)
         self.camera_preview_label.update_preview(monitor_pixmap, frame_rect)
+        
+        self.request_real_time_update()
 
     def _update_card_preview(self):
         """촬영 사진 인쇄 크기 설정 미리보기 업데이트"""
@@ -321,6 +327,8 @@ class CaptureTab(BaseTab):
         
         self.image_preview_label.set_pen(pen)
         self.image_preview_label.update_preview(card_pixmap, photo_rect)
+        
+        self.request_real_time_update()
     
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -363,6 +371,3 @@ class CaptureTab(BaseTab):
         config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
         config["camera_count"]["font_color"] = self.camera_count_fields["font_color"].color
 
-    def set_tab_manager(self, tab_manager):
-        """tab_manager 참조 설정"""
-        self.tab_manager = tab_manager

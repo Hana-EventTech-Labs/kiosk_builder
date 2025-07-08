@@ -15,10 +15,6 @@ class QRTab(BaseTab):
         self.qr_preview_label = None  # QR 코드 미리보기 라벨 추가
         self.init_ui()
         
-    def set_tab_manager(self, tab_manager):
-        """TabManager 참조를 설정합니다."""
-        self.tab_manager = tab_manager
-        
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
         scroll_content_layout = self.create_tab_with_scroll()
@@ -180,6 +176,8 @@ class QRTab(BaseTab):
         self.qr_fields['x'].setValue(0)
         self.qr_fields['y'].setValue(0)
 
+        self.request_real_time_update()
+
     def _center_qr_frame(self):
         """QR 코드를 모니터의 중앙에 정렬합니다."""
         try:
@@ -197,6 +195,8 @@ class QRTab(BaseTab):
         self.qr_fields['x'].setValue(int(center_x))
         self.qr_fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
+
     def _fill_image_frame(self):
         """업로드된 이미지를 카드 크기에 맞게 채웁니다."""
         is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
@@ -207,6 +207,8 @@ class QRTab(BaseTab):
         self.qr_uploaded_fields['height'].setValue(card_height)
         self.qr_uploaded_fields['x'].setValue(0)
         self.qr_uploaded_fields['y'].setValue(0)
+
+        self.request_real_time_update()
 
     def _center_image_frame(self):
         """업로드된 이미지를 카드의 중앙에 정렬합니다."""
@@ -223,6 +225,8 @@ class QRTab(BaseTab):
         self.qr_uploaded_fields['x'].setValue(int(center_x))
         self.qr_uploaded_fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
+
     def _on_qr_position_changed(self, x, y):
         """드래그로 QR 코드 위치 변경 시 호출되는 슬롯"""
         self.qr_fields['x'].blockSignals(True)
@@ -234,9 +238,7 @@ class QRTab(BaseTab):
         self.qr_fields['x'].blockSignals(False)
         self.qr_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 신호 방출
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _on_image_position_changed(self, x, y):
         """드래그로 이미지 위치 변경 시 호출되는 슬롯"""
@@ -249,9 +251,7 @@ class QRTab(BaseTab):
         self.qr_uploaded_fields['x'].blockSignals(False)
         self.qr_uploaded_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 신호 방출
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _update_qr_preview(self):
         """QR 코드 설정 미리보기 업데이트"""
@@ -284,6 +284,8 @@ class QRTab(BaseTab):
         self.qr_preview_label.set_pen(pen)
         self.qr_preview_label.update_preview(monitor_pixmap, qr_rect)
 
+        self.request_real_time_update()
+
     def _update_card_preview(self):
         """이미지 인쇄 설정 미리보기 업데이트"""
         if not self.image_preview_label:
@@ -311,6 +313,8 @@ class QRTab(BaseTab):
 
         self.image_preview_label.set_pen(pen)
         self.image_preview_label.update_preview(card_pixmap, image_rect)
+        
+        self.request_real_time_update()
     
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""

@@ -23,7 +23,6 @@ class BasicTab(BaseTab):
         self.print_count_edit = None
         self.print_button = None
         self.printer_thread = None
-        self.tab_manager = None  # tab_manager 참조 추가
         self.init_ui()
         
     def init_ui(self):
@@ -334,9 +333,7 @@ class BasicTab(BaseTab):
             if self.tab_manager:
                 self.tab_manager.reconnect_dynamic_signals()
         
-        # 실시간 업데이트 신호 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def create_image_settings_ui(self, item_data):
         main_container = QWidget()
@@ -423,9 +420,7 @@ class BasicTab(BaseTab):
                 shutil.copy(source_path, destination_path)
                 filename_edit.setText(filename)
                 self.update_card_preview()
-                # 실시간 업데이트 신호 발생
-                if self.tab_manager:
-                    self.tab_manager.real_time_update_requested.emit()
+                self.request_real_time_update()
             except Exception as e:
                 print(f"이미지 복사 오류: {e}")
 
@@ -444,6 +439,7 @@ class BasicTab(BaseTab):
         fields['x'].setValue(0)
         fields['y'].setValue(0)
 
+        self.request_real_time_update()
     def _center_image_frame(self):
         """고정 이미지를 카드의 중앙에 정렬합니다."""
         if not self.image_item_fields:
@@ -463,6 +459,7 @@ class BasicTab(BaseTab):
         fields['x'].setValue(int(center_x))
         fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
     def update_card_preview(self):
         if not self.image_item_fields or not self.image_preview_label:
             return
@@ -495,9 +492,7 @@ class BasicTab(BaseTab):
         
         self.image_preview_label.update_preview(card_pixmap, image_rect, overlay_pixmap)
         
-        # 실시간 업데이트 신호 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def on_screen_order_changed(self):
         """화면 순서가 변경되었을 때 호출되는 메소드"""
@@ -531,6 +526,7 @@ class BasicTab(BaseTab):
         self.crop_fields['x'].setValue(0)
         self.crop_fields['y'].setValue(0)
 
+        self.request_real_time_update()
     def _center_crop_area(self):
         """실제 인쇄 영역을 카메라 해상도의 중앙에 정렬합니다."""
         cam_resolution = self.camera_resolution_combo.currentData()
@@ -547,6 +543,7 @@ class BasicTab(BaseTab):
         self.crop_fields['x'].setValue(int(center_x))
         self.crop_fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
     def _update_crop_preview(self):
         """실제 인쇄 영역 미리보기 업데이트"""
         if not self.crop_preview_label:
@@ -578,6 +575,7 @@ class BasicTab(BaseTab):
         self.crop_preview_label.set_pen(pen)
         self.crop_preview_label.update_preview(bg_pixmap, crop_rect)
 
+        self.request_real_time_update()
     def _on_crop_position_changed(self, x, y):
         """드래그로 위치 변경 시 호출되는 슬롯"""
         self.crop_fields['x'].blockSignals(True)
@@ -589,9 +587,7 @@ class BasicTab(BaseTab):
         self.crop_fields['x'].blockSignals(False)
         self.crop_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 시그널 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _on_image_position_changed(self, x, y):
         """드래그로 고정 이미지 위치 변경 시 호출되는 슬롯"""
@@ -608,9 +604,7 @@ class BasicTab(BaseTab):
         fields['x'].blockSignals(False)
         fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 시그널 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -810,7 +804,3 @@ class BasicTab(BaseTab):
         self.config["screen_size"]["width"] = self.screen_width_edit.value()
         self.config["screen_size"]["height"] = self.screen_height_edit.value()
         self.config_changed.emit()
-
-    def set_tab_manager(self, tab_manager):
-        """tab_manager 참조 설정"""
-        self.tab_manager = tab_manager

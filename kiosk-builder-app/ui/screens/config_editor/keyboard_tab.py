@@ -19,10 +19,6 @@ class KeyboardTab(BaseTab):
         self.tab_manager = None  # tab_manager 참조 추가
         self.init_ui()
         
-    def set_tab_manager(self, tab_manager):
-        """tab_manager 참조 설정"""
-        self.tab_manager = tab_manager
-        
     def init_ui(self):
         # 스크롤 영역을 포함한 기본 레이아웃 생성
         scroll_content_layout = self.create_tab_with_scroll()
@@ -209,9 +205,7 @@ class KeyboardTab(BaseTab):
         self.keyboard_position_fields['x'].blockSignals(False)
         self.keyboard_position_fields['y'].blockSignals(False)
         
-        # 실시간 업데이트 시그널 발생
-        if self.tab_manager:
-            self.tab_manager.real_time_update_requested.emit()
+        self.request_real_time_update()
 
     def _on_text_input_position_changed(self, index, x, y):
         """드래그로 텍스트 입력 위치 변경 시 호출되는 슬롯"""
@@ -226,9 +220,7 @@ class KeyboardTab(BaseTab):
             fields['x'].blockSignals(False)
             fields['y'].blockSignals(False)
             
-            # 실시간 업데이트 시그널 발생
-            if self.tab_manager:
-                self.tab_manager.real_time_update_requested.emit()
+            self.request_real_time_update()
 
     def _on_fixed_text_position_changed(self, index, x, y):
         """고정 텍스트 위치 변경 시 호출"""
@@ -243,9 +235,7 @@ class KeyboardTab(BaseTab):
             fields['x'].blockSignals(False)
             fields['y'].blockSignals(False)
             
-            # 실시간 업데이트 시그널 발생
-            if self.tab_manager:
-                self.tab_manager.real_time_update_requested.emit()
+            self.request_real_time_update()
 
     def _fill_keyboard_frame(self):
         """키보드를 모니터 크기에 맞게 채웁니다."""
@@ -259,6 +249,8 @@ class KeyboardTab(BaseTab):
         self.keyboard_position_fields['height'].setValue(monitor_height)
         self.keyboard_position_fields['x'].setValue(0)
         self.keyboard_position_fields['y'].setValue(0)
+
+        self.request_real_time_update()
 
     def _center_keyboard_frame(self):
         """키보드를 모니터의 중앙에 정렬합니다."""
@@ -277,6 +269,8 @@ class KeyboardTab(BaseTab):
         self.keyboard_position_fields['x'].setValue(int(center_x))
         self.keyboard_position_fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
+
     def _fill_text_input_frame(self, index):
         """텍스트 입력을 카드 크기에 맞게 채웁니다."""
         if index >= len(self.text_input_item_fields):
@@ -291,6 +285,8 @@ class KeyboardTab(BaseTab):
         fields['height'].setValue(card_height)
         fields['x'].setValue(0)
         fields['y'].setValue(0)
+
+        self.request_real_time_update()
 
     def _center_text_input_frame(self, index):
         """텍스트 입력을 카드의 중앙에 정렬합니다."""
@@ -311,6 +307,8 @@ class KeyboardTab(BaseTab):
         fields['x'].setValue(int(center_x))
         fields['y'].setValue(int(center_y))
 
+        self.request_real_time_update()
+
     def _fill_fixed_text_frame(self, index):
         """고정 텍스트를 카드 크기에 맞게 채웁니다."""
         if index >= len(self.text_item_fields):
@@ -325,6 +323,8 @@ class KeyboardTab(BaseTab):
         fields['height'].setValue(card_height)
         fields['x'].setValue(0)
         fields['y'].setValue(0)
+
+        self.request_real_time_update()
 
     def _center_fixed_text_frame(self, index):
         """고정 텍스트를 카드의 중앙에 정렬합니다."""
@@ -344,6 +344,8 @@ class KeyboardTab(BaseTab):
 
         fields['x'].setValue(int(center_x))
         fields['y'].setValue(int(center_y))
+
+        self.request_real_time_update()
 
     def _update_keyboard_preview(self):
         """키보드 설정 미리보기 업데이트"""
@@ -371,10 +373,12 @@ class KeyboardTab(BaseTab):
             keyboard_rect = QRect()
             
         # 사각형 그리기
-        pen = QPen(QColor("magenta"), 2, Qt.SolidLine)
+        pen = QPen(QColor("red"), 2)
         
         self.keyboard_preview_label.set_pen(pen)
         self.keyboard_preview_label.update_preview(monitor_pixmap, keyboard_rect)
+
+        self.request_real_time_update()
 
     def _update_text_input_previews(self):
         """사용자 입력 설정 미리보기들 업데이트"""
@@ -459,6 +463,8 @@ class KeyboardTab(BaseTab):
         preview_label.set_pen(pen)
         preview_label.update_preview(card_pixmap, input_rect)
 
+        self.request_real_time_update()
+
     def _update_fixed_text_previews(self):
         """고정 텍스트 미리보기들 업데이트"""
         # 기존 미리보기 제거
@@ -541,6 +547,8 @@ class KeyboardTab(BaseTab):
         
         preview_label.set_pen(pen)
         preview_label.update_preview(card_pixmap, text_rect)
+
+        self.request_real_time_update()
 
     def update_text_input_items(self, count):
         """텍스트 입력 항목 UI 업데이트"""
