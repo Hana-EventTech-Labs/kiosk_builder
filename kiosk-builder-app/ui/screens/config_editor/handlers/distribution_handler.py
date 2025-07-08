@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox,QDialog
 import os
 import sys
 import json
@@ -243,54 +243,213 @@ class DistributionHandler:
             return False
 
     def _download_github_files(self):
-        """로컬에서 키오스크 실행 파일 복사"""
+        """GitHub에서 파일 다운로드 또는 로컬에서 복사"""
         downloaded_files = []
         failed_downloads = []
 
-        # GitHub에서 다운로드하는 대신 로컬에서 찾기
-        if getattr(sys, 'frozen', False):
-            parent_dir = os.path.dirname(sys.executable)
-        else:
-            parent_dir = os.getcwd()
-        
-        # 가능한 경로들에서 super-kiosk.exe 찾기
-        possible_paths = [
-            os.path.join(parent_dir, "super-kiosk.exe"),
-            os.path.join(parent_dir, "..", "super-kiosk.exe"),
-            os.path.join(parent_dir, "dist", "super-kiosk.exe"),
-            os.path.join(parent_dir, "..", "dist", "super-kiosk.exe"),
+        # GitHub에서 다운로드할 파일 목록
+        files_to_download = [
+            {"name": "super-kiosk.exe"},
+            {"name": "super-kiosk-builder.exe"}
         ]
+
+        # GitHub 릴리즈 URL 설정
+        github_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
         
-        kiosk_exe_found = False
+        # 다운로드 대화상자 표시
+        try:
+            from ..download_progress_dialog import DownloadProgressDialog
+            
+            dialog = DownloadProgressDialog(
+                parent=self.main_window,
+                github_base_url=github_base_url,
+                files_to_download=files_to_download,
+                target_dir=os.path.join(self.target_dir, "bin")
+            )
+            
+            if dialog.exec() == QDialog.Accepted:
+                results = dialog.get_results()
+                
+                # 결과 처리
+                for filename, result in results.items():
+                    if result['success']:
+                        if filename == "super-kiosk.exe":
+                            # 앱 이름으로 파일명 변경
+                            safe_app_name = self.app_name.replace(" ", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
+                            new_filename = f"{safe_app_name}.exe"
+                            
+                            original_path = os.path.join(self.target_dir, "bin", filename)
+                            new_path = os.path.join(self.target_dir, "bin", new_filename)
+                            
+                            # 파일명 변경
+                            if os.path.exists(original_path):
+                                try:
+                                    shutil.move(original_path, new_path)
+                                    downloaded_files.append(f"{new_filename} (GitHub에서 다운로드 완료, 크기: {result['size']:,} bytes)")
+                                except Exception as e:
+                                    downloaded_files.append(f"{filename} (GitHub에서 다운로드 완료, 이름 변경 실패: {e})")
+                            else:
+                                downloaded_files.append(f"{filename} (GitHub에서 다운로드 완료)")
+                        
+                        elif filename == "super-kiosk-builder.exe":
+                            # 빌더는 파일명 그대로 유지
+                            downloaded_files.append(f"{filename} (GitHub에서 다운로드 완료, 크기: {result['size']:,} bytes)")
+                        
+                    else:
+                        failed_downloads.append(filename)
+                
+                # GitHub 다운로드가 성공한 경우 로컬 검색 건너뛰기
+                if len(downloaded_files) == len(files_to_download):
+                    print("GitHub에서 모든 파일을 성공적으로 다운로드했습니다.")
+                    return downloaded_files, []
+            else:
+                # 사용자가 다운로드를 취소한 경우
+                failed_downloads = ["super-kiosk.exe", "super-kiosk-builder.exe"]
         
-        for source_path in possible_paths:
-            if os.path.exists(source_path):
-                try:
-                    # 앱 이름으로 파일명 변경
-                    safe_app_name = self.app_name.replace(" ", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
-                    new_filename = f"{safe_app_name}.exe"
-                    target_path = os.path.join(self.target_dir, "bin", new_filename)
-                    
-                    # 파일 복사
-                    shutil.copy2(source_path, target_path)
-                    file_size = os.path.getsize(target_path)
-                    downloaded_files.append(f"{new_filename} (로컬에서 복사됨, 크기: {file_size:,} bytes)")
-                    print(f"super-kiosk.exe를 {new_filename}으로 복사 완료")
-                    kiosk_exe_found = True
-                    break
-                    
-                except Exception as e:
-                    print(f"파일 복사 실패: {e}")
-                    continue
-        
-        if not kiosk_exe_found:
-            failed_downloads.append("super-kiosk.exe (로컬에서 찾을 수 없음)")
-            print("super-kiosk.exe를 찾을 수 없습니다. 다음 경로들을 확인했습니다:")
-            for path in possible_paths:
-                print(f"  - {path}")
+        except Exception as e:
+            print(f"GitHub 다운로드 중 오류 발생: {e}")
+            failed_downloads = ["super-kiosk.exe", "super-kiosk-builder.exe"]
+
+        # GitHub 다운로드 실패 시 로컬에서 찾기
+        if failed_downloads:
+            print("GitHub 다운로드 실패 또는 취소, 로컬에서 파일을 찾습니다...")
+            
+            if getattr(sys, 'frozen', False):
+                parent_dir = os.path.dirname(sys.executable)
+            else:
+                parent_dir = os.getcwd()
+            
+            remaining_failures = []
+            
+            # super-kiosk.exe 로컬에서 찾기
+            if "super-kiosk.exe" in str(failed_downloads):
+                kiosk_possible_paths = [
+                    os.path.join(parent_dir, "super-kiosk.exe"),
+                    os.path.join(parent_dir, "..", "super-kiosk.exe"),
+                    os.path.join(parent_dir, "dist", "super-kiosk.exe"),
+                    os.path.join(parent_dir, "..", "dist", "super-kiosk.exe"),
+                ]
+                
+                kiosk_exe_found = False
+                for source_path in kiosk_possible_paths:
+                    if os.path.exists(source_path):
+                        try:
+                            safe_app_name = self.app_name.replace(" ", "_").replace(".", "_").replace("/", "_").replace("\\", "_")
+                            new_filename = f"{safe_app_name}.exe"
+                            target_path = os.path.join(self.target_dir, "bin", new_filename)
+                            
+                            shutil.copy2(source_path, target_path)
+                            file_size = os.path.getsize(target_path)
+                            
+                            downloaded_files.append(f"{new_filename} (로컬에서 복사됨, 크기: {file_size:,} bytes)")
+                            kiosk_exe_found = True
+                            break
+                            
+                        except Exception as e:
+                            print(f"super-kiosk.exe 복사 실패: {e}")
+                            continue
+                
+                if not kiosk_exe_found:
+                    remaining_failures.append("super-kiosk.exe")
+                    print("super-kiosk.exe를 찾을 수 없습니다.")
+            
+            # super-kiosk-builder.exe 로컬에서 찾기
+            if "super-kiosk-builder.exe" in str(failed_downloads):
+                builder_possible_paths = [
+                    os.path.join(parent_dir, "super-kiosk-builder.exe"),
+                    os.path.join(parent_dir, "..", "super-kiosk-builder.exe"),
+                    os.path.join(parent_dir, "dist", "super-kiosk-builder.exe"),
+                    os.path.join(parent_dir, "..", "dist", "super-kiosk-builder.exe"),
+                ]
+                
+                builder_exe_found = False
+                for source_path in builder_possible_paths:
+                    if os.path.exists(source_path):
+                        try:
+                            target_path = os.path.join(self.target_dir, "bin", "super-kiosk-builder.exe")
+                            
+                            shutil.copy2(source_path, target_path)
+                            file_size = os.path.getsize(target_path)
+                            
+                            downloaded_files.append(f"super-kiosk-builder.exe (로컬에서 복사됨, 크기: {file_size:,} bytes)")
+                            builder_exe_found = True
+                            break
+                            
+                        except Exception as e:
+                            print(f"super-kiosk-builder.exe 복사 실패: {e}")
+                            continue
+                
+                if not builder_exe_found:
+                    remaining_failures.append("super-kiosk-builder.exe")
+                    print("super-kiosk-builder.exe를 찾을 수 없습니다.")
+            
+            failed_downloads = remaining_failures
 
         return downloaded_files, failed_downloads
 
+
+    def _copy_builder_executable(self):
+        """빌더 실행 파일 복사 (GitHub 다운로드가 실패한 경우만)"""
+        # GitHub 다운로드에서 처리하므로 이 메서드는 더 이상 사용하지 않음
+        # 호환성을 위해 항상 True 반환
+        return True
+
+
+    def _show_results(self, created_dirs, builder_copied, downloaded_files, 
+                    failed_downloads, copied_folders, copied_resource_files, auth_copied):
+        """결과 표시"""
+        app_folder_name = os.path.basename(self.target_dir)
+        result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
+        
+        if created_dirs:
+            result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
+        
+        success_items = []
+        
+        # GitHub 다운로드된 파일들 추가
+        if downloaded_files:
+            success_items.extend(downloaded_files)
+        
+        if copied_folders:
+            success_items.extend(copied_folders)
+        
+        if auth_copied:
+            success_items.append("auth_settings.dat (로그인 정보)")
+        
+        if success_items:
+            result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
+            result_message += "- " + "\n- ".join(success_items) + "\n\n"
+            
+            dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
+            font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
+            
+            if dll_files:
+                result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
+            
+            if font_files:
+                result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
+            
+            if auth_copied:
+                result_message += "📋 로그인 정보가 포함되어 자동 로그인이 가능합니다.\n"
+            else:
+                result_message += "🔐 로그인 정보가 포함되지 않아 보안상 안전합니다.\n"
+        
+        # 실패한 항목만 표시 (실제로 실패한 것만)
+        if failed_downloads:
+            result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
+            failure_items = [f"{f} (파일을 찾을 수 없음)" for f in failed_downloads]
+            result_message += "- " + "\n- ".join(failure_items) + "\n\n"
+        
+        if success_items:
+            QMessageBox.information(self.main_window, "배포용 파일 생성 완료", result_message)
+            self._log_distribution_creation()
+        else:
+            QMessageBox.warning(
+                self.main_window, 
+                "배포용 파일 생성 실패", 
+                result_message + "필요한 파일을 찾을 수 없습니다."
+            )
+            
     def _copy_resources(self):
         """리소스 폴더 복사"""
         if getattr(sys, 'frozen', False):
