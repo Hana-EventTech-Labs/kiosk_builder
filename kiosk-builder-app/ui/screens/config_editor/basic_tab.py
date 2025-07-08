@@ -395,7 +395,19 @@ class BasicTab(BaseTab):
         self.image_preview_label.setFixedSize(300, 300)
         self.image_preview_label.setAlignment(Qt.AlignCenter)
         self.image_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
         preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        image_button_layout = QHBoxLayout()
+        fill_button_image = QPushButton("채우기")
+        fill_button_image.clicked.connect(self._fill_image_frame)
+        center_button_image = QPushButton("가운데 정렬")
+        center_button_image.clicked.connect(self._center_image_frame)
+        image_button_layout.addWidget(fill_button_image)
+        image_button_layout.addWidget(center_button_image)
+        preview_layout.addLayout(image_button_layout)
+        
         main_layout.addWidget(preview_group, 1)
 
         return main_container, item_fields
@@ -416,6 +428,40 @@ class BasicTab(BaseTab):
                     self.tab_manager.real_time_update_requested.emit()
             except Exception as e:
                 print(f"이미지 복사 오류: {e}")
+
+    def _fill_image_frame(self):
+        """고정 이미지를 카드 크기에 맞게 채웁니다."""
+        if not self.image_item_fields:
+            return
+
+        is_portrait = self.card_portrait_radio.isChecked()
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.image_item_fields[0]
+        fields['width'].setValue(card_width)
+        fields['height'].setValue(card_height)
+        fields['x'].setValue(0)
+        fields['y'].setValue(0)
+
+    def _center_image_frame(self):
+        """고정 이미지를 카드의 중앙에 정렬합니다."""
+        if not self.image_item_fields:
+            return
+
+        is_portrait = self.card_portrait_radio.isChecked()
+        card_width = 636 if is_portrait else 1012
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.image_item_fields[0]
+        image_width = fields['width'].value()
+        image_height = fields['height'].value()
+
+        center_x = (card_width - image_width) / 2
+        center_y = (card_height - image_height) / 2
+
+        fields['x'].setValue(int(center_x))
+        fields['y'].setValue(int(center_y))
 
     def update_card_preview(self):
         if not self.image_item_fields or not self.image_preview_label:
