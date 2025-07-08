@@ -229,10 +229,77 @@ class TabManager(QObject):
 
     def update_ui_from_config(self, config):
         """설정에 따라 모든 탭 UI 업데이트"""
-        for tab in self.tabs.values():
+        # 1. 각 탭의 config 객체도 업데이트
+        for tab_name, tab in self.tabs.items():
+            if hasattr(tab, 'config'):
+                tab.config = config
+                print(f"{tab_name} 탭 config 설정 완료")
+        
+        # 2. 각 탭의 UI 업데이트 (안전하게)
+        for tab_name, tab in self.tabs.items():
             if hasattr(tab, 'update_ui'):
-                tab.update_ui(config)
-        self.update_tab_enabled_states()
+                try:
+                    print(f"{tab_name} 탭 UI 업데이트 시작")
+                    
+                    # UI 업데이트 중 시그널 차단 (무한 루프 방지)
+                    self._block_tab_signals(tab)
+                    
+                    # UI 업데이트 실행
+                    tab.update_ui(config)
+                    
+                    # 시그널 재연결
+                    self._unblock_tab_signals(tab)
+                    
+                    print(f"{tab_name} 탭 UI 업데이트 완료")
+                except Exception as e:
+                    print(f"{tab_name} 탭 UI 업데이트 중 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    
+                    # 오류 발생 시에도 시그널 재연결
+                    try:
+                        self._unblock_tab_signals(tab)
+                    except:
+                        pass
+        
+        # 3. 탭 활성화 상태 업데이트
+        try:
+            self.update_tab_enabled_states()
+            print("탭 활성화 상태 업데이트 완료")
+        except Exception as e:
+            print(f"탭 활성화 상태 업데이트 중 오류: {e}")
+
+    def _block_tab_signals(self, tab):
+        """탭의 시그널을 임시로 차단"""
+        try:
+            # 탭 자체의 시그널 차단
+            if hasattr(tab, 'blockSignals'):
+                tab.blockSignals(True)
+            
+            # QWidget 하위의 모든 위젯들의 시그널 차단
+            from PySide6.QtWidgets import QWidget
+            for child in tab.findChildren(QWidget):
+                if hasattr(child, 'blockSignals'):
+                    child.blockSignals(True)
+                    
+        except Exception as e:
+            print(f"시그널 차단 중 오류: {e}")
+
+    def _unblock_tab_signals(self, tab):
+        """탭의 시그널을 재연결"""
+        try:
+            # 탭 자체의 시그널 재연결
+            if hasattr(tab, 'blockSignals'):
+                tab.blockSignals(False)
+            
+            # QWidget 하위의 모든 위젯들의 시그널 재연결
+            from PySide6.QtWidgets import QWidget
+            for child in tab.findChildren(QWidget):
+                if hasattr(child, 'blockSignals'):
+                    child.blockSignals(False)
+                    
+        except Exception as e:
+            print(f"시그널 재연결 중 오류: {e}")
 
     def update_config_from_tabs(self, config):
         """모든 탭에서 설정값 수집"""
@@ -244,3 +311,7 @@ class TabManager(QObject):
         """동적으로 생성되는 라벨들의 시그널 재연결 (탭에서 호출)"""
         self._connect_keyboard_dynamic_signals()
         self._connect_basic_dynamic_signals()
+
+    def update_all_tabs(self, config):
+        """모든 탭의 UI를 새로운 설정으로 업데이트 (JSON 가져오기용)"""
+        self.update_ui_from_config(config)

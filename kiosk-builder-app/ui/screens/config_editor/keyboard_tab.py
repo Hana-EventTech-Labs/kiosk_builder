@@ -552,227 +552,284 @@ class KeyboardTab(BaseTab):
 
     def update_text_input_items(self, count):
         """텍스트 입력 항목 UI 업데이트"""
-        # 기존 위젯 제거
-        for i in reversed(range(self.text_input_items_layout.count())):
-            item = self.text_input_items_layout.itemAt(i)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        # 텍스트 입력 항목 필드 초기화
-        self.text_input_item_fields = []
-        
-        # 새 항목 추가
-        for i in range(count):
-            # 기본값 설정
-            item_data = {
-                "label": "",
-                "placeholder": "",
-                "width": 800,
-                "height": 80,
-                "x": 100,
-                "y": 100 + i * 100,
-                "font_size": 36
-            }
+        try:
+            print(f"keyboard_tab: update_text_input_items 시작 (count: {count})")
             
-            # 기존 데이터가 있으면 사용
-            if i < len(self.config["text_input"]["items"]):
-                item_data = self.config["text_input"]["items"][i]
+            # 기존 위젯 제거
+            for i in reversed(range(self.text_input_items_layout.count())):
+                item = self.text_input_items_layout.itemAt(i)
+                if item.widget():
+                    item.widget().deleteLater()
             
-            # 항목 그룹 생성
-            item_group = QGroupBox(f"텍스트 입력 {i+1}")
-            item_layout = QFormLayout(item_group)
+            # 텍스트 입력 항목 필드 초기화
+            self.text_input_item_fields = []
             
-            # 항목 필드 생성
-            item_fields = {}
+            # 새 항목 추가
+            for i in range(count):
+                # 기본값 설정
+                item_data = {
+                    "label": "",
+                    "placeholder": "",
+                    "width": 800,
+                    "height": 80,
+                    "x": 100,
+                    "y": 100 + i * 100,
+                    "font_size": 36
+                }
+                
+                # 기존 데이터가 있으면 사용
+                if i < len(self.config["text_input"]["items"]):
+                    item_data = self.config["text_input"]["items"][i]
+                
+                # 항목 그룹 생성
+                item_group = QGroupBox(f"텍스트 입력 {i+1}")
+                item_layout = QFormLayout(item_group)
+                
+                # 항목 필드 생성
+                item_fields = {}
+                
+                # 레이블
+                label_edit = QLineEdit(item_data.get("label", ""))
+                item_layout.addRow("항목 이름:", label_edit)
+                item_fields["label"] = label_edit
+                
+                # 플레이스홀더
+                placeholder_edit = QLineEdit(item_data.get("placeholder", ""))
+                item_layout.addRow("입력 예시:", placeholder_edit)
+                item_fields["placeholder"] = placeholder_edit
+                
+                # 위치 및 크기
+                for key in ["width", "height", "x", "y"]:
+                    # QSpinBox 대신 NumberLineEdit 사용
+                    line_edit = NumberLineEdit()
+                    line_edit.setValue(item_data.get(key, 0))
+                    # 시그널 연결은 나중에 필요할 때만
+                    try:
+                        line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
+                    except:
+                        pass  # 시그널 연결 실패시 무시
+                    label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                    item_layout.addRow(f"{label_text}:", line_edit)
+                    item_fields[key] = line_edit
+                
+                # 폰트 크기
+                font_size_spin = NumberLineEdit()
+                font_size_spin.setValue(item_data.get("font_size", 36))
+                item_layout.addRow("폰트 크기:", font_size_spin)
+                item_fields["font_size"] = font_size_spin
+                
+                # 출력용 폰트 설정 - 폰트 선택 레이아웃
+                output_font_layout = QHBoxLayout()
+                output_font_edit = QLineEdit(item_data.get("output_font", ""))
+                output_font_layout.addWidget(output_font_edit, 1)
+                item_fields["output_font"] = output_font_edit
+                
+                # 폰트 파일 선택 버튼 추가
+                browse_button = QPushButton("찾기...")
+                try:
+                    browse_button.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit))
+                except:
+                    pass  # 시그널 연결 실패시 무시
+                output_font_layout.addWidget(browse_button)
+                
+                item_layout.addRow("출력용 폰트:", output_font_layout)
+                
+                # 출력용 폰트 크기
+                output_font_size_spin = NumberLineEdit()
+                output_font_size_spin.setValue(item_data.get("output_font_size", 16))
+                item_layout.addRow("출력용 폰트 크기:", output_font_size_spin)
+                item_fields["output_font_size"] = output_font_size_spin
+                
+                # 출력용 폰트 색상
+                output_font_color_button = ColorPickerButton(item_data.get("output_font_color", "#000000"))
+                item_layout.addRow("출력용 폰트 색상:", output_font_color_button)
+                item_fields["output_font_color"] = output_font_color_button
+                
+                self.text_input_items_layout.addWidget(item_group)
+                self.text_input_item_fields.append(item_fields)
             
-            # 레이블
-            label_edit = QLineEdit(item_data.get("label", ""))
-            item_layout.addRow("항목 이름:", label_edit)
-            item_fields["label"] = label_edit
+            # UI 업데이트
+            self.text_input_items_container.updateGeometry()
             
-            # 플레이스홀더
-            placeholder_edit = QLineEdit(item_data.get("placeholder", ""))
-            item_layout.addRow("입력 예시:", placeholder_edit)
-            item_fields["placeholder"] = placeholder_edit
+            # 미리보기 업데이트
+            try:
+                self._update_text_input_previews()
+            except:
+                pass  # 미리보기 업데이트 실패시 무시
+                
+            print(f"keyboard_tab: update_text_input_items 완료")
             
-            # 위치 및 크기
-            for key in ["width", "height", "x", "y"]:
-                # QSpinBox 대신 NumberLineEdit 사용
-                line_edit = NumberLineEdit()
-                line_edit.setValue(item_data.get(key, 0))
-                line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
-                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", line_edit)
-                item_fields[key] = line_edit
-            
-            # 폰트 크기
-            font_size_spin = NumberLineEdit()
-            font_size_spin.setValue(item_data.get("font_size", 36))
-            item_layout.addRow("폰트 크기:", font_size_spin)
-            item_fields["font_size"] = font_size_spin
-            
-            # 출력용 폰트 설정 - 폰트 선택 레이아웃
-            output_font_layout = QHBoxLayout()
-            output_font_edit = QLineEdit(item_data.get("output_font", ""))
-            output_font_layout.addWidget(output_font_edit, 1)
-            item_fields["output_font"] = output_font_edit
-            
-            # 폰트 파일 선택 버튼 추가
-            browse_button = QPushButton("찾기...")
-            browse_button.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit))
-            output_font_layout.addWidget(browse_button)
-            
-            item_layout.addRow("출력용 폰트:", output_font_layout)
-            
-            # 출력용 폰트 크기
-            output_font_size_spin = NumberLineEdit()
-            output_font_size_spin.setValue(item_data.get("output_font_size", 16))
-            item_layout.addRow("출력용 폰트 크기:", output_font_size_spin)
-            item_fields["output_font_size"] = output_font_size_spin
-            
-            # 출력용 폰트 색상
-            output_font_color_button = ColorPickerButton(item_data.get("output_font_color", "#000000"))
-            item_layout.addRow("출력용 폰트 색상:", output_font_color_button)
-            item_fields["output_font_color"] = output_font_color_button
-            
-            self.text_input_items_layout.addWidget(item_group)
-            self.text_input_item_fields.append(item_fields)
-        
-        # UI 업데이트
-        self.text_input_items_container.updateGeometry()
-        
-        # 미리보기 업데이트
-        self._update_text_input_previews()
+        except Exception as e:
+            print(f"keyboard_tab: update_text_input_items 중 오류: {e}")
+            import traceback
+            traceback.print_exc()
     
     def update_text_items(self, count):
         """텍스트 항목 UI 업데이트"""
-        # 기존 위젯 제거
-        for i in reversed(range(self.text_items_layout.count())):
-            item = self.text_items_layout.itemAt(i)
-            if item.widget():
-                item.widget().deleteLater()
-        
-        # 텍스트 항목 필드 초기화
-        self.text_item_fields = []
-        
-        # 새 항목 추가
-        for i in range(count):
-            # 기본값 설정
-            item_data = {
-                "content": "텍스트",
-                "x": 0,
-                "y": 0,
-                "width": 300,
-                "height": 100,
-                "font": "LAB디지털.ttf",
-                "font_size": 16,
-                "font_color": "#000000"
-            }
+        try:
+            print(f"keyboard_tab: update_text_items 시작 (count: {count})")
             
-            # 기존 데이터가 있으면 사용
-            if i < len(self.config["texts"]["items"]):
-                item_data = self.config["texts"]["items"][i]
+            # 기존 위젯 제거
+            for i in reversed(range(self.text_items_layout.count())):
+                item = self.text_items_layout.itemAt(i)
+                if item.widget():
+                    item.widget().deleteLater()
             
-            # 항목 그룹 생성
-            item_group = QGroupBox(f"텍스트 {i+1}")
-            item_layout = QFormLayout(item_group)
+            # 텍스트 항목 필드 초기화
+            self.text_item_fields = []
             
-            # 항목 필드 생성
-            item_fields = {}
+            # 새 항목 추가
+            for i in range(count):
+                # 기본값 설정
+                item_data = {
+                    "content": "텍스트",
+                    "x": 0,
+                    "y": 0,
+                    "width": 300,
+                    "height": 100,
+                    "font": "LAB디지털.ttf",
+                    "font_size": 16,
+                    "font_color": "#000000"
+                }
+                
+                # 기존 데이터가 있으면 사용
+                if i < len(self.config["texts"]["items"]):
+                    item_data = self.config["texts"]["items"][i]
+                
+                # 항목 그룹 생성
+                item_group = QGroupBox(f"텍스트 {i+1}")
+                item_layout = QFormLayout(item_group)
+                
+                # 항목 필드 생성
+                item_fields = {}
+                
+                # 내용
+                content_edit = QLineEdit(item_data["content"])
+                item_layout.addRow("문구:", content_edit)
+                item_fields["content"] = content_edit
+                
+                # 위치 및 크기
+                for key in ["width", "height", "x", "y"]:
+                    # QSpinBox 대신 NumberLineEdit 사용
+                    line_edit = NumberLineEdit()
+                    line_edit.setValue(item_data[key])
+                    # 시그널 연결은 나중에 필요할 때만
+                    try:
+                        line_edit.textChanged.connect(lambda text, idx=i: self._update_single_fixed_text_preview(idx, self.text_item_fields[idx]) if idx < len(self.text_item_fields) else None)
+                    except:
+                        pass  # 시그널 연결 실패시 무시
+                    label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                    item_layout.addRow(f"{label_text}:", line_edit)
+                    item_fields[key] = line_edit
+                
+                # 폰트 선택 레이아웃
+                font_layout = QHBoxLayout()
+                font_edit = QLineEdit(item_data["font"])
+                font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
+                item_fields["font"] = font_edit
+                
+                # 폰트 파일 선택 버튼
+                browse_button = QPushButton("찾기...")
+                try:
+                    browse_button.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit))
+                except:
+                    pass  # 시그널 연결 실패시 무시
+                font_layout.addWidget(browse_button)
+                
+                item_layout.addRow("폰트:", font_layout)
+                
+                # 폰트 크기
+                font_size_spin = NumberLineEdit()
+                font_size_spin.setValue(item_data["font_size"])
+                item_layout.addRow("폰트 크기:", font_size_spin)
+                item_fields["font_size"] = font_size_spin
+                
+                # 폰트 색상
+                font_color_button = ColorPickerButton(item_data["font_color"])
+                item_layout.addRow("폰트 색상:", font_color_button)
+                item_fields["font_color"] = font_color_button
+                
+                self.text_items_layout.addWidget(item_group)
+                self.text_item_fields.append(item_fields)
             
-            # 내용
-            content_edit = QLineEdit(item_data["content"])
-            item_layout.addRow("문구:", content_edit)
-            item_fields["content"] = content_edit
+            # UI 업데이트
+            self.text_items_container.updateGeometry()
             
-            # 위치 및 크기
-            for key in ["width", "height", "x", "y"]:
-                # QSpinBox 대신 NumberLineEdit 사용
-                line_edit = NumberLineEdit()
-                line_edit.setValue(item_data[key])
-                line_edit.textChanged.connect(lambda text, idx=i: self._update_single_fixed_text_preview(idx, self.text_item_fields[idx]) if idx < len(self.text_item_fields) else None)
-                label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-                item_layout.addRow(f"{label_text}:", line_edit)
-                item_fields[key] = line_edit
+            # 미리보기 업데이트
+            try:
+                self._update_fixed_text_previews()
+                self._update_keyboard_preview()
+                self._update_text_input_previews()
+                self._update_fixed_text_previews()
+            except:
+                pass  # 미리보기 업데이트 실패시 무시
+                
+            print(f"keyboard_tab: update_text_items 완료")
             
-            # 폰트 선택 레이아웃
-            font_layout = QHBoxLayout()
-            font_edit = QLineEdit(item_data["font"])
-            font_layout.addWidget(font_edit, 1)  # 1은 stretch factor로, 남은 공간을 차지하도록 함
-            item_fields["font"] = font_edit
-            
-            # 폰트 파일 선택 버튼
-            browse_button = QPushButton("찾기...")
-            browse_button.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit))
-            font_layout.addWidget(browse_button)
-            
-            item_layout.addRow("폰트:", font_layout)
-            
-            # 폰트 크기
-            font_size_spin = NumberLineEdit()
-            font_size_spin.setValue(item_data["font_size"])
-            item_layout.addRow("폰트 크기:", font_size_spin)
-            item_fields["font_size"] = font_size_spin
-            
-            # 폰트 색상
-            font_color_button = ColorPickerButton(item_data["font_color"])
-            item_layout.addRow("폰트 색상:", font_color_button)
-            item_fields["font_color"] = font_color_button
-            
-            self.text_items_layout.addWidget(item_group)
-            self.text_item_fields.append(item_fields)
-        
-        # UI 업데이트
-        self.text_items_container.updateGeometry()
-        
-        # 미리보기 업데이트
-        self._update_fixed_text_previews()
-
-        # 미리보기 업데이트
-        self._update_keyboard_preview()
-        self._update_text_input_previews()
-        self._update_fixed_text_previews()
+        except Exception as e:
+            print(f"keyboard_tab: update_text_items 중 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
-        self.config = config
-        
-        # 배경화면 업데이트
-        self.keyboard_bg_edit.setText(config["text_input"].get("background", ""))
-        
-        # 키보드 위치 및 크기 업데이트
-        for key, widget in self.keyboard_position_fields.items():
-            widget.setValue(config["keyboard"][key])
-        
-        # 텍스트 입력 설정 업데이트
-        for key, widget in self.text_input_fields.items():
-            if key != "count":  # count는 spinbox에서 별도로 처리
-                widget.setValue(config["text_input"][key])
-        
-        # 텍스트 입력 개수 업데이트 - 최소값 1 보장
-        count_value = max(1, config["text_input"]["count"])
-        if self.text_input_count_spinbox.value() != count_value:
-            self.text_input_count_spinbox.setValue(count_value)
-        else:
-            self.update_text_input_items(count_value)  # 여기도 count_value 사용
-        
-        # 텍스트 개수 업데이트
-        if self.text_count_spinbox.value() != config["texts"]["count"]:
-            self.text_count_spinbox.setValue(config["texts"]["count"])
-        else:
-            self.update_text_items(config["texts"]["count"])
-        
-        # 키보드 스타일 업데이트
-        for key, widget in self.keyboard_style_fields.items():
-            if isinstance(widget, ColorPickerButton):
-                widget.update_color(config["keyboard"][key])
-            else:
+        try:
+            print("keyboard_tab: update_ui 시작")
+            self.config = config
+            
+            # 배경화면 업데이트
+            self.keyboard_bg_edit.setText(config["text_input"].get("background", ""))
+            print("keyboard_tab: 배경화면 업데이트 완료")
+            
+            # 키보드 위치 및 크기 업데이트
+            for key, widget in self.keyboard_position_fields.items():
                 widget.setValue(config["keyboard"][key])
+            print("keyboard_tab: 키보드 위치/크기 업데이트 완료")
+            
+            # 텍스트 입력 설정 업데이트
+            for key, widget in self.text_input_fields.items():
+                if key != "count":  # count는 spinbox에서 별도로 처리
+                    widget.setValue(config["text_input"][key])
+            print("keyboard_tab: 텍스트 입력 설정 업데이트 완료")
+            
+            # 텍스트 입력 개수 업데이트 - 최소값 1 보장
+            count_value = max(1, config["text_input"]["count"])
+            print(f"keyboard_tab: 텍스트 입력 개수 업데이트 시작 (count: {count_value})")
+            if self.text_input_count_spinbox.value() != count_value:
+                self.text_input_count_spinbox.setValue(count_value)
+            else:
+                self.update_text_input_items(count_value)
+            print("keyboard_tab: 텍스트 입력 개수 업데이트 완료")
+            
+            # 텍스트 개수 업데이트
+            text_count = config["texts"]["count"]
+            print(f"keyboard_tab: 텍스트 개수 업데이트 시작 (count: {text_count})")
+            if self.text_count_spinbox.value() != text_count:
+                self.text_count_spinbox.setValue(text_count)
+            else:
+                self.update_text_items(text_count)
+            print("keyboard_tab: 텍스트 개수 업데이트 완료")
+            
+            # 키보드 스타일 업데이트
+            for key, widget in self.keyboard_style_fields.items():
+                if isinstance(widget, ColorPickerButton):
+                    widget.update_color(config["keyboard"][key])
+                else:
+                    widget.setValue(config["keyboard"][key])
+            print("keyboard_tab: 키보드 스타일 업데이트 완료")
 
-        # 미리보기 업데이트
-        self._update_keyboard_preview()
-        self._update_text_input_previews()
-    
+            # 미리보기 업데이트
+            self._update_keyboard_preview()
+            self._update_text_input_previews()
+            print("keyboard_tab: 미리보기 업데이트 완료")
+            
+            print("keyboard_tab: update_ui 완료")
+            
+        except Exception as e:
+            print(f"keyboard_tab: update_ui 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+
     def update_config(self, config):
         """UI 값을 config에 반영"""
         # 배경화면 저장

@@ -1,5 +1,7 @@
 import os
 import shutil
+import json
+from datetime import datetime
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 class FileHandler:
@@ -256,3 +258,105 @@ class FileHandler:
                 # 이미 리소스 폴더 내부에 있는 경우 파일명만 사용
                 file_name = os.path.basename(file_path)
                 line_edit.setText(file_name)
+
+    @staticmethod
+    def export_config_to_json(parent, config):
+        """설정을 JSON 파일로 내보내기"""
+        # 기본 파일명 생성 (현재 날짜 및 시간 포함)
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_filename = f"config_backup_{current_time}.json"
+        
+        file_path, _ = QFileDialog.getSaveFileName(
+            parent,
+            "설정 파일 내보내기",
+            default_filename,
+            "JSON 파일 (*.json)"
+        )
+        
+        if file_path:
+            try:
+                # JSON 파일로 저장
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, ensure_ascii=False, indent=4)
+                
+                QMessageBox.information(
+                    parent,
+                    "내보내기 완료",
+                    f"설정이 성공적으로 저장되었습니다:\n{file_path}"
+                )
+                return True
+                
+            except Exception as e:
+                QMessageBox.critical(
+                    parent,
+                    "내보내기 실패",
+                    f"설정 파일 저장 중 오류가 발생했습니다:\n{str(e)}"
+                )
+                return False
+        
+        return False
+    
+    @staticmethod
+    def import_config_from_json(parent):
+        """JSON 파일에서 설정 가져오기"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            parent,
+            "설정 파일 가져오기",
+            "",
+            "JSON 파일 (*.json)"
+        )
+        
+        if file_path:
+            try:
+                # JSON 파일 읽기
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    imported_config = json.load(f)
+                
+                # 설정 유효성 검사 (기본적인 키 체크)
+                required_keys = ['screen_size', 'frame', 'photo', 'camera_count']
+                missing_keys = [key for key in required_keys if key not in imported_config]
+                
+                if missing_keys:
+                    QMessageBox.warning(
+                        parent,
+                        "가져오기 경고",
+                        f"설정 파일에 일부 필수 키가 누락되었습니다:\n{', '.join(missing_keys)}\n\n가져오기를 계속하시겠습니까?"
+                    )
+                
+                # 사용자 확인
+                reply = QMessageBox.question(
+                    parent,
+                    "설정 가져오기 확인",
+                    f"선택한 파일에서 설정을 가져오시겠습니까?\n\n{file_path}\n\n현재 설정은 덮어씌워집니다.",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 디버그 정보 출력
+                    print(f"JSON 가져오기: {len(imported_config)} 개의 설정 항목을 가져왔습니다.")
+                    print(f"주요 설정 확인 - screen_size: {imported_config.get('screen_size')}")
+                    print(f"주요 설정 확인 - frame: {imported_config.get('frame')}")
+                    print(f"주요 설정 확인 - photo: {imported_config.get('photo')}")
+                    
+                    QMessageBox.information(
+                        parent,
+                        "가져오기 완료",
+                        "설정이 성공적으로 가져와졌습니다.\n변경사항을 적용하려면 '저장' 버튼을 클릭하세요."
+                    )
+                    return imported_config
+                
+            except json.JSONDecodeError as e:
+                QMessageBox.critical(
+                    parent,
+                    "가져오기 실패",
+                    f"JSON 파일 형식이 올바르지 않습니다:\n{str(e)}"
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    parent,
+                    "가져오기 실패",
+                    f"설정 파일 읽기 중 오류가 발생했습니다:\n{str(e)}"
+                )
+        
+        return None
