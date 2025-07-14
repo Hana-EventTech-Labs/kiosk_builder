@@ -55,8 +55,8 @@ class FrameScreen(QWidget):
     def setupBackground(self):
         # 지원하는 배경 파일들 (우선순위 순)
         background_files = [
-            "background/5.mp4", "background/5.gif", "background/5.png", "background/5.jpg",
-            "background/complete_bg.mp4", "background/complete_bg.gif", "background/complete_bg.png", "background/complete_bg.jpg"
+            "background/6.mp4", "background/6.gif", "background/6.png", "background/6.jpg",
+            "background/frame_bg.mp4", "background/frame_bg.gif", "background/frame_bg.png", "background/frame_bg.jpg"
         ]
         
         background_file = None
@@ -155,7 +155,7 @@ class FrameScreen(QWidget):
         # 제목
         title_label = QLabel("프레임을 선택하세요")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 24px; font-weight: bold; margin: 20px;")
+        title_label.setStyleSheet(f"font-size: 24px; font-weight: bold; margin: 20px; font-family: '{config['photo_frame']['font'] or self.font_family}';")
         frame_layout.addWidget(title_label)
         
         # 스크롤 영역
@@ -224,12 +224,12 @@ class FrameScreen(QWidget):
         # 제목
         title_label = QLabel("미리보기")
         title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size: 32px; font-weight: bold; margin-bottom: 10px; color: #333;")
+        title_label.setStyleSheet(f"font-size: 32px; font-weight: bold; margin-bottom: 10px; color: #333; font-family: '{config['photo_frame']['font'] or self.font_family}';")
         preview_layout.addWidget(title_label)
         
         # 미리보기 이미지 라벨 - 더 크게 증가
         self.preview_label = QLabel()
-        self.preview_label.setFixedSize(800, 600)  # 600x450에서 800x600으로 더 크게 증가
+        self.preview_label.setFixedSize(config["photo_frame"]["width"], config["photo_frame"]["height"])  # 600x450에서 800x600으로 더 크게 증가
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setStyleSheet("""
             border: 3px solid #00FFC2; 

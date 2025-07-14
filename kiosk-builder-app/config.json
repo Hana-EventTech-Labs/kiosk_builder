@@ -9,10 +9,10 @@
         "height": 1080
     },
     "crop_area": {
-        "width": 300,
-        "height": 600,
-        "x": 810,
-        "y": 240
+        "width": 945,
+        "height": 1080,
+        "x": 487,
+        "y": 0
     },
     "camera_count": {
         "number": 3,
@@ -22,8 +22,6 @@
     "screen_order": [
         0,
         1,
-        2,
-        3,
         4,
         5,
         6
