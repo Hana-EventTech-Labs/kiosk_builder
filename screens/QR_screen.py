@@ -251,20 +251,14 @@ class QR_screen(QWidget):
                 self.reconnect_websocket()
     
     def reconnect_websocket(self):
-        """웹소켓 연결이 끊어진 경우 재연결 시도"""
-        if self.ws:
-            try:
-                self.ws.close()
-            except:
-                pass
-            self.ws = None
-        
-        print("웹소켓 재연결 시도")
-        self.start_kiosk_websocket()
+        """웹소켓 재연결 시도"""
+        print("웹소켓 재연결 시도 중...")
+        # 5초 후에 재연결 시도
+        QTimer.singleShot(5000, self.start_kiosk_websocket)
     
     def start_kiosk_websocket(self):
-        ws_url = f"{SERVER_URL.replace('https', 'wss')}/ws/kiosk/{self.event_id}"
-    
+        """키오스크의 웹소켓 클라이언트 시작"""
+        
         def on_message(ws, message):
             data = json.loads(message)
             print("[WebSocket] 수신:", data)
@@ -282,19 +276,33 @@ class QR_screen(QWidget):
             print("웹소켓 오류:", error)
     
         def on_close(ws, close_status_code, close_msg):
-            print("웹소켓 종료")
-    
+            print("웹소켓 연결 닫힘")
+            if self.ping_timer:
+                self.ping_timer.stop()  # 연결이 닫히면 타이머 중지
+            
+            # 여기서 재연결 로직 추가
+            self.reconnect_websocket()
+
+        # 웹소켓 연결 URL 생성
+        ws_url = f"{SERVER_URL.replace('https://', 'wss://')}/ws/kiosk/{self.event_id}"
+        
+        # 웹소켓 클라이언트 생성 및 실행 (별도 스레드)
         self.ws = websocket.WebSocketApp(
             ws_url,
-            on_message=on_message,
             on_open=on_open,
+            on_message=on_message,
             on_error=on_error,
             on_close=on_close
         )
         
-        # certifi의 인증서 번들을 사용하여 웹소켓 연결
-        threading.Thread(target=lambda: self.ws.run_forever(sslopt={"ca_certs": certifi.where()}), daemon=True).start()
-    
+        # SSL 컨텍스트 설정 (인증서 경로 추가)
+        sslopt = {"ca_certs": certifi.where()}
+        
+        # 별도 스레드에서 웹소켓 실행
+        ws_thread = threading.Thread(target=self.ws.run_forever, kwargs={"sslopt": sslopt})
+        ws_thread.daemon = True  # 데몬 스레드로 설정
+        ws_thread.start()
+
     def display_uploaded_image(self, image_url):
         try:
             print(f"[이미지 표시 시도] {image_url}")
