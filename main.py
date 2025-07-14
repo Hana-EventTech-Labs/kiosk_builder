@@ -34,6 +34,11 @@ class SingleApplication(QApplication):
             # 새로운 인스턴스인 경우, 서버 생성
             self.server = QLocalServer()
             self.server.listen(self.app_id)
+            self.aboutToQuit.connect(self.close_server)
+
+    def close_server(self):
+        if self.server:
+            self.server.close()
 
 class KioskApp(QMainWindow):
     def __init__(self):

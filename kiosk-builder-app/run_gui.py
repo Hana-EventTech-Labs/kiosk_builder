@@ -28,6 +28,11 @@ class SingleApplication(QApplication):
         else:
             self.server = QLocalServer()
             self.server.listen(self.app_id)
+            self.aboutToQuit.connect(self.close_server)
+
+    def close_server(self):
+        if self.server:
+            self.server.close()
 
 # 작업 디렉토리 설정
 if getattr(sys, 'frozen', False):
