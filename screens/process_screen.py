@@ -45,7 +45,7 @@ class ProcessScreen(QWidget):
     def setupBackground(self):
         # 지원하는 배경 파일들 (우선순위 순)
         background_files = [
-            "background/4.mp4", "background/4.gif", "background/4.png", "background/4.jpg",
+            "background/5.mp4", "background/5.gif", "background/5.png", "background/5.jpg",
             "background/process_bg.mp4", "background/process_bg.gif", "background/process_bg.png", "background/process_bg.jpg"
         ]
         

@@ -43,7 +43,7 @@ class CompleteScreen(QWidget):
     def setupBackground(self):
         # 지원하는 배경 파일들 (우선순위 순)
         background_files = [
-            "background/5.mp4", "background/5.gif", "background/5.png", "background/5.jpg",
+            "background/6.mp4", "background/6.gif", "background/6.png", "background/6.jpg",
             "background/complete_bg.mp4", "background/complete_bg.gif", "background/complete_bg.png", "background/complete_bg.jpg"
         ]
         

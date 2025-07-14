@@ -117,10 +117,10 @@ class FileHandler:
             normalized_file_path = os.path.normpath(file_path)
             normalized_resources_path = os.path.normpath(resources_background_path)
             
-            # 화면 번호별 이름으로 복사 (1:카메라, 2:키보드, 3:QR, 4:발급중, 5:발급완료)
+            # 화면 번호별 이름으로 복사 (1:카메라, 2:키보드, 3:QR, 4:프레임, 5:발급중, 6:발급완료)
             screen_index = screen_key
             if isinstance(screen_key, str) and screen_key in ["splash", "process", "complete"]:
-                screen_index = {"splash": "0", "process": "4", "complete": "5"}.get(screen_key, "0")
+                screen_index = {"splash": "0", "process": "5", "complete": "6"}.get(screen_key, "0")
             
             # 원본 파일 확장자 유지
             original_ext = os.path.splitext(file_path)[1].lower()

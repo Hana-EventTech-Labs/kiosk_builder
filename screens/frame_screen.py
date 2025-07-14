@@ -55,7 +55,7 @@ class FrameScreen(QWidget):
     def setupBackground(self):
         # 지원하는 배경 파일들 (우선순위 순)
         background_files = [
-            "background/6.mp4", "background/6.gif", "background/6.png", "background/6.jpg",
+            "background/4.mp4", "background/4.gif", "background/4.png", "background/4.jpg",
             "background/frame_bg.mp4", "background/frame_bg.gif", "background/frame_bg.png", "background/frame_bg.jpg"
         ]
         
