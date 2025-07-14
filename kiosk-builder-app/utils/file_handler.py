@@ -82,6 +82,24 @@ class FileHandler:
                 line_edit.setText(rel_path)
     
     @staticmethod
+    def _remove_existing_background_files(background_path, screen_index, exclude_ext=None):
+        """같은 이름의 기존 배경화면 파일들 삭제 (새로 추가된 파일 제외)"""
+        supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
+        
+        for ext in supported_extensions:
+            # 새로 추가된 파일의 확장자는 제외
+            if exclude_ext and ext.lower() == exclude_ext.lower():
+                continue
+                
+            existing_file = os.path.join(background_path, f"{screen_index}{ext}")
+            if os.path.exists(existing_file):
+                try:
+                    os.remove(existing_file)
+                    print(f"기존 파일 삭제: {existing_file}")
+                except Exception as e:
+                    print(f"기존 파일 삭제 실패: {existing_file}, 오류: {e}")
+
+    @staticmethod
     def browse_background_file(parent, line_edit, screen_key):
         """배경화면 파일 선택 다이얼로그 (이미지, 동영상, GIF 지원)"""
         file_path, _ = QFileDialog.getOpenFileName(
@@ -137,6 +155,9 @@ class FileHandler:
                         # 파일 복사
                         shutil.copy2(file_path, target_path)
                         
+                        # 복사 성공 후 기존 파일들 삭제 (새 파일 제외)
+                        FileHandler._remove_existing_background_files(resources_background_path, screen_index, original_ext)
+                        
                         # 복사 성공 메시지
                         QMessageBox.information(
                             parent,
@@ -168,6 +189,10 @@ class FileHandler:
                 if file_path != target_path:
                     try:
                         shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 후 기존 파일들 삭제 (새 파일 제외)
+                        FileHandler._remove_existing_background_files(resources_background_path, screen_index, original_ext)
+                        
                         QMessageBox.information(
                             parent,
                             "파일 복사 완료",
@@ -179,6 +204,9 @@ class FileHandler:
                             "파일 복사 실패",
                             f"배경화면 파일 복사 중 오류가 발생했습니다: {str(e)}"
                         )
+                else:
+                    # 같은 파일인 경우에도 기존 다른 확장자 파일들 삭제 (새 파일 제외)
+                    FileHandler._remove_existing_background_files(resources_background_path, screen_index, original_ext)
                 
                 # 원본 파일 이름을 표시 및 저장
                 line_edit.setText(display_name)
