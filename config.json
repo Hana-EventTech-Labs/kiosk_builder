@@ -140,6 +140,9 @@
         "font_size": 32,
         "font_color": "green",
         "x": 0,
-        "y": 0
+        "y": 0,
+        "width": 800,
+        "height": 600,
+        "font": ""
     }
 }
