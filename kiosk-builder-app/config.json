@@ -23,27 +23,26 @@
         0,
         1,
         4,
-        5,
-        6
+        5
     ],
     "frame": {
-        "x": 420,
-        "y": 180,
+        "x": 0,
+        "y": 0,
         "width": 1080,
         "height": 720
     },
     "photo": {
         "filename": "captured_image.jpg",
-        "x": 168,
-        "y": 356,
-        "width": 300,
-        "height": 300,
+        "x": 143,
+        "y": 314,
+        "width": 350,
+        "height": 400,
         "background": ""
     },
     "qr_uploaded_image": {
         "filename": "qr_uploaded_image.jpg",
         "x": 143,
-        "y": 306,
+        "y": 314,
         "width": 350,
         "height": 400
     },
@@ -67,21 +66,8 @@
         "margin_left": 0,
         "margin_right": 0,
         "spacing": 30,
-        "count": 1,
-        "items": [
-            {
-                "label": "",
-                "placeholder": "",
-                "x": 100,
-                "y": 100,
-                "width": 800,
-                "height": 80,
-                "font_size": 36,
-                "output_font": "",
-                "output_font_size": 16,
-                "output_font_color": "#000000"
-            }
-        ],
+        "count": 0,
+        "items": [],
         "background": ""
     },
     "keyboard": {
@@ -155,11 +141,11 @@
         "panel_id": 1
     },
     "photo_frame": {
-        "amount": 0,
         "font_size": 32,
-        "font_color": 0,
-        "x": 0,
-        "y": 0
+        "font_color": "green",
+        "width": 800,
+        "height": 600,
+        "font": ""
     },
     "card": {
         "orientation": "portrait"
