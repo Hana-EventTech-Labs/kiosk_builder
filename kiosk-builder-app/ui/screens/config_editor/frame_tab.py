@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QLineEdit, QPushButton)
 from .base_tab import BaseTab
 from ui.components.inputs import NumberLineEdit
+from ui.components.color_picker import ColorPickerButton
 from utils.file_handler import FileHandler
 
 class FrameTab(BaseTab):
@@ -37,24 +38,38 @@ class FrameTab(BaseTab):
         # 'photo_frame' 설정이 없으면 기본값으로 초기화
         if "photo_frame" not in self.config:
             self.config["photo_frame"] = {
-                "amount": 0,
                 "font_size": 32,
-                "font_color": "#000000",
-                "x": 0,
-                "y": 0,
+                "font_color": "green",
+                "width": 800,
+                "height": 600,
+                "font": "",
                 "background": ""
             }
         
-        # 필드 생성
-        for key, label in [("amount", "프레임 개수"), ("font_size", "글자 크기"), 
-                             ("font_color", "글자 색상"), ("x", "X 위치"), ("y", "Y 위치")]:
-            
+        # 폰트 선택 레이아웃 추가
+        font_layout = QHBoxLayout()
+        font_edit = QLineEdit(self.config["photo_frame"].get("font", ""))
+        font_layout.addWidget(font_edit, 1)
+        self.frame_fields["font"] = font_edit
+        
+        # 폰트 파일 선택 버튼 추가
+        font_browse_button = QPushButton("찾기...")
+        font_browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit))
+        font_layout.addWidget(font_browse_button)
+        
+        frame_layout.addRow("폰트:", font_layout)
+        
+        # 숫자 필드들
+        for key, label in [("font_size", "글자 크기"), ("width", "너비"), ("height", "높이")]:
             line_edit = NumberLineEdit()
-            # 'photo_frame'에서 값 가져오기
-            line_edit.setValue(self.config["photo_frame"].get(key, 0))
-            
+            line_edit.setValue(self.config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
             frame_layout.addRow(f"{label}:", line_edit)
             self.frame_fields[key] = line_edit
+        
+        # 색상 필드
+        font_color_button = ColorPickerButton(self.config["photo_frame"].get("font_color", "green"))
+        frame_layout.addRow("글자 색상:", font_color_button)
+        self.frame_fields["font_color"] = font_color_button
             
         content_layout.addWidget(frame_group)
         content_layout.addStretch()
@@ -66,9 +81,15 @@ class FrameTab(BaseTab):
         
         # 배경화면 저장
         config["photo_frame"]["background"] = self.frame_bg_edit.text()
-            
+        
+        # 다른 필드들 저장
         for key, widget in self.frame_fields.items():
-            config["photo_frame"][key] = widget.value()
+            if isinstance(widget, ColorPickerButton):
+                config["photo_frame"][key] = widget.color
+            elif isinstance(widget, NumberLineEdit):
+                config["photo_frame"][key] = widget.value()
+            else:  # QLineEdit (font)
+                config["photo_frame"][key] = widget.text()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -79,4 +100,9 @@ class FrameTab(BaseTab):
         
         if "photo_frame" in config:
             for key, widget in self.frame_fields.items():
-                widget.setValue(config["photo_frame"].get(key, 0)) 
+                if isinstance(widget, ColorPickerButton):
+                    widget.update_color(config["photo_frame"].get(key, "green"))
+                elif isinstance(widget, NumberLineEdit):
+                    widget.setValue(config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
+                else:  # QLineEdit (font)
+                    widget.setText(config["photo_frame"].get(key, "")) 

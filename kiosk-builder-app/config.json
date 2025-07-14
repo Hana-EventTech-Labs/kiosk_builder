@@ -66,8 +66,21 @@
         "margin_left": 0,
         "margin_right": 0,
         "spacing": 30,
-        "count": 0,
-        "items": [],
+        "count": 1,
+        "items": [
+            {
+                "label": "",
+                "placeholder": "",
+                "x": 100,
+                "y": 100,
+                "width": 800,
+                "height": 80,
+                "font_size": 36,
+                "output_font": "",
+                "output_font_size": 16,
+                "output_font_color": "#000000"
+            }
+        ],
         "background": ""
     },
     "keyboard": {
@@ -145,7 +158,8 @@
         "font_color": "green",
         "width": 800,
         "height": 600,
-        "font": ""
+        "font": "",
+        "background": "logo"
     },
     "card": {
         "orientation": "portrait"
