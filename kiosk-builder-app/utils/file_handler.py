@@ -288,6 +288,82 @@ class FileHandler:
                 line_edit.setText(file_name)
 
     @staticmethod
+    def browse_frame_file(parent, line_edit):
+        """프레임 파일 선택 다이얼로그"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            parent, 
+            "프레임 파일 선택", 
+            "resources/frames", 
+            "이미지 파일 (*.png *.jpg *.jpeg *.bmp *.gif)"
+        )
+        
+        if file_path:
+            # resources/frames 폴더 경로 확인
+            resources_frames_path = os.path.abspath("resources/frames")
+            
+            # 파일 경로 정규화하여 비교
+            normalized_file_path = os.path.normpath(file_path)
+            normalized_resources_path = os.path.normpath(resources_frames_path)
+            
+            # 파일이 리소스 폴더 외부에 있는 경우에만 복사 여부 확인
+            if not normalized_file_path.startswith(normalized_resources_path):
+                file_name = os.path.basename(file_path)
+                target_path = os.path.join(resources_frames_path, file_name)
+                
+                # 경로 구분자를 백슬래시(\)로 통일
+                display_file_path = normalized_file_path.replace("/", "\\")
+                display_target_path = os.path.normpath(target_path).replace("/", "\\")
+                
+                # 파일 복사 여부 확인
+                reply = QMessageBox.question(
+                    parent, 
+                    "프레임 파일 복사", 
+                    f"선택한 프레임 파일을 resources/frames 폴더로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    try:
+                        # 대상 폴더가 없으면 생성
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                        
+                        # 파일 복사
+                        shutil.copy2(file_path, target_path)
+                        
+                        # 복사 성공 메시지
+                        QMessageBox.information(
+                            parent,
+                            "파일 복사 완료",
+                            f"프레임 파일이 resources/frames 폴더로 복사되었습니다."
+                        )
+                        
+                        # 파일명만 설정
+                        line_edit.setText(file_name)
+                    except Exception as e:
+                        # 복사 실패 시 오류 메시지
+                        QMessageBox.critical(
+                            parent,
+                            "파일 복사 실패",
+                            f"프레임 파일 복사 중 오류가 발생했습니다: {str(e)}"
+                        )
+                        # 전체 경로 설정
+                        line_edit.setText(file_path)
+                else:
+                    # 복사하지 않는 경우 파일명만 설정
+                    line_edit.setText(file_name)
+                    # 사용자에게 수동 복사 안내
+                    QMessageBox.warning(
+                        parent, 
+                        "파일 경로", 
+                        f"파일명만 설정되었습니다. 실제 사용을 위해서는 해당 프레임 파일을 resources/frames 폴더로 수동으로 복사해야 합니다."
+                    )
+            else:
+                # 이미 리소스 폴더 내부에 있는 경우 파일명만 사용
+                file_name = os.path.basename(file_path)
+                line_edit.setText(file_name)
+
+    @staticmethod
     def export_config_to_json(parent, config):
         """설정을 JSON 파일로 내보내기"""
         # 기본 파일명 생성 (현재 날짜 및 시간 포함)

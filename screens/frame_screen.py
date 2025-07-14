@@ -175,7 +175,27 @@ class FrameScreen(QWidget):
     
     def loadFrameImages(self, grid_layout):
         """프레임 이미지들을 그리드로 로드"""
-        frame_files = glob.glob("resources/frames/*.png")
+        # config에서 frame_files 설정 확인
+        frame_files_config = config.get("photo_frame", {}).get("frame_files", [])
+        
+        if frame_files_config:
+            # config에 설정된 프레임 파일들 사용
+            frame_files = []
+            for frame_file in frame_files_config:
+                # 파일명만 있는 경우 resources/frames/ 경로 추가
+                if not frame_file.startswith("resources/"):
+                    frame_path = f"resources/frames/{frame_file}"
+                else:
+                    frame_path = frame_file
+                
+                # 파일이 실제로 존재하는지 확인
+                if os.path.exists(frame_path):
+                    frame_files.append(frame_path)
+                else:
+                    print(f"프레임 파일을 찾을 수 없습니다: {frame_path}")
+        else:
+            # config에 설정이 없으면 기존 방식으로 폴백
+            frame_files = glob.glob("resources/frames/*.png")
         
         row, col = 0, 0
         for frame_path in frame_files:
@@ -344,8 +364,27 @@ class FrameScreen(QWidget):
             return
 
         try:
-            # 사용 가능한 첫 번째 프레임의 크기를 가져옴
-            frame_files = glob.glob("resources/frames/*.png")
+            # config에서 frame_files 설정 확인
+            frame_files_config = config.get("photo_frame", {}).get("frame_files", [])
+            
+            if frame_files_config:
+                # config에 설정된 프레임 파일들 사용
+                frame_files = []
+                for frame_file in frame_files_config:
+                    # 파일명만 있는 경우 resources/frames/ 경로 추가
+                    if not frame_file.startswith("resources/"):
+                        frame_path = f"resources/frames/{frame_file}"
+                    else:
+                        frame_path = frame_file
+                    
+                    # 파일이 실제로 존재하는지 확인
+                    if os.path.exists(frame_path):
+                        frame_files.append(frame_path)
+                        break  # 첫 번째 유효한 프레임만 필요
+            else:
+                # config에 설정이 없으면 기존 방식으로 폴백
+                frame_files = glob.glob("resources/frames/*.png")
+            
             if not frame_files:
                 # 프레임이 없으면 원본 사진을 그대로 표시
                 pixmap = QPixmap(self.captured_photo_path)

@@ -112,6 +112,7 @@ class DistributionHandler:
         os.makedirs(os.path.join(self.target_dir, "bin"), exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin", "resources", "background"), exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin", "resources", "font"), exist_ok=True)
+        os.makedirs(os.path.join(self.target_dir, "bin", "resources", "frames"), exist_ok=True)
 
     def _copy_config_files(self):
         """설정 파일 복사"""
@@ -174,6 +175,7 @@ class DistributionHandler:
         resources_path = os.path.join(base_path, "resources")
         font_path = os.path.join(resources_path, "font")
         background_path = os.path.join(resources_path, "background")
+        frames_path = os.path.join(resources_path, "frames")
         
         created_dirs = []
         
@@ -186,6 +188,11 @@ class DistributionHandler:
             os.makedirs(background_path, exist_ok=True)
             created_dirs.append("resources/background")
             print(f"resources/background 폴더를 생성했습니다: {background_path}")
+        
+        if not os.path.exists(frames_path):
+            os.makedirs(frames_path, exist_ok=True)
+            created_dirs.append("resources/frames")
+            print(f"resources/frames 폴더를 생성했습니다: {frames_path}")
         
         return created_dirs
 
