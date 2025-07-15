@@ -103,79 +103,87 @@ class KioskApp(QMainWindow):
         if event.key() == Qt.Key.Key_Escape:
             self.close()
     
+    def cleanup_resources(self):
+        """모든 리소스 정리"""
+        print("프로그램 종료 중... 리소스를 정리합니다.")
+        
+        # 1. 모든 화면의 리소스 해제
+        screens = [
+            'splash_screen', 'photo_screen', 'text_input_screen', 
+            'process_screen', 'complete_screen', 'qr_screen', 'frame_screen'
+        ]
+        
+        for screen_name in screens:
+            if hasattr(self, screen_name):
+                screen = getattr(self, screen_name)
+                if hasattr(screen, 'cleanup'):
+                    screen.cleanup()
+        
+        # 2. 카메라 자원 해제
+        if hasattr(self, 'photo_screen'):
+            if hasattr(self.photo_screen, 'webcam') and self.photo_screen.webcam:
+                if hasattr(self.photo_screen.webcam, 'camera') and self.photo_screen.webcam.camera:
+                    print("카메라 리소스 해제 중...")
+                    release_camera(self.photo_screen.webcam.camera)
+                    self.photo_screen.webcam.camera = None
+                
+                # 웹캠 객체 정리
+                if hasattr(self.photo_screen.webcam, 'timer'):
+                    self.photo_screen.webcam.timer.stop()
+                self.photo_screen.webcam = None
+
+        # 3. QStackedWidget의 모든 위젯 제거
+        if hasattr(self, 'stack'):
+            while self.stack.count() > 0:
+                widget = self.stack.widget(0)
+                self.stack.removeWidget(widget)
+                if widget:
+                    widget.deleteLater()
+
+        # 4. 임시 파일 삭제
+        temp_files = [
+            "resources/captured_image.jpg",
+            "resources/qr_uploaded_image.jpg", 
+            "resources/input_texts.json",
+            "resources/framed_photo.jpg"
+        ]
+        
+        for file_path in temp_files:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    print(f"임시 파일 삭제: {file_path}")
+            except Exception as e:
+                print(f"파일 삭제 실패 {file_path}: {e}")
+
+        # 5. Qt 이벤트 루프 정리
+        QCoreApplication.processEvents()
+        
+        # 6. 강제로 가비지 컬렉션 실행
+        import gc
+        gc.collect()
+        
+        print("리소스 정리 완료")
+
     def closeApplication(self):
-        """앱 종료 동작"""
-        QCoreApplication.instance().quit()  # 전체 애플리케이션 종료
+        """앱 종료 동작 - 리소스 정리 포함"""
+        try:
+            self.cleanup_resources()
+        except Exception as e:
+            print(f"리소스 해제 중 오류: {e}")
+        finally:
+            # 애플리케이션 종료
+            QCoreApplication.instance().quit()
 
     def closeEvent(self, event):
         """위젯이 닫힐 때 호출되는 이벤트 핸들러 - 개선된 버전"""
         try:
-            print("프로그램 종료 중... 리소스를 정리합니다.")
-            
-            # 1. 모든 화면의 리소스 해제
-            screens = [
-                'splash_screen', 'photo_screen', 'text_input_screen', 
-                'process_screen', 'complete_screen', 'qr_screen', 'frame_screen'
-            ]
-            
-            for screen_name in screens:
-                if hasattr(self, screen_name):
-                    screen = getattr(self, screen_name)
-                    if hasattr(screen, 'cleanup'):
-                        screen.cleanup()
-            
-            # 2. 카메라 자원 해제 (기존 코드 개선)
-            if hasattr(self, 'photo_screen'):
-                if hasattr(self.photo_screen, 'webcam') and self.photo_screen.webcam:
-                    if hasattr(self.photo_screen.webcam, 'camera') and self.photo_screen.webcam.camera:
-                        print("카메라 리소스 해제 중...")
-                        release_camera(self.photo_screen.webcam.camera)
-                        self.photo_screen.webcam.camera = None
-                    
-                    # 웹캠 객체 정리
-                    if hasattr(self.photo_screen.webcam, 'timer'):
-                        self.photo_screen.webcam.timer.stop()
-                    self.photo_screen.webcam = None
-
-            # 3. QStackedWidget의 모든 위젯 제거
-            if hasattr(self, 'stack'):
-                while self.stack.count() > 0:
-                    widget = self.stack.widget(0)
-                    self.stack.removeWidget(widget)
-                    if widget:
-                        widget.deleteLater()
-
-            # 4. 임시 이미지 파일 삭제 (기존 코드)
-            temp_files = [
-                "resources/captured_image.jpg",
-                "resources/qr_uploaded_image.jpg", 
-                "resources/input_texts.json",
-                "resources/framed_photo.jpg"
-            ]
-            
-            for file_path in temp_files:
-                try:
-                    if os.path.exists(file_path):
-                        os.remove(file_path)
-                        print(f"임시 파일 삭제: {file_path}")
-                except Exception as e:
-                    print(f"파일 삭제 실패 {file_path}: {e}")
-
-            # 5. Qt 이벤트 루프 정리
-            QCoreApplication.processEvents()
-            
-            # 6. 강제로 가비지 컬렉션 실행
-            import gc
-            gc.collect()
-            
-            print("리소스 정리 완료")
-
+            self.cleanup_resources()
         except Exception as e:
             print(f"리소스 해제 중 오류: {e}")
-        
         finally:
-            # 7. 애플리케이션 종료
-            self.closeApplication()
+            # 애플리케이션 종료
+            QCoreApplication.instance().quit()
             event.accept()
 
 if __name__ == "__main__":
