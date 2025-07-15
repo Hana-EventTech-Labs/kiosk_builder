@@ -730,7 +730,7 @@ class KeyboardTab(BaseTab):
                     "y": 100 + i * 100,
                     "font_size": 36,
                     "screen_width": 1000,
-                    "screen_height": 60,
+                    "screen_height": 70,
                     "screen_x": 400,
                     "screen_y": 200 + i * 100
                 }
