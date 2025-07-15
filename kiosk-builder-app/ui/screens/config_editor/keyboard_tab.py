@@ -16,6 +16,8 @@ class KeyboardTab(BaseTab):
         self.text_input_preview_container = None
         self.fixed_text_preview_labels = []  # 고정 텍스트 미리보기 라벨들
         self.fixed_text_preview_container = None
+        self.screen_input_preview_labels = []  # 화면 입력 설정 미리보기 라벨들
+        self.screen_input_preview_container = None
         self.tab_manager = None  # tab_manager 참조 추가
         self.init_ui()
         
@@ -100,7 +102,14 @@ class KeyboardTab(BaseTab):
         self.fixed_text_preview_layout.setContentsMargins(0, 0, 0, 0)
         self.fixed_text_preview_layout.setSpacing(10)
 
+        # 화면 입력 설정 미리보기 컨테이너
+        self.screen_input_preview_container = QWidget()
+        self.screen_input_preview_layout = QVBoxLayout(self.screen_input_preview_container)
+        self.screen_input_preview_layout.setContentsMargins(0, 0, 0, 0)
+        self.screen_input_preview_layout.setSpacing(10)
+
         right_layout.addWidget(keyboard_preview_group)
+        right_layout.addWidget(self.screen_input_preview_container)
         right_layout.addWidget(self.text_input_preview_container)
         right_layout.addWidget(self.fixed_text_preview_container)
         right_layout.addStretch()
@@ -193,6 +202,7 @@ class KeyboardTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_keyboard_preview()
         self._update_text_input_previews()
+        self._update_screen_input_previews()
 
     def _on_keyboard_position_changed(self, x, y):
         """드래그로 키보드 위치 변경 시 호출되는 슬롯"""
@@ -234,6 +244,21 @@ class KeyboardTab(BaseTab):
             
             fields['x'].blockSignals(False)
             fields['y'].blockSignals(False)
+            
+            self.request_real_time_update()
+
+    def _on_screen_input_position_changed(self, index, x, y):
+        """화면 입력 설정 위치 변경 시 호출"""
+        if index < len(self.text_input_item_fields):
+            fields = self.text_input_item_fields[index]
+            fields['screen_x'].blockSignals(True)
+            fields['screen_y'].blockSignals(True)
+            
+            fields['screen_x'].setValue(x)
+            fields['screen_y'].setValue(y)
+            
+            fields['screen_x'].blockSignals(False)
+            fields['screen_y'].blockSignals(False)
             
             self.request_real_time_update()
 
@@ -344,6 +369,48 @@ class KeyboardTab(BaseTab):
 
         fields['x'].setValue(int(center_x))
         fields['y'].setValue(int(center_y))
+
+        self.request_real_time_update()
+
+    def _fill_screen_input_frame(self, index):
+        """화면 입력을 모니터 크기에 맞게 채웁니다."""
+        if index >= len(self.text_input_item_fields):
+            return
+            
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        fields = self.text_input_item_fields[index]
+        fields['screen_width'].setValue(monitor_width)
+        fields['screen_height'].setValue(monitor_height)
+        fields['screen_x'].setValue(0)
+        fields['screen_y'].setValue(0)
+
+        self.request_real_time_update()
+
+    def _center_screen_input_frame(self, index):
+        """화면 입력을 모니터의 중앙에 정렬합니다."""
+        if index >= len(self.text_input_item_fields):
+            return
+            
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        fields = self.text_input_item_fields[index]
+        input_width = fields['screen_width'].value()
+        input_height = fields['screen_height'].value()
+
+        center_x = (monitor_width - input_width) / 2
+        center_y = (monitor_height - input_height) / 2
+
+        fields['screen_x'].setValue(int(center_x))
+        fields['screen_y'].setValue(int(center_y))
 
         self.request_real_time_update()
 
@@ -462,6 +529,93 @@ class KeyboardTab(BaseTab):
         
         preview_label.set_pen(pen)
         preview_label.update_preview(card_pixmap, input_rect)
+
+        self.request_real_time_update()
+
+    def _update_screen_input_previews(self):
+        """화면 입력 설정 미리보기들 업데이트"""
+        # 기존 미리보기 제거
+        for i in reversed(range(self.screen_input_preview_layout.count())):
+            item = self.screen_input_preview_layout.itemAt(i)
+            if item.widget():
+                item.widget().deleteLater()
+        
+        self.screen_input_preview_labels = []
+        
+        # 각 화면 입력 필드에 대해 미리보기 생성
+        for i, fields in enumerate(self.text_input_item_fields):
+            self._create_screen_input_preview(i, fields)
+        
+        # 동적 시그널 재연결
+        if self.tab_manager:
+            self.tab_manager.reconnect_dynamic_signals()
+
+    def _create_screen_input_preview(self, index, fields):
+        """개별 화면 입력 미리보기 생성"""
+        # 미리보기 그룹 생성
+        preview_group = QGroupBox(f"화면 입력 {index+1} 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        
+        # 미리보기 라벨 생성
+        preview_label = DraggablePreviewLabel()
+        preview_label.position_changed.connect(lambda x, y, idx=index: self._on_screen_input_position_changed(idx, x, y))
+        preview_label.setFixedSize(300, 300)
+        preview_label.setAlignment(Qt.AlignCenter)
+        preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #f0f0f0;")
+        
+        preview_layout.addWidget(preview_label, 0, Qt.AlignHCenter)
+        
+        # 버튼 레이아웃
+        button_layout = QHBoxLayout()
+        fill_button = QPushButton("채우기")
+        fill_button.clicked.connect(lambda checked, idx=index: self._fill_screen_input_frame(idx))
+        center_button = QPushButton("가운데 정렬")
+        center_button.clicked.connect(lambda checked, idx=index: self._center_screen_input_frame(idx))
+        button_layout.addWidget(fill_button)
+        button_layout.addWidget(center_button)
+        preview_layout.addLayout(button_layout)
+        
+        # 컨테이너에 추가
+        self.screen_input_preview_layout.addWidget(preview_group)
+        self.screen_input_preview_labels.append(preview_label)
+        
+        # 초기 미리보기 업데이트
+        self._update_single_screen_input_preview(index, fields)
+
+    def _update_single_screen_input_preview(self, index, fields):
+        """개별 화면 입력 미리보기 업데이트"""
+        if index >= len(self.screen_input_preview_labels):
+            return
+            
+        preview_label = self.screen_input_preview_labels[index]
+        
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+        
+        monitor_pixmap = QPixmap(monitor_width, monitor_height)
+        monitor_pixmap.fill(Qt.black)
+        
+        try:
+            width = fields["screen_width"].value()
+            height = fields["screen_height"].value()
+            x = fields["screen_x"].value()
+            y = fields["screen_y"].value()
+            input_rect = QRect(x, y, width, height)
+        except (AttributeError, KeyError):
+            input_rect = QRect()
+            
+        # 사각형 그리기
+        colors = [QColor("lime"), QColor("pink"), QColor("lightblue"), QColor("gold"), QColor("lightgreen")]
+        color = colors[index % len(colors)]
+        pen = QPen(color, 2, Qt.SolidLine)
+        
+        preview_label.set_pen(pen)
+        preview_label.update_preview(monitor_pixmap, input_rect)
 
         self.request_real_time_update()
 
@@ -611,6 +765,7 @@ class KeyboardTab(BaseTab):
                     # 시그널 연결은 나중에 필요할 때만
                     try:
                         line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
+                        line_edit.textChanged.connect(lambda text, idx=i: self._update_single_screen_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
                     except:
                         pass  # 시그널 연결 실패시 무시
                     label_text = "화면 너비" if key == "screen_width" else "화면 높이" if key == "screen_height" else "화면 X 위치" if key == "screen_x" else "화면 Y 위치"
@@ -674,6 +829,7 @@ class KeyboardTab(BaseTab):
             # 미리보기 업데이트
             try:
                 self._update_text_input_previews()
+                self._update_screen_input_previews()
             except:
                 pass  # 미리보기 업데이트 실패시 무시
                 
@@ -841,6 +997,7 @@ class KeyboardTab(BaseTab):
             # 미리보기 업데이트
             self._update_keyboard_preview()
             self._update_text_input_previews()
+            self._update_screen_input_previews()
             print("keyboard_tab: 미리보기 업데이트 완료")
             
             print("keyboard_tab: update_ui 완료")
