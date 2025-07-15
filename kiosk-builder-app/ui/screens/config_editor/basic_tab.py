@@ -331,10 +331,12 @@ class BasicTab(BaseTab):
             self.update_card_preview()
             
             # 새로 생성된 라벨의 동적 신호 재연결
-            if self.tab_manager:
+            if hasattr(self, 'tab_manager') and self.tab_manager:
                 self.tab_manager.reconnect_dynamic_signals()
         
-        self.request_real_time_update()
+        # tab_manager가 설정된 경우에만 실시간 업데이트 요청
+        if hasattr(self, 'tab_manager') and self.tab_manager:
+            self.request_real_time_update()
 
     def create_image_settings_ui(self, item_data):
         main_container = QWidget()
