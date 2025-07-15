@@ -16,6 +16,7 @@ class BasicTab(BaseTab):
 
     def __init__(self, config):
         super().__init__(config)
+        self.tab_manager = None  # TabManager 참조 추가
         self.screen_order_checkboxes = []
         self.crop_preview_label = None
         self.card_portrait_radio = None
