@@ -435,3 +435,40 @@ class FrameScreen(QWidget):
         else:
             # 프레임 선택 안내
             QMessageBox.warning(self, "알림", "프레임을 선택해주세요!")
+
+    def cleanup(self):
+        """프레임 화면 리소스 정리"""
+        try:
+            print("FrameScreen 리소스 정리 중...")
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 배경 위젯 정리
+            if hasattr(self, 'background_widget') and self.background_widget:
+                self.background_widget.deleteLater()
+                self.background_widget = None
+            
+            # 프레임 버튼들 정리
+            if hasattr(self, 'frame_buttons') and self.frame_buttons:
+                for button in self.frame_buttons:
+                    if button:
+                        button.deleteLater()
+                self.frame_buttons = []
+            
+            # 선택된 프레임 관련 정리
+            if hasattr(self, 'selected_frame_index'):
+                self.selected_frame_index = None
+            
+            print("FrameScreen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"FrameScreen cleanup 오류: {e}")

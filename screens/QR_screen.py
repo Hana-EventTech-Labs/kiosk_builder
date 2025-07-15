@@ -553,3 +553,35 @@ class QR_screen(QWidget):
             print("웹소켓 닫힘 - 화면 숨김")
         
         super().hideEvent(event)
+
+    def cleanup(self):
+        """QR 화면 리소스 정리"""
+        try:
+            print("QR_screen 리소스 정리 중...")
+            
+            # 웹소켓 정리
+            if hasattr(self, 'ws') and self.ws:
+                self.ws.close()
+                self.ws = None
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 타이머 정리
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+                self.timer.deleteLater()
+                self.timer = None
+            
+            print("QR_screen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"QR_screen cleanup 오류: {e}")

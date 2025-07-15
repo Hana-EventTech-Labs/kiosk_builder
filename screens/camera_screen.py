@@ -151,3 +151,34 @@ class CameraScreen(QWidget):
             }
         """)
         self.close_button.clicked.connect(self.main_window.closeApplication)
+
+    def cleanup(self):
+        """카메라 화면 리소스 정리"""
+        try:
+            print("CameraScreen 리소스 정리 중...")
+            
+            # 웹캠 정리
+            if hasattr(self, 'webcam') and self.webcam:
+                if hasattr(self.webcam, 'timer') and self.webcam.timer:
+                    self.webcam.timer.stop()
+                if hasattr(self.webcam, 'camera') and self.webcam.camera:
+                    self.webcam.camera.release()
+                    self.webcam.camera = None
+                self.webcam.deleteLater()
+                self.webcam = None
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 배경 위젯 정리
+            if hasattr(self, 'background_widget') and self.background_widget:
+                self.background_widget.deleteLater()
+                self.background_widget = None
+            
+            print("CameraScreen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"CameraScreen cleanup 오류: {e}")

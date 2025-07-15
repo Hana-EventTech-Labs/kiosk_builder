@@ -236,3 +236,42 @@ class TextInputScreen(QWidget):
         # When screen is hidden, hide the keyboard
         if self.keyboard:
             self.keyboard.hide()
+
+    def cleanup(self):
+        """텍스트 입력 화면 리소스 정리"""
+        try:
+            print("TextInputScreen 리소스 정리 중...")
+            
+            # 키보드 정리
+            if hasattr(self, 'keyboard') and self.keyboard:
+                self.keyboard.hide()
+                self.keyboard.deleteLater()
+                self.keyboard = None
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 배경 위젯 정리
+            if hasattr(self, 'background_widget') and self.background_widget:
+                self.background_widget.deleteLater()
+                self.background_widget = None
+            
+            # 텍스트 입력 필드들 정리
+            if hasattr(self, 'text_inputs') and self.text_inputs:
+                for input_field in self.text_inputs:
+                    if input_field:
+                        input_field.deleteLater()
+                self.text_inputs = []
+            
+            print("TextInputScreen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"TextInputScreen cleanup 오류: {e}")

@@ -176,3 +176,42 @@ class ProcessScreen(QWidget):
         
     # def mousePressEvent(self, event):
     #     self.stack.setCurrentIndex(4)
+
+    def cleanup(self):
+        """프로세스 화면 리소스 정리"""
+        try:
+            print("ProcessScreen 리소스 정리 중...")
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 배경 위젯 정리
+            if hasattr(self, 'background_widget') and self.background_widget:
+                self.background_widget.deleteLater()
+                self.background_widget = None
+            
+            # 타이머 정리
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+                self.timer.deleteLater()
+                self.timer = None
+            
+            # 프린터 관련 리소스 정리
+            if hasattr(self, 'printer_thread') and self.printer_thread:
+                if self.printer_thread.isRunning():
+                    self.printer_thread.terminate()
+                    self.printer_thread.wait(3000)  # 3초 대기
+                self.printer_thread = None
+            
+            print("ProcessScreen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"ProcessScreen cleanup 오류: {e}")
