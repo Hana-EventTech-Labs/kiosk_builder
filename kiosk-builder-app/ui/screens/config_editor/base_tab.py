@@ -31,7 +31,7 @@ class BaseTab(QWidget):
         content_layout.setSpacing(15)
         
         # 단위 안내 레이블 추가
-        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다. ( 전체 사이즈 인쇄 : 635x1027 )")
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다. ( 전체 사이즈 인쇄 : 635x1012 )")
         unit_label.setStyleSheet(f"color: {COLORS['text_muted']}; font-style: italic;")
         content_layout.addWidget(unit_label)
         
