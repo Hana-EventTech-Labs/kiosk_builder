@@ -366,6 +366,20 @@ class CaptureTab(BaseTab):
         for key, widget in self.photo_fields.items():
             config["photo"][key] = widget.value()
         
+        # framed_photo에도 동일한 x, y, width, height 값 저장
+        if "framed_photo" not in config:
+            config["framed_photo"] = {}
+        
+        # photo의 x, y, width, height 값을 framed_photo에 복사
+        config["framed_photo"]["x"] = config["photo"]["x"]
+        config["framed_photo"]["y"] = config["photo"]["y"]
+        config["framed_photo"]["width"] = config["photo"]["width"]
+        config["framed_photo"]["height"] = config["photo"]["height"]
+        
+        # framed_photo의 filename이 없으면 기본값 설정
+        if "filename" not in config["framed_photo"]:
+            config["framed_photo"]["filename"] = "framed_photo.jpg"
+        
         # 카메라 카운트 설정 저장
         config["camera_count"]["number"] = self.camera_count_fields["number"].value()
         config["camera_count"]["font_size"] = self.camera_count_fields["font_size"].value()
