@@ -570,11 +570,15 @@ class KeyboardTab(BaseTab):
                 item_data = {
                     "label": "",
                     "placeholder": "",
-                    "width": 800,
+                    "width": 300,
                     "height": 80,
-                    "x": 100,
+                    "x": 168,
                     "y": 100 + i * 100,
-                    "font_size": 36
+                    "font_size": 36,
+                    "screen_width": 1000,
+                    "screen_height": 60,
+                    "screen_x": 400,
+                    "screen_y": 200 + i * 100
                 }
                 
                 # 기존 데이터가 있으면 사용
@@ -598,7 +602,23 @@ class KeyboardTab(BaseTab):
                 item_layout.addRow("입력 예시:", placeholder_edit)
                 item_fields["placeholder"] = placeholder_edit
                 
-                # 위치 및 크기
+                # 화면용 위치 및 크기
+                item_layout.addRow("--- 화면용 설정 ---", QLabel())
+                for key in ["screen_width", "screen_height", "screen_x", "screen_y"]:
+                    # QSpinBox 대신 NumberLineEdit 사용
+                    line_edit = NumberLineEdit()
+                    line_edit.setValue(item_data.get(key, 0))
+                    # 시그널 연결은 나중에 필요할 때만
+                    try:
+                        line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
+                    except:
+                        pass  # 시그널 연결 실패시 무시
+                    label_text = "화면 너비" if key == "screen_width" else "화면 높이" if key == "screen_height" else "화면 X 위치" if key == "screen_x" else "화면 Y 위치"
+                    item_layout.addRow(f"{label_text}:", line_edit)
+                    item_fields[key] = line_edit
+
+                # 인쇄용 위치 및 크기
+                item_layout.addRow("--- 인쇄용 설정 ---", QLabel())
                 for key in ["width", "height", "x", "y"]:
                     # QSpinBox 대신 NumberLineEdit 사용
                     line_edit = NumberLineEdit()
@@ -608,7 +628,7 @@ class KeyboardTab(BaseTab):
                         line_edit.textChanged.connect(lambda text, idx=i: self._update_single_text_input_preview(idx, self.text_input_item_fields[idx]) if idx < len(self.text_input_item_fields) else None)
                     except:
                         pass  # 시그널 연결 실패시 무시
-                    label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
+                    label_text = "인쇄 너비" if key == "width" else "인쇄 높이" if key == "height" else "인쇄 X 위치" if key == "x" else "인쇄 Y 위치"
                     item_layout.addRow(f"{label_text}:", line_edit)
                     item_fields[key] = line_edit
                 
@@ -865,7 +885,11 @@ class KeyboardTab(BaseTab):
                 "font_size": fields["font_size"].value(),
                 "output_font": fields["output_font"].text(),
                 "output_font_size": fields["output_font_size"].value(),
-                "output_font_color": fields["output_font_color"].color
+                "output_font_color": fields["output_font_color"].color,
+                "screen_x": fields["screen_x"].value(),
+                "screen_y": fields["screen_y"].value(),
+                "screen_width": fields["screen_width"].value(),
+                "screen_height": fields["screen_height"].value()
             }
             config["text_input"]["items"].append(item)
         
