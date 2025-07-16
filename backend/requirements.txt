@@ -11,7 +11,7 @@ mysql-connector-python==8.1.0
 
 # Common packages
 python-dotenv==1.0.0
-pydantic==1.10.7
+pydantic==1.10.14
 
 # Testing packages 
 pytest==7.4.0
