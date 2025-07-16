@@ -1,7 +1,6 @@
 # Server packages
-fastapi==0.103.1
-uvicorn==0.23.2
-websockets==11.0.3
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 aiofiles==23.1.0
 Pillow>=10.0.0
@@ -11,4 +10,4 @@ pymysql==1.1.0
 
 # Common packages
 python-dotenv==1.0.0
-pydantic==1.10.7
+pydantic==2.4.2
