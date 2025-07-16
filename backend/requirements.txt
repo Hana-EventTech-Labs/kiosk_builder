@@ -4,14 +4,13 @@ uvicorn==0.23.2
 websockets==11.0.3
 python-multipart==0.0.6
 aiofiles==23.1.0
-Pillow==10.0.1
+Pillow>=10.0.0
 
 # DB packages
 mysql-connector-python==8.1.0
 
 # Common packages
 python-dotenv==1.0.0
-uuid==1.30
 pydantic==1.10.7
 
 # Testing packages 
