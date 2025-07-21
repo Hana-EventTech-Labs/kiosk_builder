@@ -1035,3 +1035,9 @@ async def get_print_stats(event_number: int, kiosk_id: str = None):
         print(f"[PRINT STATS ERROR] {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="서버 내부 오류")
+
+@app.get("/healthz")
+async def health_check():
+    return {"status": "ok"}
+
+
