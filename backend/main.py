@@ -42,7 +42,7 @@ app = FastAPI(title="QR Code Image Server")
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "ok"}
     
