@@ -42,6 +42,10 @@ app = FastAPI(title="QR Code Image Server")
 from pillow_heif import register_heif_opener
 register_heif_opener()
 
+@app.get("/healthz")
+async def health_check():
+    return {"status": "ok"}
+    
 # 이미지 접근을 위한 StaticFiles 마운트
 from fastapi.staticfiles import StaticFiles
 app.mount("/images", StaticFiles(directory="uploads"), name="images")
@@ -1036,8 +1040,5 @@ async def get_print_stats(event_number: int, kiosk_id: str = None):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="서버 내부 오류")
 
-@app.get("/healthz")
-async def health_check():
-    return {"status": "ok"}
 
 
