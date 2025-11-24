@@ -192,6 +192,7 @@ class VirtualKeyboard(QWidget):
         self.is_hangul = not self.is_hangul
         self.hangul_composer.reset()
         self.update_keyboard_labels()
+        self.bumper = True
 
     def toggle_shift(self):
         self.is_uppercase = not self.is_uppercase

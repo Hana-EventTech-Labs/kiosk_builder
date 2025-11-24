@@ -12,6 +12,7 @@ from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
 from screens.QR_screen import QR_screen
+from screens.frame_screen import FrameScreen
 
 # 애플리케이션 중복 실행 방지 클래스
 class SingleApplication(QApplication):
@@ -33,6 +34,20 @@ class SingleApplication(QApplication):
             # 새로운 인스턴스인 경우, 서버 생성
             self.server = QLocalServer()
             self.server.listen(self.app_id)
+            self.aboutToQuit.connect(self.close_server)
+
+    def close_server(self):
+        """로컬 서버 정리 - 개선된 버전"""
+        try:
+            print("로컬 서버 종료 중...")
+            if self.server:
+                if self.server.isListening():
+                    self.server.close()
+                self.server.deleteLater()
+                self.server = None
+            print("로컬 서버 종료 완료")
+        except Exception as e:
+            print(f"서버 종료 오류: {e}")
 
 class KioskApp(QMainWindow):
     def __init__(self):
@@ -69,13 +84,15 @@ class KioskApp(QMainWindow):
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
         self.qr_screen = QR_screen(self.stack, self.screen_size, self)
+        self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
 
         self.stack.addWidget(self.splash_screen)      # 인덱스 0
         self.stack.addWidget(self.photo_screen)       # 인덱스 1
         self.stack.addWidget(self.text_input_screen)  # 인덱스 2
         self.stack.addWidget(self.qr_screen)         # 인덱스 3
-        self.stack.addWidget(self.process_screen)     # 인덱스 4
-        self.stack.addWidget(self.complete_screen)    # 인덱스 5
+        self.stack.addWidget(self.frame_screen)       # 인덱스 4
+        self.stack.addWidget(self.process_screen)     # 인덱스 5
+        self.stack.addWidget(self.complete_screen)    # 인덱스 6
 
     def getNextScreenIndex(self):
         # screen_order의 다음 인덱스로 이동
@@ -86,39 +103,113 @@ class KioskApp(QMainWindow):
         if event.key() == Qt.Key.Key_Escape:
             self.close()
     
-    def closeApplication(self):
-        """앱 종료 동작"""
-        QCoreApplication.instance().quit()  # 전체 애플리케이션 종료
-
-    def closeEvent(self, event):
-        """위젯이 닫힐 때 호출되는 이벤트 핸들러"""
-        try:
-            # 카메라 자원 해제
-            if hasattr(self, 'photo_screen') and hasattr(self.photo_screen, 'webcam'):
-                if hasattr(self.photo_screen.webcam, 'camera'):
+    def cleanup_resources(self):
+        """모든 리소스 정리"""
+        print("프로그램 종료 중... 리소스를 정리합니다.")
+        
+        # 1. 모든 화면의 리소스 해제
+        screens = [
+            'splash_screen', 'photo_screen', 'text_input_screen', 
+            'process_screen', 'complete_screen', 'qr_screen', 'frame_screen'
+        ]
+        
+        for screen_name in screens:
+            if hasattr(self, screen_name):
+                screen = getattr(self, screen_name)
+                if hasattr(screen, 'cleanup'):
+                    screen.cleanup()
+        
+        # 2. 카메라 자원 해제
+        if hasattr(self, 'photo_screen'):
+            if hasattr(self.photo_screen, 'webcam') and self.photo_screen.webcam:
+                if hasattr(self.photo_screen.webcam, 'camera') and self.photo_screen.webcam.camera:
+                    print("카메라 리소스 해제 중...")
                     release_camera(self.photo_screen.webcam.camera)
+                    self.photo_screen.webcam.camera = None
+                
+                # 웹캠 객체 정리
+                if hasattr(self.photo_screen.webcam, 'timer'):
+                    self.photo_screen.webcam.timer.stop()
+                self.photo_screen.webcam = None
 
-            #임시 이미지 파일 삭제
-            temp_files = [
-                "resources/captured_image.jpg",
-                "resources/qr_uploaded_image.jpg",
-                "resources/input_texts.json"
-            ]
-            
-            for file_path in temp_files:
+        # 3. QStackedWidget의 모든 위젯 제거
+        if hasattr(self, 'stack'):
+            while self.stack.count() > 0:
+                widget = self.stack.widget(0)
+                self.stack.removeWidget(widget)
+                if widget:
+                    widget.deleteLater()
+
+        # 4. 임시 파일 삭제
+        temp_files = [
+            "resources/captured_image.jpg",
+            "resources/qr_uploaded_image.jpg", 
+            "resources/input_texts.json",
+            "resources/framed_photo.jpg"
+        ]
+        
+        for file_path in temp_files:
+            try:
                 if os.path.exists(file_path):
                     os.remove(file_path)
+                    print(f"임시 파일 삭제: {file_path}")
+            except Exception as e:
+                print(f"파일 삭제 실패 {file_path}: {e}")
 
+        # 5. Qt 이벤트 루프 정리
+        QCoreApplication.processEvents()
+        
+        # 6. 강제로 가비지 컬렉션 실행
+        import gc
+        gc.collect()
+        
+        print("리소스 정리 완료")
+
+    def closeApplication(self):
+        """앱 종료 동작 - 리소스 정리 포함"""
+        try:
+            self.cleanup_resources()
         except Exception as e:
-            print(f"카메라 자원 해제 오류: {e}")
-        self.closeApplication()  # close_application 호출
-        event.accept()
-            
+            print(f"리소스 해제 중 오류: {e}")
+        finally:
+            # 애플리케이션 종료
+            QCoreApplication.instance().quit()
+
+    def closeEvent(self, event):
+        """위젯이 닫힐 때 호출되는 이벤트 핸들러 - 개선된 버전"""
+        try:
+            self.cleanup_resources()
+        except Exception as e:
+            print(f"리소스 해제 중 오류: {e}")
+        finally:
+            # 애플리케이션 종료
+            QCoreApplication.instance().quit()
+            event.accept()
+
 if __name__ == "__main__":
     # 애플리케이션 ID 지정
     app_id = "kiosk_app_unique_id"
     
-    app = SingleApplication(app_id, sys.argv)
-    window = KioskApp()
-    window.show()
-    sys.exit(app.exec())
+    try:
+        app = SingleApplication(app_id, sys.argv)
+        window = KioskApp()
+        window.show()
+        
+        # 애플리케이션 실행
+        exit_code = app.exec()
+        
+        # 종료 시 추가 정리
+        print("애플리케이션 종료 중...")
+        
+        # 윈도우 정리
+        if window:
+            window.deleteLater()
+        
+        # 애플리케이션 정리
+        app.deleteLater()
+        
+        sys.exit(exit_code)
+        
+    except Exception as e:
+        print(f"애플리케이션 실행 오류: {e}")
+        sys.exit(1)

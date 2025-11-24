@@ -31,7 +31,7 @@ class BaseTab(QWidget):
         content_layout.setSpacing(15)
         
         # 단위 안내 레이블 추가
-        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다. ( 전체 사이즈 인쇄 : 635x1027 )")
+        unit_label = QLabel("모든 크기와 위치의 단위는 px(픽셀)입니다. ( 전체 사이즈 인쇄 : 635x1012 )")
         unit_label.setStyleSheet(f"color: {COLORS['text_muted']}; font-style: italic;")
         content_layout.addWidget(unit_label)
         
@@ -52,6 +52,18 @@ class BaseTab(QWidget):
     def update_config(self, config):
         """UI 내용을 config에 업데이트 (하위 클래스에서 구현)"""
         pass
+    
+    def set_tab_manager(self, tab_manager):
+        """tab_manager 참조 설정 (하위 클래스에서 필요시 구현)"""
+        self.tab_manager = tab_manager
+
+    def request_real_time_update(self):
+        """실시간 미리보기 업데이트를 요청합니다."""
+        if hasattr(self, 'tab_manager') and self.tab_manager:
+            # 1. 현재 탭의 UI 상태를 config 객체에 반영
+            self.update_config(self.config)
+            # 2. tab_manager에 신호 전송
+            self.tab_manager.real_time_update_requested.emit()
     
     # BaseTab 클래스에 추가할 메서드
     def apply_left_aligned_group_style(self, group_box):

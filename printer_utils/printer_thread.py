@@ -43,47 +43,59 @@ class PrinterThread(QThread):
             "option": option
         })
     
+    def _load_image_from_config(self, section_name, default_filename):
+        """config.json의 특정 섹션에서 이미지 설정을 가져오고, 파일이 존재하면 로드합니다."""
+        image_config = config.get(section_name, {})
+        filename = image_config.get('filename', default_filename)
+        
+        if not filename:
+            return
+            
+        filepath = os.path.join("resources", filename)
+
+        if os.path.exists(filepath):
+            print(f"이미지 파일 로드: {filepath}")
+            self.add_image(
+                image_filename=filepath, # f-string 대신 전체 경로 전달
+                x=image_config.get("x", 0),
+                y=image_config.get("y", 0),
+                width=image_config.get("width", 300),
+                height=image_config.get("height", 300)
+            )
+
     def load_contents(self):
-        """config.json에서 이미지와 텍스트 로드"""
-        # 카메라로 촬영한 사진 로드 (photo 섹션)
-        if "photo" in config and config["photo"]["exists"]:
-            photo_config = config["photo"]
-            print(f"photo_config: {photo_config}")
-            self.add_image(
-                image_filename=f"resources/{photo_config.get('filename', 'captured_image.jpg')}",
-                x=photo_config.get("x", 0),
-                y=photo_config.get("y", 0),
-                width=photo_config.get("width", 300),
-                height=photo_config.get("height", 300)
-            )
+        """config.json과 실제 파일 시스템을 기반으로 이미지와 텍스트를 로드합니다."""
         
-        # QR 업로드 이미지 로드 (qr_uploaded_image 섹션)    
-        if "qr_uploaded_image" in config and config["qr_uploaded_image"]["exists"]:
-            qr_image_config = config["qr_uploaded_image"]
-            print(f"qr_image_config: {qr_image_config}")
-            self.add_image(
-                image_filename=f"resources/{qr_image_config.get('filename', 'qr_uploaded_image.jpg')}",
-                x=qr_image_config.get("x", 0),
-                y=qr_image_config.get("y", 0),
-                width=qr_image_config.get("width", 300),
-                height=qr_image_config.get("height", 300)
-            )
+        # framed_photo 파일 경로 확인
+        framed_photo_config = config.get("framed_photo", {})
+        framed_photo_filename = framed_photo_config.get('filename', "framed_photo.jpg")
+        framed_photo_filepath = os.path.join("resources", framed_photo_filename) if framed_photo_filename else None
+
+        # framed_photo 파일이 존재하지 않는 경우에만 photo(원본) 로드 시도
+        if not framed_photo_filepath or not os.path.exists(framed_photo_filepath):
+            self._load_image_from_config("photo", "captured_image.jpg")
+
+        # QR 업로드 이미지와 프레임 사진 로드 시도
+        self._load_image_from_config("qr_uploaded_image", "qr_uploaded_image.jpg")
+        self._load_image_from_config("framed_photo", "framed_photo.jpg")
         
-        # 일반 이미지 설정 불러오기
-        expected_img_count = config.get("images", {}).get("count", 0)
+        # 고정 이미지 설정 불러오기 (images.items)
         img_items = config.get("images", {}).get("items", [])
         
-        if len(img_items) != expected_img_count:
-            print(f"경고: 설정된 이미지 수({expected_img_count})와 실제 이미지 항목 수({len(img_items)})가 다릅니다")
-        
         for img_config in img_items:
-            self.add_image(
-                image_filename=f"resources/{img_config.get('filename', 'captured_image.jpg')}",
-                x=img_config.get("x", 0),
-                y=img_config.get("y", 0),
-                width=img_config.get("width", 300),
-                height=img_config.get("height", 300)
-            )
+            filename = img_config.get('filename')
+            if not filename:
+                continue
+            
+            filepath = os.path.join("resources", filename)
+            if os.path.exists(filepath):
+                self.add_image(
+                    image_filename=filepath,
+                    x=img_config.get("x", 0),
+                    y=img_config.get("y", 0),
+                    width=img_config.get("width", 300),
+                    height=img_config.get("height", 300)
+                )
         
         # 텍스트 설정 불러오기
         expected_text_count = config.get("texts", {}).get("count", 0)

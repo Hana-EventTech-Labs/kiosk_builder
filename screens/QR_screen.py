@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QWidget, QLabel, QPushButton, QMessageBox
-from PySide6.QtGui import QPixmap, QImage
+from PySide6.QtGui import QPixmap, QImage, QMovie
 from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 import qrcode
 from PIL import Image
 import io
@@ -38,6 +40,10 @@ class QR_screen(QWidget):
         # 핑 타이머 변수 추가
         self.ping_timer = None
         
+        # 배경 위젯 관련 변수
+        self.background_widget = None
+        self.media_player = None
+        
         # 이미지 업로드 시그널 연결
         self.image_uploaded_signal.connect(self.display_uploaded_image)
         
@@ -68,22 +74,79 @@ class QR_screen(QWidget):
         """)
     
     def setupBackground(self):
-        background_files = ["background/3.png", "background/3.jpg", "background/qr_bg.jpg"]
+        # 지원하는 배경 파일들 (우선순위 순)
+        background_files = [
+            "background/3.mp4", "background/3.gif", "background/3.png", "background/3.jpg",
+            "background/qr_bg.mp4", "background/qr_bg.gif", "background/qr_bg.png", "background/qr_bg.jpg"
+        ]
         
-        pixmap = None
+        background_file = None
         for filename in background_files:
             file_path = f"resources/{filename}"
             if os.path.exists(file_path):
-                pixmap = QPixmap(file_path)
+                background_file = file_path
                 break
         
-        if pixmap is None or pixmap.isNull():
-            pixmap = QPixmap()
+        if background_file is None:
+            # 모든 파일이 없는 경우 빈 배경 사용
+            background_label = QLabel(self)
+            background_label.resize(*self.screen_size)
+            self.background_widget = background_label
+            return
         
-        background_label = QLabel(self)
-        background_label.setPixmap(pixmap)
-        background_label.setScaledContents(True)
-        background_label.resize(*self.screen_size)
+        file_extension = background_file.lower().split('.')[-1]
+        
+        if file_extension == 'mp4':
+            # MP4 비디오 재생
+            self.setupVideoBackground(background_file)
+        elif file_extension == 'gif':
+            # GIF 애니메이션 재생
+            self.setupGifBackground(background_file)
+        else:
+            # 일반 이미지 (PNG, JPG)
+            self.setupImageBackground(background_file)
+    
+    def setupVideoBackground(self, video_path):
+        """MP4 비디오 배경 설정"""
+        self.background_widget = QVideoWidget(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        self.media_player = QMediaPlayer(self)
+        self.audio_output = QAudioOutput(self)
+        self.audio_output.setMuted(True)  # 음소거
+        
+        self.media_player.setAudioOutput(self.audio_output)
+        self.media_player.setVideoOutput(self.background_widget)
+        self.media_player.setSource(f"file:///{os.path.abspath(video_path)}")
+        
+        # 비디오가 끝나면 다시 재생 (루프)
+        self.media_player.mediaStatusChanged.connect(self.onVideoStatusChanged)
+        self.media_player.play()
+    
+    def setupGifBackground(self, gif_path):
+        """GIF 애니메이션 배경 설정"""
+        self.background_widget = QLabel(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        movie = QMovie(gif_path)
+        movie.setScaledSize(self.background_widget.size())
+        self.background_widget.setMovie(movie)
+        self.background_widget.setScaledContents(True)
+        movie.start()
+    
+    def setupImageBackground(self, image_path):
+        """일반 이미지 배경 설정"""
+        self.background_widget = QLabel(self)
+        pixmap = QPixmap(image_path)
+        self.background_widget.setPixmap(pixmap)
+        self.background_widget.setScaledContents(True)
+        self.background_widget.resize(*self.screen_size)
+    
+    def onVideoStatusChanged(self, status):
+        """비디오 상태 변경 시 호출 (루프 재생을 위해)"""
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            self.media_player.setPosition(0)
+            self.media_player.play()
     
     def setupQRCode(self):
         # QR 코드 라벨 생성
@@ -188,20 +251,14 @@ class QR_screen(QWidget):
                 self.reconnect_websocket()
     
     def reconnect_websocket(self):
-        """웹소켓 연결이 끊어진 경우 재연결 시도"""
-        if self.ws:
-            try:
-                self.ws.close()
-            except:
-                pass
-            self.ws = None
-        
-        print("웹소켓 재연결 시도")
-        self.start_kiosk_websocket()
+        """웹소켓 재연결 시도"""
+        print("웹소켓 재연결 시도 중...")
+        # 5초 후에 재연결 시도
+        QTimer.singleShot(5000, self.start_kiosk_websocket)
     
     def start_kiosk_websocket(self):
-        ws_url = f"{SERVER_URL.replace('https', 'wss')}/ws/kiosk/{self.event_id}"
-    
+        """키오스크의 웹소켓 클라이언트 시작"""
+        
         def on_message(ws, message):
             data = json.loads(message)
             print("[WebSocket] 수신:", data)
@@ -219,19 +276,33 @@ class QR_screen(QWidget):
             print("웹소켓 오류:", error)
     
         def on_close(ws, close_status_code, close_msg):
-            print("웹소켓 종료")
-    
+            print("웹소켓 연결 닫힘")
+            if self.ping_timer:
+                self.ping_timer.stop()  # 연결이 닫히면 타이머 중지
+            
+            # 여기서 재연결 로직 추가
+            self.reconnect_websocket()
+
+        # 웹소켓 연결 URL 생성
+        ws_url = f"{SERVER_URL.replace('https://', 'wss://')}/ws/kiosk/{self.event_id}"
+        
+        # 웹소켓 클라이언트 생성 및 실행 (별도 스레드)
         self.ws = websocket.WebSocketApp(
             ws_url,
-            on_message=on_message,
             on_open=on_open,
+            on_message=on_message,
             on_error=on_error,
             on_close=on_close
         )
         
-        # certifi의 인증서 번들을 사용하여 웹소켓 연결
-        threading.Thread(target=lambda: self.ws.run_forever(sslopt={"ca_certs": certifi.where()}), daemon=True).start()
-    
+        # SSL 컨텍스트 설정 (인증서 경로 추가)
+        sslopt = {"ca_certs": certifi.where()}
+        
+        # 별도 스레드에서 웹소켓 실행
+        ws_thread = threading.Thread(target=self.ws.run_forever, kwargs={"sslopt": sslopt})
+        ws_thread.daemon = True  # 데몬 스레드로 설정
+        ws_thread.start()
+
     def display_uploaded_image(self, image_url):
         try:
             print(f"[이미지 표시 시도] {image_url}")
@@ -482,3 +553,35 @@ class QR_screen(QWidget):
             print("웹소켓 닫힘 - 화면 숨김")
         
         super().hideEvent(event)
+
+    def cleanup(self):
+        """QR 화면 리소스 정리"""
+        try:
+            print("QR_screen 리소스 정리 중...")
+            
+            # 웹소켓 정리
+            if hasattr(self, 'ws') and self.ws:
+                self.ws.close()
+                self.ws = None
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 타이머 정리
+            if hasattr(self, 'timer') and self.timer:
+                self.timer.stop()
+                self.timer.deleteLater()
+                self.timer = None
+            
+            print("QR_screen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"QR_screen cleanup 오류: {e}")

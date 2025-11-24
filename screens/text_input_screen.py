@@ -1,6 +1,8 @@
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QLineEdit, QHBoxLayout, QPushButton
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QPixmap, QFont
+from PySide6.QtGui import QPixmap, QFont, QMovie
+from PySide6.QtMultimediaWidgets import QVideoWidget
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from components.hangul_composer import HangulComposer
 from components.virtual_keyboard import VirtualKeyboard
 from config import config
@@ -26,6 +28,8 @@ class TextInputScreen(QWidget):
         self.active_input = None  # 현재 활성화된 입력 필드
         self.text_inputs = []  # 모든 텍스트 입력 필드 관리
         self.keyboard = None
+        self.background_widget = None  # 배경 위젯 추적을 위한 변수
+        self.media_player = None  # 미디어 플레이어 추적을 위한 변수
         self.setupUI()
     
     def setupUI(self):
@@ -47,8 +51,8 @@ class TextInputScreen(QWidget):
             if "label" in item_config:
                 label = QLabel(item_config["label"], self)
                 # 레이블 위치 설정 (입력 필드 왼쪽)
-                label_x = item_config.get("x", 0) - 150  # 입력 필드 왼쪽에 레이블 배치
-                label_y = item_config.get("y", 0)
+                label_x = item_config.get("screen_x", item_config.get("x", 0)) - 150  # 화면용 좌표 우선 사용
+                label_y = item_config.get("screen_y", item_config.get("y", 0))
                 label.setGeometry(label_x, label_y, 140, 40)
                 label.setStyleSheet("color: black; font-size: 18px;")
                 label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -56,12 +60,11 @@ class TextInputScreen(QWidget):
             # 텍스트 입력 필드 생성 (CustomLineEdit 사용)
             text_input = CustomLineEdit(self, i, self.input_focus_received)
             
-            # 위치 및 크기 설정
-            width = item_config.get("width", 800)
-            height = item_config.get("height", 80)
-            # config.json의 x, y 값 그대로 사용
-            x = item_config.get("x", 0)
-            y = item_config.get("y", 0)
+            # 화면용 위치 및 크기 설정 (screen_* 값 우선 사용)
+            width = item_config.get("screen_width", item_config.get("width", 300))
+            height = item_config.get("screen_height", item_config.get("height", 80))
+            x = item_config.get("screen_x", item_config.get("x", 0))
+            y = item_config.get("screen_y", item_config.get("y", 0))
             
             text_input.setGeometry(x, y, width, height)
             text_input.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -124,24 +127,79 @@ class TextInputScreen(QWidget):
         self.stack.setCurrentIndex(next_index)
     
     def setupBackground(self):
-        # First try index-based files (2.jpg, 2.png), then fallback to generic name
-        background_files = ["background/2.png", "background/2.jpg", "background/text_input_bg.jpg"]
+        # 지원하는 배경 파일들 (우선순위 순)
+        background_files = [
+            "background/2.mp4", "background/2.gif", "background/2.png", "background/2.jpg",
+            "background/text_input_bg.mp4", "background/text_input_bg.gif", "background/text_input_bg.png", "background/text_input_bg.jpg"
+        ]
         
-        pixmap = None
+        background_file = None
         for filename in background_files:
             file_path = f"resources/{filename}"
             if os.path.exists(file_path):
-                pixmap = QPixmap(file_path)
+                background_file = file_path
                 break
         
-        if pixmap is None or pixmap.isNull():
-            # Use empty background if no files exist
-            pixmap = QPixmap()
+        if background_file is None:
+            # 모든 파일이 없는 경우 빈 배경 사용
+            background_label = QLabel(self)
+            background_label.resize(*self.screen_size)
+            self.background_widget = background_label
+            return
         
-        background_label = QLabel(self)
-        background_label.setPixmap(pixmap)
-        background_label.setScaledContents(True)
-        background_label.resize(*self.screen_size)
+        file_extension = background_file.lower().split('.')[-1]
+        
+        if file_extension == 'mp4':
+            # MP4 비디오 재생
+            self.setupVideoBackground(background_file)
+        elif file_extension == 'gif':
+            # GIF 애니메이션 재생
+            self.setupGifBackground(background_file)
+        else:
+            # 일반 이미지 (PNG, JPG)
+            self.setupImageBackground(background_file)
+    
+    def setupVideoBackground(self, video_path):
+        """MP4 비디오 배경 설정"""
+        self.background_widget = QVideoWidget(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        self.media_player = QMediaPlayer(self)
+        self.audio_output = QAudioOutput(self)
+        self.audio_output.setMuted(True)  # 음소거
+        
+        self.media_player.setAudioOutput(self.audio_output)
+        self.media_player.setVideoOutput(self.background_widget)
+        self.media_player.setSource(f"file:///{os.path.abspath(video_path)}")
+        
+        # 비디오가 끝나면 다시 재생 (루프)
+        self.media_player.mediaStatusChanged.connect(self.onVideoStatusChanged)
+        self.media_player.play()
+    
+    def setupGifBackground(self, gif_path):
+        """GIF 애니메이션 배경 설정"""
+        self.background_widget = QLabel(self)
+        self.background_widget.resize(*self.screen_size)
+        
+        movie = QMovie(gif_path)
+        movie.setScaledSize(self.background_widget.size())
+        self.background_widget.setMovie(movie)
+        self.background_widget.setScaledContents(True)
+        movie.start()
+    
+    def setupImageBackground(self, image_path):
+        """일반 이미지 배경 설정"""
+        self.background_widget = QLabel(self)
+        pixmap = QPixmap(image_path)
+        self.background_widget.setPixmap(pixmap)
+        self.background_widget.setScaledContents(True)
+        self.background_widget.resize(*self.screen_size)
+    
+    def onVideoStatusChanged(self, status):
+        """비디오 상태 변경 시 호출 (루프 재생을 위해)"""
+        if status == QMediaPlayer.MediaStatus.EndOfMedia:
+            self.media_player.setPosition(0)
+            self.media_player.play()
     
     def addCloseButton(self):
         """오른쪽 상단에 닫기 버튼 추가"""
@@ -178,3 +236,42 @@ class TextInputScreen(QWidget):
         # When screen is hidden, hide the keyboard
         if self.keyboard:
             self.keyboard.hide()
+
+    def cleanup(self):
+        """텍스트 입력 화면 리소스 정리"""
+        try:
+            print("TextInputScreen 리소스 정리 중...")
+            
+            # 키보드 정리
+            if hasattr(self, 'keyboard') and self.keyboard:
+                self.keyboard.hide()
+                self.keyboard.deleteLater()
+                self.keyboard = None
+            
+            # 미디어 플레이어 정리
+            if hasattr(self, 'media_player') and self.media_player:
+                self.media_player.stop()
+                self.media_player.deleteLater()
+                self.media_player = None
+            
+            # 오디오 출력 정리
+            if hasattr(self, 'audio_output') and self.audio_output:
+                self.audio_output.deleteLater()
+                self.audio_output = None
+            
+            # 배경 위젯 정리
+            if hasattr(self, 'background_widget') and self.background_widget:
+                self.background_widget.deleteLater()
+                self.background_widget = None
+            
+            # 텍스트 입력 필드들 정리
+            if hasattr(self, 'text_inputs') and self.text_inputs:
+                for input_field in self.text_inputs:
+                    if input_field:
+                        input_field.deleteLater()
+                self.text_inputs = []
+            
+            print("TextInputScreen 리소스 정리 완료")
+            
+        except Exception as e:
+            print(f"TextInputScreen cleanup 오류: {e}")
