@@ -1,7 +1,10 @@
 from PySide6.QtWidgets import QPushButton, QColorDialog
 from PySide6.QtGui import QColor
+from PySide6.QtCore import Signal
 
 class ColorPickerButton(QPushButton):
+    color_changed = Signal(str)
+
     def __init__(self, color="#000000", parent=None):
         super().__init__(parent)
         self.color = color
@@ -17,3 +20,4 @@ class ColorPickerButton(QPushButton):
         color = QColorDialog.getColor(QColor(self.color), self)
         if color.isValid():
             self.update_color(color.name())
+            self.color_changed.emit(color.name())

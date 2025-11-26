@@ -1,16 +1,33 @@
-from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout, QLineEdit, QPushButton, QListWidget, QListWidgetItem)
+from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout,
+                              QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget)
+from PySide6.QtCore import Qt, QRect
+from PySide6.QtGui import QColor
 from .base_tab import BaseTab
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
+from ui.components.live_preview import LivePreviewWidget
 from utils.file_handler import FileHandler
+
+# 프레임 선택 화면 screen_key = "4"
+FRAME_SCREEN_KEY = "4"
 
 class FrameTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
+        self.screen_preview = None
         self.init_ui()
 
     def init_ui(self):
-        content_layout = self.create_tab_with_scroll()
+        scroll_content_layout = self.create_tab_with_scroll()
+
+        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
+        main_layout = QHBoxLayout()
+        scroll_content_layout.addLayout(main_layout)
+
+        # 설정 영역
+        settings_widget = QWidget()
+        content_layout = QVBoxLayout(settings_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
 
         # 배경화면 설정 그룹
         bg_group = QGroupBox("배경화면 설정")
@@ -23,9 +40,12 @@ class FrameTab(BaseTab):
         
         # 배경화면 파일 선택 버튼
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_background_file(self, self.frame_bg_edit, "4"))
+        browse_button.clicked.connect(self._on_browse_background)
         bg_layout.addWidget(browse_button)
-        
+
+        # 배경화면 변경 시 미리보기 업데이트
+        self.frame_bg_edit.textChanged.connect(self._update_screen_preview)
+
         content_layout.addWidget(bg_group)
 
         # 프레임 추가 그룹
@@ -54,6 +74,7 @@ class FrameTab(BaseTab):
         # 프레임 목록
         self.frame_list = QListWidget()
         self.frame_list.setMaximumHeight(150)
+        self.frame_list.currentItemChanged.connect(self._on_frame_selection_changed)
         frame_add_layout.addWidget(self.frame_list)
         
         # 프레임 삭제 버튼
@@ -99,6 +120,9 @@ class FrameTab(BaseTab):
         for key, label in [("font_size", "글자 크기"), ("width", "너비"), ("height", "높이")]:
             line_edit = NumberLineEdit()
             line_edit.setValue(self.config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
+            # 너비/높이 변경 시 미리보기 업데이트
+            if key in ["width", "height"]:
+                line_edit.textChanged.connect(self._update_screen_preview)
             frame_layout.addRow(f"{label}:", line_edit)
             self.frame_fields[key] = line_edit
         
@@ -109,9 +133,111 @@ class FrameTab(BaseTab):
             
         content_layout.addWidget(frame_group)
         content_layout.addStretch()
-        
+
+        # 좌측 설정 영역을 메인 레이아웃에 추가
+        main_layout.addWidget(settings_widget, 1)
+
+        # 우측 미리보기 영역
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        # 화면 미리보기
+        screen_preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(screen_preview_group)
+        screen_preview_layout = QVBoxLayout(screen_preview_group)
+
+        self.screen_preview = LivePreviewWidget()
+        self.screen_preview.position_changed.connect(self._on_frame_position_changed)
+        self.screen_preview.size_changed.connect(self._on_frame_size_changed)
+        screen_preview_layout.addWidget(self.screen_preview, 0, Qt.AlignHCenter)
+
+        preview_layout.addWidget(screen_preview_group)
+        preview_layout.addStretch()
+
+        main_layout.addWidget(preview_widget, 1)
+
         # 기존 프레임 목록 로드
         self.load_frame_list()
+
+        # 초기 미리보기 업데이트
+        self._update_screen_preview()
+
+    def _on_browse_background(self):
+        """배경화면 파일 선택"""
+        FileHandler.browse_background_file(self, self.frame_bg_edit, "4")
+        self._update_screen_preview()
+
+    def _update_screen_preview(self):
+        """화면 미리보기 업데이트"""
+        if not self.screen_preview:
+            return
+
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        # 원본 크기 설정
+        self.screen_preview.set_original_size(monitor_width, monitor_height)
+
+        # 배경 이미지 설정 - screen_key를 사용하여 실제 파일 경로 찾기
+        bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY)
+        self.screen_preview.set_background(bg_path, QColor("#1a1a1a"))
+
+        # 프레임 영역 표시 (설정된 크기)
+        try:
+            frame_width = self.frame_fields["width"].value()
+            frame_height = self.frame_fields["height"].value()
+        except (AttributeError, KeyError):
+            frame_width, frame_height = 800, 600
+
+        # 프레임 중앙 위치 계산
+        frame_x = (monitor_width - frame_width) // 2
+        frame_y = (monitor_height - frame_height) // 2
+        frame_rect = QRect(frame_x, frame_y, frame_width, frame_height)
+
+        # 선택된 프레임 이미지가 있으면 표시
+        selected_item = self.frame_list.currentItem()
+        frame_image_name = selected_item.text() if selected_item else None
+        # 프레임 파일 경로 resolve
+        frame_image_path = FileHandler.resolve_frame_path(frame_image_name) if frame_image_name else None
+
+        self.screen_preview.add_element(
+            "frame_area",
+            frame_rect,
+            color=QColor("cyan"),
+            image_path=frame_image_path,
+            label="프레임",
+            draggable=True
+        )
+
+        self.request_real_time_update()
+
+    def _on_frame_position_changed(self, element_id, x, y):
+        """드래그로 프레임 위치 변경 시 호출"""
+        # 프레임 위치는 중앙 정렬 기준이므로 별도 처리 필요 없음
+        self.request_real_time_update()
+
+    def _on_frame_size_changed(self, element_id, x, y, width, height):
+        """드래그로 프레임 크기 변경 시 호출"""
+        if element_id == "frame_area":
+            for key in ['width', 'height']:
+                self.frame_fields[key].blockSignals(True)
+
+            self.frame_fields['width'].setValue(width)
+            self.frame_fields['height'].setValue(height)
+
+            for key in ['width', 'height']:
+                self.frame_fields[key].blockSignals(False)
+
+            self.request_real_time_update()
+
+    def _on_frame_selection_changed(self, current, previous):
+        """프레임 목록 선택 변경 시 미리보기 업데이트"""
+        self._update_screen_preview()
 
     def browse_frame_file(self):
         """프레임 파일 선택"""
@@ -211,4 +337,7 @@ class FrameTab(BaseTab):
                 elif isinstance(widget, NumberLineEdit):
                     widget.setValue(config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
                 else:  # QLineEdit (font)
-                    widget.setText(config["photo_frame"].get(key, "")) 
+                    widget.setText(config["photo_frame"].get(key, ""))
+
+        # 미리보기 업데이트
+        self._update_screen_preview() 

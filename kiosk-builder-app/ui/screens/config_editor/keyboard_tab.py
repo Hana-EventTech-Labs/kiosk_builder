@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, 
+from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget, QGridLayout)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect
@@ -7,6 +7,9 @@ from ui.components.color_picker import ColorPickerButton
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 from ui.components.preview_label import DraggablePreviewLabel
+
+# 키보드 화면 screen_key = "2"
+KEYBOARD_SCREEN_KEY = "2"
 
 class KeyboardTab(BaseTab):
     def __init__(self, config):
@@ -42,6 +45,7 @@ class KeyboardTab(BaseTab):
         self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
         self.keyboard_bg_edit = QLineEdit(self.config["text_input"].get("background", ""))
+        self.keyboard_bg_edit.textChanged.connect(self._update_keyboard_preview)
         bg_layout.addWidget(self.keyboard_bg_edit, 1)
         browse_button_bg = QPushButton("찾기...")
         browse_button_bg.clicked.connect(lambda checked: FileHandler.browse_background_file(self, self.keyboard_bg_edit, "2"))
@@ -425,9 +429,24 @@ class KeyboardTab(BaseTab):
             monitor_height = self.config["screen_size"]["height"]
         except KeyError:
             monitor_width, monitor_height = 1080, 1920 # 기본값
-            
+
+        # 배경 이미지 로드 시도 - screen_key를 사용하여 실제 파일 경로 찾기
+        bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY)
         monitor_pixmap = QPixmap(monitor_width, monitor_height)
-        monitor_pixmap.fill(Qt.black)
+
+        if bg_path:
+            loaded_pixmap = QPixmap(bg_path)
+            if not loaded_pixmap.isNull():
+                # 배경 이미지 스케일링
+                monitor_pixmap = loaded_pixmap.scaled(
+                    monitor_width, monitor_height,
+                    Qt.KeepAspectRatioByExpanding,
+                    Qt.SmoothTransformation
+                )
+            else:
+                monitor_pixmap.fill(QColor("#1a1a1a"))
+        else:
+            monitor_pixmap.fill(QColor("#1a1a1a"))
         
         # "키보드 위치 및 크기" 값 가져오기
         try:
@@ -587,18 +606,32 @@ class KeyboardTab(BaseTab):
         """개별 화면 입력 미리보기 업데이트"""
         if index >= len(self.screen_input_preview_labels):
             return
-            
+
         preview_label = self.screen_input_preview_labels[index]
-        
+
         # 모니터 크기
         try:
             monitor_width = self.config["screen_size"]["width"]
             monitor_height = self.config["screen_size"]["height"]
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
-        
+
+        # 배경 이미지 로드 시도 - screen_key를 사용하여 실제 파일 경로 찾기
+        bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY)
         monitor_pixmap = QPixmap(monitor_width, monitor_height)
-        monitor_pixmap.fill(Qt.black)
+
+        if bg_path:
+            loaded_pixmap = QPixmap(bg_path)
+            if not loaded_pixmap.isNull():
+                monitor_pixmap = loaded_pixmap.scaled(
+                    monitor_width, monitor_height,
+                    Qt.KeepAspectRatioByExpanding,
+                    Qt.SmoothTransformation
+                )
+            else:
+                monitor_pixmap.fill(QColor("#1a1a1a"))
+        else:
+            monitor_pixmap.fill(QColor("#1a1a1a"))
         
         try:
             width = fields["screen_width"].value()
