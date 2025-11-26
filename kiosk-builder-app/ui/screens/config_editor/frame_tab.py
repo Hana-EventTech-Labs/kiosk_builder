@@ -1,11 +1,13 @@
 from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout,
-                              QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget)
+                              QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget, QLabel)
 from PySide6.QtCore import Qt, QRect
 from PySide6.QtGui import QColor
 from .base_tab import BaseTab
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import LivePreviewWidget
+from ui.components.collapsible_group import CollapsibleGroupBox
+from ui.components.position_size_input import PositionSizeInput
 from utils.file_handler import FileHandler
 
 # 프레임 선택 화면 screen_key = "4"
@@ -33,15 +35,25 @@ class FrameTab(BaseTab):
         bg_group = QGroupBox("배경화면 설정")
         self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
-        
-        # 배경화면 파일 선택
-        self.frame_bg_edit = QLineEdit(self.config.get("photo_frame", {}).get("background", ""))
+
+        # 실제 저장된 배경화면 파일명 로드
+        saved_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY)
+        self.frame_bg_edit = QLineEdit(saved_bg)
+        self.frame_bg_edit.setReadOnly(True)
+        self.frame_bg_edit.setPlaceholderText("배경화면 없음")
         bg_layout.addWidget(self.frame_bg_edit, 1)
-        
+
         # 배경화면 파일 선택 버튼
         browse_button = QPushButton("찾기...")
         browse_button.clicked.connect(self._on_browse_background)
         bg_layout.addWidget(browse_button)
+
+        # 초기화 버튼 추가
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        bg_layout.addWidget(reset_button)
 
         # 배경화면 변경 시 미리보기 업데이트
         self.frame_bg_edit.textChanged.connect(self._update_screen_preview)
@@ -85,12 +97,13 @@ class FrameTab(BaseTab):
         content_layout.addWidget(frame_add_group)
 
         # 프레임 설정 그룹
-        frame_group = QGroupBox("프레임 설정")
+        frame_group = QGroupBox("📐 프레임 설정")
         self.apply_left_aligned_group_style(frame_group)
-        frame_layout = QFormLayout(frame_group)
-        
+        frame_layout = QVBoxLayout(frame_group)
+        frame_layout.setSpacing(10)
+
         self.frame_fields = {}
-        
+
         # 'photo_frame' 설정이 없으면 기본값으로 초기화
         if "photo_frame" not in self.config:
             self.config["photo_frame"] = {
@@ -102,35 +115,55 @@ class FrameTab(BaseTab):
                 "background": "",
                 "frame_files": []
             }
-        
+
+        # 프레임 크기 (위치 없이 크기만 표시)
+        size_label = QLabel("프레임 크기:")
+        size_label.setStyleSheet("font-weight: bold; color: #555;")
+        frame_layout.addWidget(size_label)
+
+        self.frame_size_input = PositionSizeInput(show_position=False, show_size=True)
+        self.frame_size_input.set_values(
+            width=self.config["photo_frame"].get("width", 800),
+            height=self.config["photo_frame"].get("height", 600)
+        )
+        self.frame_size_input.value_changed.connect(self._update_screen_preview)
+        frame_layout.addWidget(self.frame_size_input)
+
+        # 구분선
+        from PySide6.QtWidgets import QFrame
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("background-color: #ddd;")
+        frame_layout.addWidget(separator)
+
+        # 폰트 설정 (FormLayout으로)
+        font_form = QFormLayout()
+        font_form.setSpacing(8)
+
         # 폰트 선택 레이아웃 추가
         font_layout = QHBoxLayout()
         font_edit = QLineEdit(self.config["photo_frame"].get("font", ""))
         font_layout.addWidget(font_edit, 1)
         self.frame_fields["font"] = font_edit
-        
+
         # 폰트 파일 선택 버튼 추가
         font_browse_button = QPushButton("찾기...")
         font_browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit))
         font_layout.addWidget(font_browse_button)
-        
-        frame_layout.addRow("폰트:", font_layout)
-        
-        # 숫자 필드들
-        for key, label in [("font_size", "글자 크기"), ("width", "너비"), ("height", "높이")]:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
-            # 너비/높이 변경 시 미리보기 업데이트
-            if key in ["width", "height"]:
-                line_edit.textChanged.connect(self._update_screen_preview)
-            frame_layout.addRow(f"{label}:", line_edit)
-            self.frame_fields[key] = line_edit
-        
+        font_form.addRow("폰트:", font_layout)
+
+        # 글자 크기
+        font_size_edit = NumberLineEdit()
+        font_size_edit.setValue(self.config["photo_frame"].get("font_size", 32))
+        font_form.addRow("글자 크기:", font_size_edit)
+        self.frame_fields["font_size"] = font_size_edit
+
         # 색상 필드
         font_color_button = ColorPickerButton(self.config["photo_frame"].get("font_color", "green"))
-        frame_layout.addRow("글자 색상:", font_color_button)
+        font_form.addRow("글자 색상:", font_color_button)
         self.frame_fields["font_color"] = font_color_button
-            
+
+        frame_layout.addLayout(font_form)
         content_layout.addWidget(frame_group)
         content_layout.addStretch()
 
@@ -165,8 +198,24 @@ class FrameTab(BaseTab):
 
     def _on_browse_background(self):
         """배경화면 파일 선택"""
-        FileHandler.browse_background_file(self, self.frame_bg_edit, "4")
+        FileHandler.browse_background_file(self, self.frame_bg_edit, FRAME_SCREEN_KEY)
+        saved_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY)
+        self.frame_bg_edit.setText(saved_bg)
         self._update_screen_preview()
+
+    def _reset_background(self):
+        """배경화면 초기화 (삭제)"""
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "배경화면 초기화",
+            "이 화면의 배경화면을 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            FileHandler.delete_background(FRAME_SCREEN_KEY)
+            self.frame_bg_edit.setText("")
+            self._update_screen_preview()
 
     def _update_screen_preview(self):
         """화면 미리보기 업데이트"""
@@ -189,8 +238,8 @@ class FrameTab(BaseTab):
 
         # 프레임 영역 표시 (설정된 크기)
         try:
-            frame_width = self.frame_fields["width"].value()
-            frame_height = self.frame_fields["height"].value()
+            frame_width = self.frame_size_input.get_width()
+            frame_height = self.frame_size_input.get_height()
         except (AttributeError, KeyError):
             frame_width, frame_height = 800, 600
 
@@ -224,15 +273,10 @@ class FrameTab(BaseTab):
     def _on_frame_size_changed(self, element_id, x, y, width, height):
         """드래그로 프레임 크기 변경 시 호출"""
         if element_id == "frame_area":
-            for key in ['width', 'height']:
-                self.frame_fields[key].blockSignals(True)
-
-            self.frame_fields['width'].setValue(width)
-            self.frame_fields['height'].setValue(height)
-
-            for key in ['width', 'height']:
-                self.frame_fields[key].blockSignals(False)
-
+            self.frame_size_input.block_all_signals(True)
+            self.frame_size_input.set_width(width)
+            self.frame_size_input.set_height(height)
+            self.frame_size_input.block_all_signals(False)
             self.request_real_time_update()
 
     def _on_frame_selection_changed(self, current, previous):
@@ -301,16 +345,20 @@ class FrameTab(BaseTab):
         """UI 값을 config에 반영"""
         if "photo_frame" not in config:
             config["photo_frame"] = {}
-        
+
         # 배경화면 저장
         config["photo_frame"]["background"] = self.frame_bg_edit.text()
-        
+
         # 프레임 목록 저장
         frame_files = []
         for i in range(self.frame_list.count()):
             frame_files.append(self.frame_list.item(i).text())
         config["photo_frame"]["frame_files"] = frame_files
-        
+
+        # 프레임 크기 저장
+        config["photo_frame"]["width"] = self.frame_size_input.get_width()
+        config["photo_frame"]["height"] = self.frame_size_input.get_height()
+
         # 다른 필드들 저장
         for key, widget in self.frame_fields.items():
             if isinstance(widget, ColorPickerButton):
@@ -323,19 +371,25 @@ class FrameTab(BaseTab):
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
         self.config = config
-        
+
         # 배경화면 업데이트
         self.frame_bg_edit.setText(config.get("photo_frame", {}).get("background", ""))
-        
+
         # 프레임 목록 업데이트
         self.load_frame_list()
-        
+
+        # 프레임 크기 업데이트
+        self.frame_size_input.set_values(
+            width=config.get("photo_frame", {}).get("width", 800),
+            height=config.get("photo_frame", {}).get("height", 600)
+        )
+
         if "photo_frame" in config:
             for key, widget in self.frame_fields.items():
                 if isinstance(widget, ColorPickerButton):
                     widget.update_color(config["photo_frame"].get(key, "green"))
                 elif isinstance(widget, NumberLineEdit):
-                    widget.setValue(config["photo_frame"].get(key, 32 if key == "font_size" else 800 if key == "width" else 600))
+                    widget.setValue(config["photo_frame"].get(key, 32))
                 else:  # QLineEdit (font)
                     widget.setText(config["photo_frame"].get(key, ""))
 

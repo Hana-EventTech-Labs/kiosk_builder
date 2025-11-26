@@ -89,13 +89,16 @@ class LivePreviewWidget(QWidget):
         self._calculate_render_parameters()
         self.update()
 
-    def set_background(self, image_path: str, fallback_color: QColor = None):
+    def set_background(self, image_path: str, fallback_color: QColor = None,
+                       use_image_size: bool = False):
         """
         배경 이미지 설정
 
         Args:
             image_path: 이미지 파일 경로
             fallback_color: 이미지 로드 실패 시 대체 색상
+            use_image_size: True면 이미지 크기를 원본 크기로 사용,
+                           False면 set_original_size()로 설정한 크기 유지
         """
         self._background_path = image_path
 
@@ -108,7 +111,8 @@ class LivePreviewWidget(QWidget):
                 if not self._background_pixmap.isNull():
                     self._image_cache[image_path] = self._background_pixmap
 
-            if not self._background_pixmap.isNull():
+            # use_image_size가 True일 때만 이미지 크기를 원본 크기로 사용
+            if use_image_size and not self._background_pixmap.isNull():
                 self._original_size = self._background_pixmap.size()
         else:
             # 이미지 없으면 단색 배경
@@ -554,18 +558,30 @@ class TextPreviewWidget(LivePreviewWidget):
     - 실제 폰트 파일 로드
     - 텍스트 렌더링
     - 텍스트 위치 드래그
+    - 텍스트 크기 조절 (드래그)
     """
+
+    # 텍스트 크기 변경 시그널: (element_id, new_font_size)
+    text_size_changed = Signal(str, int)
 
     def __init__(self, parent=None, preview_size: QSize = None):
         super().__init__(parent, preview_size)
 
         # 텍스트 요소들
-        # [{id, text, x, y, font_path, font_size, color, draggable}]
+        # [{id, text, x, y, font_path, font_size, color, draggable, resizable}]
         self._text_elements = []
+
+        # 텍스트 선택 및 리사이즈 상태
+        self._selected_text_id = None
+        self._text_resizing = False
+        self._text_resize_handle = self.HANDLE_NONE
+        self._text_resize_start_size = 0
+        self._text_resize_start_pos = QPoint()
 
     def add_text(self, element_id: str, text: str, x: int, y: int,
                  font_path: str = None, font_size: int = 24,
-                 color: QColor = None, draggable: bool = True):
+                 color: QColor = None, draggable: bool = True,
+                 resizable: bool = True):
         """
         텍스트 요소 추가
 
@@ -577,6 +593,7 @@ class TextPreviewWidget(LivePreviewWidget):
             font_size: 폰트 크기
             color: 텍스트 색상
             draggable: 드래그 가능 여부
+            resizable: 크기 조절 가능 여부
         """
         # 기존 요소 업데이트
         for elem in self._text_elements:
@@ -588,6 +605,7 @@ class TextPreviewWidget(LivePreviewWidget):
                 elem['font_size'] = font_size
                 elem['color'] = color or QColor("black")
                 elem['draggable'] = draggable
+                elem['resizable'] = resizable
                 self.update()
                 return
 
@@ -600,7 +618,8 @@ class TextPreviewWidget(LivePreviewWidget):
             'font_path': font_path,
             'font_size': font_size,
             'color': color or QColor("black"),
-            'draggable': draggable
+            'draggable': draggable,
+            'resizable': resizable
         })
         self.update()
 
@@ -635,6 +654,43 @@ class TextPreviewWidget(LivePreviewWidget):
         self._text_elements = []
         self.update()
 
+    def _get_text_rect(self, elem) -> QRect:
+        """텍스트 요소의 미리보기 좌표 경계 사각형 반환"""
+        preview_x = int(elem['x'] / self._scale) + self._render_offset.x()
+        preview_y = int(elem['y'] / self._scale) + self._render_offset.y()
+        font_size_preview = int(elem['font_size'] / self._scale)
+
+        # 텍스트 폭 대략 계산 (글자당 0.6 * font_size)
+        text_width = int(len(elem['text']) * font_size_preview * 0.6) + 20
+        text_height = font_size_preview + 10
+
+        return QRect(
+            preview_x - 5,
+            preview_y - font_size_preview,
+            text_width,
+            text_height
+        )
+
+    def _get_text_resize_handle(self, pos: QPoint, elem) -> int:
+        """텍스트 요소의 리사이즈 핸들 확인 (우하단만 사용)"""
+        if not elem.get('resizable', True):
+            return self.HANDLE_NONE
+
+        text_rect = self._get_text_rect(elem)
+        hs = self._handle_size
+
+        # 우하단 핸들만 사용 (크기 조절용)
+        handle_rect = QRect(
+            text_rect.right() - hs // 2,
+            text_rect.bottom() - hs // 2,
+            hs, hs
+        )
+
+        if handle_rect.contains(pos):
+            return self.HANDLE_BOTTOM_RIGHT
+
+        return self.HANDLE_NONE
+
     def paintEvent(self, event):
         """렌더링 (배경 + 오버레이 + 텍스트)"""
         # 부모 클래스 렌더링 (배경 + 오버레이)
@@ -660,39 +716,89 @@ class TextPreviewWidget(LivePreviewWidget):
 
             painter.drawText(preview_x, preview_y, elem['text'])
 
+            # 선택된 텍스트에 경계선 및 리사이즈 핸들 표시
+            if elem['id'] == self._selected_text_id and elem.get('resizable', True):
+                text_rect = self._get_text_rect(elem)
+
+                # 선택 경계선
+                painter.setPen(QPen(QColor("#3498db"), 1, Qt.DashLine))
+                painter.setBrush(Qt.NoBrush)
+                painter.drawRect(text_rect)
+
+                # 리사이즈 핸들 (우하단)
+                hs = self._handle_size
+                handle_rect = QRect(
+                    text_rect.right() - hs // 2,
+                    text_rect.bottom() - hs // 2,
+                    hs, hs
+                )
+                painter.setPen(QPen(QColor("#2980b9"), 1))
+                painter.setBrush(QBrush(QColor("#3498db")))
+                painter.drawRect(handle_rect)
+
         painter.end()
 
     def mousePressEvent(self, event: QMouseEvent):
-        """마우스 클릭 - 텍스트 드래그 시작"""
+        """마우스 클릭 - 텍스트 드래그/리사이즈 시작"""
         if event.button() == Qt.LeftButton:
-            # 텍스트 요소 클릭 확인
+            # 1. 선택된 텍스트의 리사이즈 핸들 클릭 확인
+            if self._selected_text_id:
+                for elem in self._text_elements:
+                    if elem['id'] == self._selected_text_id:
+                        handle = self._get_text_resize_handle(event.pos(), elem)
+                        if handle != self.HANDLE_NONE:
+                            # 리사이즈 시작
+                            self._text_resizing = True
+                            self._text_resize_handle = handle
+                            self._text_resize_start_size = elem['font_size']
+                            self._text_resize_start_pos = event.pos()
+                            self.setCursor(Qt.SizeFDiagCursor)
+                            return
+                        break
+
+            # 2. 텍스트 요소 클릭 확인
             for elem in reversed(self._text_elements):
-                if not elem['draggable']:
-                    continue
-
-                preview_x = int(elem['x'] / self._scale) + self._render_offset.x()
-                preview_y = int(elem['y'] / self._scale) + self._render_offset.y()
-
-                # 텍스트 영역 대략적 계산
-                text_rect = QRect(
-                    preview_x - 10,
-                    preview_y - int(elem['font_size'] / self._scale),
-                    len(elem['text']) * int(elem['font_size'] / self._scale / 2) + 20,
-                    int(elem['font_size'] / self._scale) + 10
-                )
+                text_rect = self._get_text_rect(elem)
 
                 if text_rect.contains(event.pos()):
-                    self._dragging = True
-                    self._dragging_element_id = elem['id']
-                    self._drag_offset = event.pos() - QPoint(preview_x, preview_y)
-                    self.setCursor(Qt.ClosedHandCursor)
+                    # 요소 선택
+                    self._selected_text_id = elem['id']
+                    self.update()
+
+                    if elem.get('draggable', True):
+                        preview_x = int(elem['x'] / self._scale) + self._render_offset.x()
+                        preview_y = int(elem['y'] / self._scale) + self._render_offset.y()
+                        self._dragging = True
+                        self._dragging_element_id = elem['id']
+                        self._drag_offset = event.pos() - QPoint(preview_x, preview_y)
+                        self.setCursor(Qt.ClosedHandCursor)
                     return
+
+            # 빈 영역 클릭 시 선택 해제
+            self._selected_text_id = None
+            self.update()
 
         # 부모 클래스 이벤트 처리
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event: QMouseEvent):
-        """마우스 이동 - 텍스트 드래그"""
+        """마우스 이동 - 텍스트 드래그/리사이즈"""
+        # 텍스트 리사이즈 중
+        if self._text_resizing and self._selected_text_id:
+            for elem in self._text_elements:
+                if elem['id'] == self._selected_text_id:
+                    # 마우스 이동량으로 폰트 크기 계산
+                    delta_y = event.pos().y() - self._text_resize_start_pos.y()
+                    # 미리보기 좌표 -> 원본 좌표 스케일 적용
+                    size_change = int(delta_y * self._scale * 0.5)
+                    new_size = max(8, self._text_resize_start_size + size_change)  # 최소 8pt
+
+                    elem['font_size'] = new_size
+                    self.text_size_changed.emit(elem['id'], new_size)
+                    self.update()
+                    return
+
+        # 텍스트 드래그 중
         if self._dragging and self._dragging_element_id:
             # 텍스트 요소인지 확인
             for elem in self._text_elements:
@@ -708,5 +814,41 @@ class TextPreviewWidget(LivePreviewWidget):
                     self.update()
                     return
 
+        # 호버 시 커서 변경
+        if self._selected_text_id:
+            for elem in self._text_elements:
+                if elem['id'] == self._selected_text_id:
+                    handle = self._get_text_resize_handle(event.pos(), elem)
+                    if handle != self.HANDLE_NONE:
+                        self.setCursor(Qt.SizeFDiagCursor)
+                        return
+                    break
+
+        # 텍스트 위에 있으면 이동 커서
+        for elem in reversed(self._text_elements):
+            if not elem.get('draggable', True):
+                continue
+            text_rect = self._get_text_rect(elem)
+            if text_rect.contains(event.pos()):
+                self.setCursor(Qt.OpenHandCursor)
+                return
+
         # 부모 클래스 이벤트 처리
         super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        """마우스 릴리즈 - 드래그/리사이즈 종료"""
+        if event.button() == Qt.LeftButton:
+            # 텍스트 리사이즈 종료
+            if self._text_resizing:
+                self._text_resizing = False
+                self._text_resize_handle = self.HANDLE_NONE
+                self.setCursor(Qt.ArrowCursor)
+                return
+
+            # 드래그 종료
+            self._dragging = False
+            self._dragging_element_id = None
+            self.setCursor(Qt.ArrowCursor)
+
+        super().mouseReleaseEvent(event)

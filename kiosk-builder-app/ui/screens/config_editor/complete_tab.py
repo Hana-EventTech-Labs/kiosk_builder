@@ -5,6 +5,7 @@ from PySide6.QtGui import QColor
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import TextPreviewWidget
+from ui.components.collapsible_group import CollapsibleGroupBox
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -40,15 +41,25 @@ class CompleteTab(BaseTab):
 
         # 배경화면 선택 레이아웃 추가
         background_layout = QHBoxLayout()
-        # 원본 파일명 표시
-        background_edit = QLineEdit(self.config["complete"].get("background", ""))
+        # 실제 저장된 배경화면 파일명 로드
+        saved_bg = FileHandler.get_background_display_name(COMPLETE_SCREEN_KEY)
+        background_edit = QLineEdit(saved_bg)
+        background_edit.setReadOnly(True)
+        background_edit.setPlaceholderText("배경화면 없음")
         background_layout.addWidget(background_edit, 1)
         self.complete_fields["background"] = background_edit
 
         # 배경화면 파일 선택 버튼 추가
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_background_file(self, background_edit, "complete"))
+        browse_button.clicked.connect(self._browse_and_update_background)
         background_layout.addWidget(browse_button)
+
+        # 초기화 버튼 추가
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        background_layout.addWidget(reset_button)
 
         # 배경화면 변경 시 미리보기 업데이트
         background_edit.textChanged.connect(self._update_screen_preview)
@@ -131,6 +142,27 @@ class CompleteTab(BaseTab):
 
         # 초기 미리보기 업데이트
         self._update_screen_preview()
+
+    def _browse_and_update_background(self):
+        """배경화면 파일 선택 및 업데이트"""
+        FileHandler.browse_background_file(self, self.complete_fields["background"], COMPLETE_SCREEN_KEY)
+        saved_bg = FileHandler.get_background_display_name(COMPLETE_SCREEN_KEY)
+        self.complete_fields["background"].setText(saved_bg)
+        self._update_screen_preview()
+
+    def _reset_background(self):
+        """배경화면 초기화 (삭제)"""
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "배경화면 초기화",
+            "이 화면의 배경화면을 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            FileHandler.delete_background(COMPLETE_SCREEN_KEY)
+            self.complete_fields["background"].setText("")
+            self._update_screen_preview()
 
     def _update_screen_preview(self):
         """화면 미리보기 업데이트"""

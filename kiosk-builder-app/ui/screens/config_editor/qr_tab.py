@@ -4,6 +4,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt, QRect
 from ui.components.inputs import NumberLineEdit
 from ui.components.live_preview import LivePreviewWidget
+from ui.components.collapsible_group import CollapsibleGroupBox
+from ui.components.position_size_input import PositionSizeInput
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -35,46 +37,60 @@ class QRTab(BaseTab):
         self.apply_left_aligned_group_style(bg_group)
         bg_layout = QHBoxLayout(bg_group)
 
-        self.qr_bg_edit = QLineEdit(self.config["qr"].get("background", ""))
+        # 실제 저장된 배경화면 파일명 로드
+        saved_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY)
+        self.qr_bg_edit = QLineEdit(saved_bg)
+        self.qr_bg_edit.setReadOnly(True)
+        self.qr_bg_edit.setPlaceholderText("배경화면 없음")
         self.qr_bg_edit.textChanged.connect(self._update_qr_preview)
         bg_layout.addWidget(self.qr_bg_edit, 1)
 
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_background_file(self, self.qr_bg_edit, "3"))
+        browse_button.clicked.connect(self._browse_and_update_background)
         bg_layout.addWidget(browse_button)
+
+        # 초기화 버튼 추가
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        bg_layout.addWidget(reset_button)
 
         content_layout.addWidget(bg_group)
 
         # QR 코드 설정 그룹
-        qr_group = QGroupBox("QR 코드 설정")
+        qr_group = QGroupBox("📊 QR 코드 화면 위치")
         self.apply_left_aligned_group_style(qr_group)
-        qr_layout = QFormLayout(qr_group)
+        qr_layout = QVBoxLayout(qr_group)
 
-        self.qr_fields = {}
-
-        for key, label in [("preview_width", "너비"), ("preview_height", "높이"), ("x", "X 위치"), ("y", "Y 위치")]:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["qr"][key])
-            line_edit.textChanged.connect(self._update_qr_preview)
-            qr_layout.addRow(f"{label}:", line_edit)
-            self.qr_fields[key] = line_edit
+        # 위치/크기 직관적 입력
+        self.qr_position_input = PositionSizeInput()
+        self.qr_position_input.set_values(
+            x=self.config["qr"]["x"],
+            y=self.config["qr"]["y"],
+            width=self.config["qr"]["preview_width"],
+            height=self.config["qr"]["preview_height"]
+        )
+        self.qr_position_input.value_changed.connect(self._update_qr_preview)
+        qr_layout.addWidget(self.qr_position_input)
 
         content_layout.addWidget(qr_group)
 
         # 업로드 이미지 설정 그룹박스
-        qr_uploaded_group = QGroupBox("이미지 인쇄 설정")
+        qr_uploaded_group = QGroupBox("🖨️ 이미지 인쇄 위치")
         self.apply_left_aligned_group_style(qr_uploaded_group)
-        qr_uploaded_layout = QFormLayout(qr_uploaded_group)
+        qr_uploaded_layout = QVBoxLayout(qr_uploaded_group)
 
-        self.qr_uploaded_fields = {}
-
-        for key in ["width", "height", "x", "y"]:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["qr_uploaded_image"][key])
-            line_edit.textChanged.connect(self._update_card_preview)
-            label_text = "너비" if key == "width" else "높이" if key == "height" else "X 위치" if key == "x" else "Y 위치"
-            qr_uploaded_layout.addRow(f"{label_text}:", line_edit)
-            self.qr_uploaded_fields[key] = line_edit
+        # 위치/크기 직관적 입력
+        self.qr_uploaded_input = PositionSizeInput()
+        self.qr_uploaded_input.set_values(
+            x=self.config["qr_uploaded_image"]["x"],
+            y=self.config["qr_uploaded_image"]["y"],
+            width=self.config["qr_uploaded_image"]["width"],
+            height=self.config["qr_uploaded_image"]["height"]
+        )
+        self.qr_uploaded_input.value_changed.connect(self._update_card_preview)
+        qr_uploaded_layout.addWidget(self.qr_uploaded_input)
 
         content_layout.addWidget(qr_uploaded_group)
         content_layout.addStretch()
@@ -133,6 +149,27 @@ class QRTab(BaseTab):
         self._update_qr_preview()
         self._update_card_preview()
 
+    def _browse_and_update_background(self):
+        """배경화면 파일 선택 및 업데이트"""
+        FileHandler.browse_background_file(self, self.qr_bg_edit, QR_SCREEN_KEY)
+        saved_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY)
+        self.qr_bg_edit.setText(saved_bg)
+        self._update_qr_preview()
+
+    def _reset_background(self):
+        """배경화면 초기화 (삭제)"""
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "배경화면 초기화",
+            "이 화면의 배경화면을 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            FileHandler.delete_background(QR_SCREEN_KEY)
+            self.qr_bg_edit.setText("")
+            self._update_qr_preview()
+
     def _fill_qr_frame(self):
         """QR 코드를 모니터 크기에 맞게 채웁니다."""
         try:
@@ -141,10 +178,7 @@ class QRTab(BaseTab):
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
 
-        self.qr_fields['preview_width'].setValue(monitor_width)
-        self.qr_fields['preview_height'].setValue(monitor_height)
-        self.qr_fields['x'].setValue(0)
-        self.qr_fields['y'].setValue(0)
+        self.qr_position_input.set_values(x=0, y=0, width=monitor_width, height=monitor_height)
         self.request_real_time_update()
 
     def _center_qr_frame(self):
@@ -155,14 +189,14 @@ class QRTab(BaseTab):
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
 
-        qr_width = self.qr_fields['preview_width'].value()
-        qr_height = self.qr_fields['preview_height'].value()
+        qr_width = self.qr_position_input.get_width()
+        qr_height = self.qr_position_input.get_height()
 
         center_x = (monitor_width - qr_width) // 2
         center_y = (monitor_height - qr_height) // 2
 
-        self.qr_fields['x'].setValue(center_x)
-        self.qr_fields['y'].setValue(center_y)
+        self.qr_position_input.set_x(center_x)
+        self.qr_position_input.set_y(center_y)
         self.request_real_time_update()
 
     def _fill_image_frame(self):
@@ -171,10 +205,7 @@ class QRTab(BaseTab):
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
 
-        self.qr_uploaded_fields['width'].setValue(card_width)
-        self.qr_uploaded_fields['height'].setValue(card_height)
-        self.qr_uploaded_fields['x'].setValue(0)
-        self.qr_uploaded_fields['y'].setValue(0)
+        self.qr_uploaded_input.set_values(x=0, y=0, width=card_width, height=card_height)
         self.request_real_time_update()
 
     def _center_image_frame(self):
@@ -183,74 +214,48 @@ class QRTab(BaseTab):
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
 
-        image_width = self.qr_uploaded_fields['width'].value()
-        image_height = self.qr_uploaded_fields['height'].value()
+        image_width = self.qr_uploaded_input.get_width()
+        image_height = self.qr_uploaded_input.get_height()
 
         center_x = (card_width - image_width) // 2
         center_y = (card_height - image_height) // 2
 
-        self.qr_uploaded_fields['x'].setValue(center_x)
-        self.qr_uploaded_fields['y'].setValue(center_y)
+        self.qr_uploaded_input.set_x(center_x)
+        self.qr_uploaded_input.set_y(center_y)
         self.request_real_time_update()
 
     def _on_qr_position_changed(self, element_id, x, y):
         """드래그로 QR 코드 위치 변경 시 호출"""
         if element_id == "qr_area":
-            self.qr_fields['x'].blockSignals(True)
-            self.qr_fields['y'].blockSignals(True)
-
-            self.qr_fields['x'].setValue(x)
-            self.qr_fields['y'].setValue(y)
-
-            self.qr_fields['x'].blockSignals(False)
-            self.qr_fields['y'].blockSignals(False)
-
+            self.qr_position_input.block_all_signals(True)
+            self.qr_position_input.set_x(x)
+            self.qr_position_input.set_y(y)
+            self.qr_position_input.block_all_signals(False)
             self.request_real_time_update()
 
     def _on_image_position_changed(self, element_id, x, y):
         """드래그로 이미지 위치 변경 시 호출"""
         if element_id == "image_area":
-            self.qr_uploaded_fields['x'].blockSignals(True)
-            self.qr_uploaded_fields['y'].blockSignals(True)
-
-            self.qr_uploaded_fields['x'].setValue(x)
-            self.qr_uploaded_fields['y'].setValue(y)
-
-            self.qr_uploaded_fields['x'].blockSignals(False)
-            self.qr_uploaded_fields['y'].blockSignals(False)
-
+            self.qr_uploaded_input.block_all_signals(True)
+            self.qr_uploaded_input.set_x(x)
+            self.qr_uploaded_input.set_y(y)
+            self.qr_uploaded_input.block_all_signals(False)
             self.request_real_time_update()
 
     def _on_qr_size_changed(self, element_id, x, y, width, height):
         """드래그로 QR 코드 크기 변경 시 호출"""
         if element_id == "qr_area":
-            for key in ['x', 'y', 'preview_width', 'preview_height']:
-                self.qr_fields[key].blockSignals(True)
-
-            self.qr_fields['x'].setValue(x)
-            self.qr_fields['y'].setValue(y)
-            self.qr_fields['preview_width'].setValue(width)
-            self.qr_fields['preview_height'].setValue(height)
-
-            for key in ['x', 'y', 'preview_width', 'preview_height']:
-                self.qr_fields[key].blockSignals(False)
-
+            self.qr_position_input.block_all_signals(True)
+            self.qr_position_input.set_values(x=x, y=y, width=width, height=height)
+            self.qr_position_input.block_all_signals(False)
             self.request_real_time_update()
 
     def _on_image_size_changed(self, element_id, x, y, width, height):
         """드래그로 이미지 크기 변경 시 호출"""
         if element_id == "image_area":
-            for key in ['x', 'y', 'width', 'height']:
-                self.qr_uploaded_fields[key].blockSignals(True)
-
-            self.qr_uploaded_fields['x'].setValue(x)
-            self.qr_uploaded_fields['y'].setValue(y)
-            self.qr_uploaded_fields['width'].setValue(width)
-            self.qr_uploaded_fields['height'].setValue(height)
-
-            for key in ['x', 'y', 'width', 'height']:
-                self.qr_uploaded_fields[key].blockSignals(False)
-
+            self.qr_uploaded_input.block_all_signals(True)
+            self.qr_uploaded_input.set_values(x=x, y=y, width=width, height=height)
+            self.qr_uploaded_input.block_all_signals(False)
             self.request_real_time_update()
 
     def _update_qr_preview(self):
@@ -273,10 +278,10 @@ class QRTab(BaseTab):
 
         # QR 코드 영역 추가
         try:
-            width = self.qr_fields["preview_width"].value()
-            height = self.qr_fields["preview_height"].value()
-            x = self.qr_fields["x"].value()
-            y = self.qr_fields["y"].value()
+            x = self.qr_position_input.get_x()
+            y = self.qr_position_input.get_y()
+            width = self.qr_position_input.get_width()
+            height = self.qr_position_input.get_height()
             qr_rect = QRect(x, y, width, height)
         except (AttributeError, KeyError):
             qr_rect = QRect(0, 0, 400, 400)
@@ -306,10 +311,10 @@ class QRTab(BaseTab):
 
         # 이미지 영역 추가
         try:
-            width = self.qr_uploaded_fields["width"].value()
-            height = self.qr_uploaded_fields["height"].value()
-            x = self.qr_uploaded_fields["x"].value()
-            y = self.qr_uploaded_fields["y"].value()
+            x = self.qr_uploaded_input.get_x()
+            y = self.qr_uploaded_input.get_y()
+            width = self.qr_uploaded_input.get_width()
+            height = self.qr_uploaded_input.get_height()
             image_rect = QRect(x, y, width, height)
         except (AttributeError, KeyError):
             image_rect = QRect(0, 0, 300, 300)
@@ -329,11 +334,21 @@ class QRTab(BaseTab):
         self.config = config
         self.qr_bg_edit.setText(config["qr"].get("background", ""))
 
-        for key, widget in self.qr_fields.items():
-            widget.setValue(config["qr"][key])
+        # QR 코드 위치/크기 업데이트
+        self.qr_position_input.set_values(
+            x=config["qr"]["x"],
+            y=config["qr"]["y"],
+            width=config["qr"]["preview_width"],
+            height=config["qr"]["preview_height"]
+        )
 
-        for key, widget in self.qr_uploaded_fields.items():
-            widget.setValue(config["qr_uploaded_image"][key])
+        # 이미지 인쇄 위치/크기 업데이트
+        self.qr_uploaded_input.set_values(
+            x=config["qr_uploaded_image"]["x"],
+            y=config["qr_uploaded_image"]["y"],
+            width=config["qr_uploaded_image"]["width"],
+            height=config["qr_uploaded_image"]["height"]
+        )
 
         self._update_qr_preview()
         self._update_card_preview()
@@ -342,8 +357,14 @@ class QRTab(BaseTab):
         """UI 값을 config에 반영"""
         config["qr"]["background"] = self.qr_bg_edit.text()
 
-        for key, widget in self.qr_fields.items():
-            config["qr"][key] = widget.value()
+        # QR 코드 위치/크기 저장
+        config["qr"]["x"] = self.qr_position_input.get_x()
+        config["qr"]["y"] = self.qr_position_input.get_y()
+        config["qr"]["preview_width"] = self.qr_position_input.get_width()
+        config["qr"]["preview_height"] = self.qr_position_input.get_height()
 
-        for key, widget in self.qr_uploaded_fields.items():
-            config["qr_uploaded_image"][key] = widget.value()
+        # 이미지 인쇄 위치/크기 저장
+        config["qr_uploaded_image"]["x"] = self.qr_uploaded_input.get_x()
+        config["qr_uploaded_image"]["y"] = self.qr_uploaded_input.get_y()
+        config["qr_uploaded_image"]["width"] = self.qr_uploaded_input.get_width()
+        config["qr_uploaded_image"]["height"] = self.qr_uploaded_input.get_height()

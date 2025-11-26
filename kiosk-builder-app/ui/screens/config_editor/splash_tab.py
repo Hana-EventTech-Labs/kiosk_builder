@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                              QLabel, QLineEdit, QPushButton, QWidget)
-from PySide6.QtCore import Qt
+                              QLabel, QLineEdit, QPushButton, QWidget, QGridLayout, QFrame)
+from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import TextPreviewWidget
+from ui.components.collapsible_group import CollapsibleGroupBox
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -40,15 +41,25 @@ class SplashTab(BaseTab):
         
         # 배경화면 선택 레이아웃 추가
         background_layout = QHBoxLayout()
-        # 원본 파일명 표시
-        background_edit = QLineEdit(self.config["splash"].get("background", ""))
+        # 실제 저장된 배경화면 파일명 로드
+        saved_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY)
+        background_edit = QLineEdit(saved_bg)
+        background_edit.setReadOnly(True)
+        background_edit.setPlaceholderText("배경화면 없음")
         background_layout.addWidget(background_edit, 1)
         self.splash_fields["background"] = background_edit
-        
+
         # 배경화면 파일 선택 버튼 추가
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_background_file(self, background_edit, "splash"))
+        browse_button.clicked.connect(self._browse_and_update_background)
         background_layout.addWidget(browse_button)
+
+        # 초기화 버튼 추가
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        background_layout.addWidget(reset_button)
 
         # 배경화면 변경 시 미리보기 업데이트
         background_edit.textChanged.connect(self._update_screen_preview)
@@ -84,17 +95,58 @@ class SplashTab(BaseTab):
         splash_layout.addRow("폰트 색상:", font_color_button)
         self.splash_fields["font_color"] = font_color_button
 
+        # 구분선
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setStyleSheet("background-color: #ddd;")
+        splash_layout.addRow(separator)
+
+        # 텍스트 위치 (직관적 라벨)
+        position_label = QLabel("📍 텍스트 위치")
+        position_label.setStyleSheet("font-weight: bold; color: #555;")
+        splash_layout.addRow(position_label)
+
+        # 위치 입력 영역 (스타일 적용)
+        position_widget = QWidget()
+        position_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f8f9fa;
+                border: 1px solid #e9ecef;
+                border-radius: 8px;
+            }
+        """)
+        position_layout = QGridLayout(position_widget)
+        position_layout.setContentsMargins(12, 8, 12, 8)
+        position_layout.setSpacing(8)
+
+        # 가로 (X)
+        x_label = QLabel("가로 →")
+        x_label.setStyleSheet("color: #6c757d; border: none; background: transparent;")
+        x_label.setFixedWidth(50)
         x_edit = NumberLineEdit()
+        x_edit.setFixedWidth(70)
         x_edit.setValue(self.config["splash"]["x"])
+        x_edit.setToolTip("왼쪽에서부터의 거리 (픽셀)")
         x_edit.textChanged.connect(self._update_screen_preview)
-        splash_layout.addRow("X 위치:", x_edit)
+        position_layout.addWidget(x_label, 0, 0)
+        position_layout.addWidget(x_edit, 0, 1)
         self.splash_fields["x"] = x_edit
 
+        # 세로 (Y)
+        y_label = QLabel("세로 ↓")
+        y_label.setStyleSheet("color: #6c757d; border: none; background: transparent;")
+        y_label.setFixedWidth(50)
         y_edit = NumberLineEdit()
+        y_edit.setFixedWidth(70)
         y_edit.setValue(self.config["splash"]["y"])
+        y_edit.setToolTip("위에서부터의 거리 (픽셀)")
         y_edit.textChanged.connect(self._update_screen_preview)
-        splash_layout.addRow("Y 위치:", y_edit)
+        position_layout.addWidget(y_label, 1, 0)
+        position_layout.addWidget(y_edit, 1, 1)
         self.splash_fields["y"] = y_edit
+
+        position_layout.setColumnStretch(2, 1)  # 나머지 공간
+        splash_layout.addRow(position_widget)
 
         content_layout.addWidget(splash_group)
 
@@ -114,8 +166,10 @@ class SplashTab(BaseTab):
         self.apply_left_aligned_group_style(screen_preview_group)
         screen_preview_layout = QVBoxLayout(screen_preview_group)
 
-        self.screen_preview = TextPreviewWidget()
+        # 더 큰 미리보기 위젯 (400x400)
+        self.screen_preview = TextPreviewWidget(preview_size=QSize(400, 400))
         self.screen_preview.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview.text_size_changed.connect(self._on_text_size_changed)
         screen_preview_layout.addWidget(self.screen_preview, 0, Qt.AlignHCenter)
 
         preview_layout.addWidget(screen_preview_group)
@@ -181,6 +235,36 @@ class SplashTab(BaseTab):
             self.splash_fields['y'].blockSignals(False)
 
             self.request_real_time_update()
+
+    def _on_text_size_changed(self, element_id, new_size):
+        """드래그로 텍스트 크기 변경 시 호출"""
+        if element_id == "splash_text":
+            self.splash_fields['font_size'].blockSignals(True)
+            self.splash_fields['font_size'].setValue(new_size)
+            self.splash_fields['font_size'].blockSignals(False)
+            self.request_real_time_update()
+
+    def _browse_and_update_background(self):
+        """배경화면 파일 선택 후 표시 업데이트"""
+        FileHandler.browse_background_file(self, self.splash_fields["background"], SPLASH_SCREEN_KEY)
+        # 선택 후 실제 저장된 파일명으로 업데이트
+        saved_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY)
+        self.splash_fields["background"].setText(saved_bg)
+        self._update_screen_preview()
+
+    def _reset_background(self):
+        """배경화면 초기화 (삭제)"""
+        from PySide6.QtWidgets import QMessageBox
+        reply = QMessageBox.question(
+            self, "배경화면 초기화",
+            "이 화면의 배경화면을 삭제하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            FileHandler.delete_background(SPLASH_SCREEN_KEY)
+            self.splash_fields["background"].setText("")
+            self._update_screen_preview()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""

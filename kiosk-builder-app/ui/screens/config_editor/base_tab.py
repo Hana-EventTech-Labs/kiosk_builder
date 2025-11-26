@@ -1,8 +1,9 @@
 #모든 설정 탭의 기본 클래스(부모 클래스)
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel, QGroupBox
 from PySide6.QtCore import Qt
 from ui.styles.colors import COLORS
+from ui.components.collapsible_group import CollapsibleGroupBox, CardGroupBox
 
 class BaseTab(QWidget):
     def __init__(self, config):
@@ -67,17 +68,36 @@ class BaseTab(QWidget):
     
     # BaseTab 클래스에 추가할 메서드
     def apply_left_aligned_group_style(self, group_box):
-        """그룹박스 제목을 왼쪽 정렬로 설정"""
-        group_box.setStyleSheet("""
-            QGroupBox {
+        """그룹박스 제목을 왼쪽 정렬로 설정 - 카드 스타일 적용"""
+        group_box.setStyleSheet(f"""
+            QGroupBox {{
                 font-weight: bold;
                 font-size: 14px;
-            }
-            QGroupBox::title {
+                background-color: {COLORS['background']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 10px;
+                margin-top: 12px;
+                padding-top: 10px;
+            }}
+            QGroupBox::title {{
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                padding-left: 5px;
-                padding-right: 5px;
-            }
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                background-color: {COLORS['background_light']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 6px;
+                color: {COLORS['text_dark']};
+            }}
         """)
         return group_box
+
+    def create_collapsible_group(self, title: str, collapsed: bool = False) -> CollapsibleGroupBox:
+        """접이식 그룹박스 생성"""
+        return CollapsibleGroupBox(title, self, collapsed)
+
+    def create_card_group(self, title: str) -> CardGroupBox:
+        """카드 스타일 그룹박스 생성"""
+        return CardGroupBox(title, self)

@@ -20,6 +20,14 @@ class FileHandler:
     }
 
     @staticmethod
+    def _get_resources_background_path():
+        """resources/background 폴더의 절대 경로를 반환합니다."""
+        # 현재 파일(file_handler.py)의 위치를 기준으로 경로 계산
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        # utils 폴더에서 상위로 올라가서 resources/background로 이동
+        return os.path.join(current_dir, "..", "resources", "background")
+
+    @staticmethod
     def resolve_background_path(screen_key):
         """
         화면 키를 기반으로 실제 배경화면 파일 경로를 찾습니다.
@@ -32,7 +40,7 @@ class FileHandler:
         """
         screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
 
-        resources_background_path = os.path.abspath("resources/background")
+        resources_background_path = FileHandler._get_resources_background_path()
         supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
 
         for ext in supported_extensions:
@@ -41,6 +49,50 @@ class FileHandler:
                 return file_path
 
         return None
+
+    @staticmethod
+    def get_background_display_name(screen_key):
+        """
+        화면 키에 해당하는 배경화면의 표시용 파일명을 반환합니다.
+
+        Args:
+            screen_key: 화면 식별자
+
+        Returns:
+            파일명 (확장자 포함) 또는 빈 문자열
+        """
+        file_path = FileHandler.resolve_background_path(screen_key)
+        if file_path:
+            return os.path.basename(file_path)
+        return ""
+
+    @staticmethod
+    def delete_background(screen_key):
+        """
+        화면 키에 해당하는 배경화면 파일을 삭제합니다.
+
+        Args:
+            screen_key: 화면 식별자
+
+        Returns:
+            삭제 성공 여부
+        """
+        screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
+        resources_background_path = FileHandler._get_resources_background_path()
+        supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
+        deleted = False
+
+        for ext in supported_extensions:
+            file_path = os.path.join(resources_background_path, f"{screen_index}{ext}")
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                    print(f"배경화면 삭제됨: {file_path}")
+                    deleted = True
+                except Exception as e:
+                    print(f"배경화면 삭제 실패: {file_path}, 오류: {e}")
+
+        return deleted
 
     @staticmethod
     def resolve_frame_path(frame_filename):
