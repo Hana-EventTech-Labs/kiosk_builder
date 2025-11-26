@@ -5,7 +5,7 @@
 """
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PySide6.QtCore import Signal, Qt, QPoint, QRect, QSize
-from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont
+from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont, QFontMetrics
 import os
 
 
@@ -76,12 +76,17 @@ class LivePreviewWidget(QWidget):
         self._scale = 1.0
         self._render_offset = QPoint()
 
-        # 스타일
-        self.setStyleSheet("border: 1px solid #ccc; background-color: #2a2a2a;")
+        # 스타일 - 빈 공간을 명확히 표시하기 위해 흰색 배경 + 검은 테두리
+        self.setStyleSheet("border: 2px solid #333333; background-color: #ffffff;")
         self.setMouseTracking(True)
 
         # 이미지 캐시
         self._image_cache = {}
+
+        # 카드 테두리 표시 옵션
+        self._show_card_border = False
+        self._card_border_color = QColor("#333333")
+        self._card_border_width = 2
 
     def set_original_size(self, width: int, height: int):
         """원본 크기 설정 (화면 또는 카드 크기)"""
@@ -115,19 +120,33 @@ class LivePreviewWidget(QWidget):
             if use_image_size and not self._background_pixmap.isNull():
                 self._original_size = self._background_pixmap.size()
         else:
-            # 이미지 없으면 단색 배경
+            # 이미지 없으면 흰색 배경 (빈 공간을 명확히 표시)
             self._background_pixmap = QPixmap(self._original_size)
-            color = fallback_color or QColor("#1a1a1a")
+            color = fallback_color or QColor("#ffffff")
             self._background_pixmap.fill(color)
 
         self._calculate_render_parameters()
         self.update()
 
-    def set_background_color(self, color: QColor):
-        """단색 배경 설정"""
+    def set_background_color(self, color: QColor = None):
+        """단색 배경 설정 (기본: 흰색)"""
         self._background_pixmap = QPixmap(self._original_size)
-        self._background_pixmap.fill(color)
+        self._background_pixmap.fill(color or QColor("#ffffff"))
         self._calculate_render_parameters()
+        self.update()
+
+    def set_card_border(self, show: bool = True, color: QColor = None, width: int = 2):
+        """카드 테두리 표시 설정 (인쇄 영역 경계)
+
+        Args:
+            show: 테두리 표시 여부
+            color: 테두리 색상 (기본: 어두운 회색)
+            width: 테두리 두께
+        """
+        self._show_card_border = show
+        if color:
+            self._card_border_color = color
+        self._card_border_width = width
         self.update()
 
     def add_element(self, element_id: str, rect: QRect,
@@ -319,15 +338,24 @@ class LivePreviewWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
+        # 배경 영역 계산
+        target_rect = QRect(
+            self._render_offset.x(),
+            self._render_offset.y(),
+            int(self._original_size.width() / self._scale),
+            int(self._original_size.height() / self._scale)
+        )
+
         # 배경 그리기
         if not self._background_pixmap.isNull():
-            target_rect = QRect(
-                self._render_offset.x(),
-                self._render_offset.y(),
-                int(self._original_size.width() / self._scale),
-                int(self._original_size.height() / self._scale)
-            )
             painter.drawPixmap(target_rect, self._background_pixmap)
+
+        # 카드 테두리 그리기 (인쇄 영역 경계)
+        if self._show_card_border:
+            pen = QPen(self._card_border_color, self._card_border_width, Qt.SolidLine)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(target_rect)
 
         # 오버레이 요소들 그리기
         for element in self._overlay_elements:
@@ -350,20 +378,26 @@ class LivePreviewWidget(QWidget):
                 font.setBold(True)
                 painter.setFont(font)
 
-                # 레이블 배경
+                # QFontMetrics를 사용하여 정확한 텍스트 너비 계산
+                metrics = QFontMetrics(font)
+                text_width = metrics.horizontalAdvance(element['label'])
+                text_height = metrics.height()
+
+                # 레이블 배경 (패딩 포함)
+                padding = 6
                 label_rect = QRect(
                     preview_rect.x(),
-                    preview_rect.y() - 16,
-                    len(element['label']) * 8 + 8,
-                    16
+                    preview_rect.y() - text_height - padding,
+                    text_width + padding * 2,
+                    text_height + padding
                 )
                 painter.fillRect(label_rect, element['color'])
 
-                # 레이블 텍스트
+                # 레이블 텍스트 (baseline 기준 정렬)
                 painter.setPen(QColor("white"))
                 painter.drawText(
-                    preview_rect.x() + 4,
-                    preview_rect.y() - 4,
+                    preview_rect.x() + padding,
+                    preview_rect.y() - padding,
                     element['label']
                 )
 

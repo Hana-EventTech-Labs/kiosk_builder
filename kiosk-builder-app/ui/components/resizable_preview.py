@@ -111,12 +111,12 @@ class ResizablePreviewContainer(QFrame):
         # 리사이즈 핸들
         self._handles = {}
 
-        # 스타일
+        # 스타일 - 흰색 배경 + 검은 테두리로 빈 공간 명확히 표시
         self.setFrameStyle(QFrame.Box | QFrame.Plain)
         self.setStyleSheet("""
             ResizablePreviewContainer {
-                background-color: #2a2a2a;
-                border: 2px solid #444;
+                background-color: #ffffff;
+                border: 2px solid #333333;
                 border-radius: 4px;
             }
             ResizablePreviewContainer:hover {
