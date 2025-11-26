@@ -5,6 +5,73 @@ from datetime import datetime
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 class FileHandler:
+    # 화면별 인덱스 매핑
+    SCREEN_INDEX_MAP = {
+        "1": "1",       # 카메라
+        "2": "2",       # 키보드
+        "3": "3",       # QR
+        "4": "4",       # 프레임
+        "splash": "0",
+        "process": "5",
+        "complete": "6",
+        "0": "0",
+        "5": "5",
+        "6": "6",
+    }
+
+    @staticmethod
+    def resolve_background_path(screen_key):
+        """
+        화면 키를 기반으로 실제 배경화면 파일 경로를 찾습니다.
+
+        Args:
+            screen_key: 화면 식별자 (1, 2, 3, 4, splash, process, complete 등)
+
+        Returns:
+            실제 파일 경로 (절대 경로) 또는 None
+        """
+        screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
+
+        resources_background_path = os.path.abspath("resources/background")
+        supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
+
+        for ext in supported_extensions:
+            file_path = os.path.join(resources_background_path, f"{screen_index}{ext}")
+            if os.path.exists(file_path):
+                return file_path
+
+        return None
+
+    @staticmethod
+    def resolve_frame_path(frame_filename):
+        """
+        프레임 파일명을 기반으로 실제 프레임 파일 경로를 찾습니다.
+
+        Args:
+            frame_filename: 프레임 파일명 (확장자 포함 또는 미포함)
+
+        Returns:
+            실제 파일 경로 (절대 경로) 또는 None
+        """
+        if not frame_filename:
+            return None
+
+        resources_frames_path = os.path.abspath("resources/frames")
+        supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '']
+
+        # 먼저 그대로 찾기
+        file_path = os.path.join(resources_frames_path, frame_filename)
+        if os.path.exists(file_path):
+            return file_path
+
+        # 확장자 추가하여 찾기
+        for ext in supported_extensions:
+            if ext and not frame_filename.lower().endswith(ext):
+                file_path = os.path.join(resources_frames_path, f"{frame_filename}{ext}")
+                if os.path.exists(file_path):
+                    return file_path
+
+        return None
     @staticmethod
     def browse_image_file(parent, line_edit):
         """이미지 파일 선택 다이얼로그"""
