@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt, QPropertyAnimation, QSequentialAnimationGroup
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 import os
-from config import config
+from config import config, language_manager
 
 class SplashScreen(QWidget):
     def __init__(self, stack, screen_size, main_window):
@@ -14,6 +14,7 @@ class SplashScreen(QWidget):
         self.main_window = main_window
         self.background_widget = None  # 배경 위젯 추적을 위한 변수
         self.media_player = None  # 미디어 플레이어 추적을 위한 변수
+        self.lang_buttons = {}  # 언어 선택 버튼
         self.loadCustomFont()
         self.setupUI()
         self.startAnimation()
@@ -36,30 +37,42 @@ class SplashScreen(QWidget):
         self.addCloseButton()
         self.splash_label = self.createSplashLabel()
         self.splash_label.setGeometry(config["splash"]["x"], config["splash"]["y"], self.splash_label.sizeHint().width(), self.splash_label.sizeHint().height())
+
+        # 언어 선택 버튼 추가 (활성화된 경우)
+        if language_manager.is_enabled():
+            self.setupLanguageButtons()
     
     def setupBackground(self):
-        # 지원하는 배경 파일들 (우선순위 순)
-        background_files = [
-            "background/0.mp4", "background/0.gif", "background/0.png", "background/0.jpg",
-            "background/splash_bg.mp4", "background/splash_bg.gif", "background/splash_bg.png", "background/splash_bg.jpg"
-        ]
-        
         background_file = None
-        for filename in background_files:
-            file_path = f"resources/{filename}"
-            if os.path.exists(file_path):
-                background_file = file_path
-                break
-        
+
+        # 언어 선택 모드가 활성화된 경우 언어별 배경 먼저 확인
+        if language_manager.is_enabled():
+            lang_path = language_manager.get_background_path(0)  # splash screen = index 0
+            if lang_path:
+                background_file = lang_path
+
+        # 언어별 배경이 없으면 기본 배경 파일들 확인
+        if background_file is None:
+            background_files = [
+                "background/0.mp4", "background/0.gif", "background/0.png", "background/0.jpg",
+                "background/splash_bg.mp4", "background/splash_bg.gif", "background/splash_bg.png", "background/splash_bg.jpg"
+            ]
+
+            for filename in background_files:
+                file_path = f"resources/{filename}"
+                if os.path.exists(file_path):
+                    background_file = file_path
+                    break
+
         if background_file is None:
             # 모든 파일이 없는 경우 빈 배경 사용
             background_label = QLabel(self)
             background_label.resize(*self.screen_size)
             self.background_widget = background_label
             return
-        
+
         file_extension = background_file.lower().split('.')[-1]
-        
+
         if file_extension == 'mp4':
             # MP4 비디오 재생
             self.setupVideoBackground(background_file)
@@ -114,7 +127,14 @@ class SplashScreen(QWidget):
 
     def createSplashLabel(self):
         splash_label = QLabel(self)  # 부모 위젯을 self로 지정
-        splash_label.setText(config["splash"]["phrase"])
+
+        # 언어 선택 모드가 활성화된 경우 언어별 문구 사용
+        if language_manager.is_enabled():
+            phrase = language_manager.get_phrase("splash_phrase")
+        else:
+            phrase = config["splash"]["phrase"]
+
+        splash_label.setText(phrase if phrase else config["splash"]["phrase"])
         
         # 커스텀 폰트 적용
         custom_font = QFont(self.font_family)
@@ -170,7 +190,86 @@ class SplashScreen(QWidget):
         """)
         self.close_button.clicked.connect(self.main_window.closeApplication)
 
+    def setupLanguageButtons(self):
+        """언어 선택 버튼 생성"""
+        lang_config = config.get("language", {})
+
+        for lang_code in ["ko", "en"]:
+            btn_config = lang_config.get(f"{lang_code}_button", {})
+
+            # 기본값
+            defaults = {
+                "text": "한글" if lang_code == "ko" else "English",
+                "x": 340,
+                "y": 800 if lang_code == "ko" else 960,
+                "width": 400,
+                "height": 120,
+                "font_size": 48,
+                "font_color": "#ffffff",
+                "bg_color": "#2563eb" if lang_code == "ko" else "#059669",
+                "border_color": "#1d4ed8" if lang_code == "ko" else "#047857",
+                "border_width": 3,
+                "border_radius": 15
+            }
+
+            # 버튼 생성
+            btn = QPushButton(btn_config.get("text", defaults["text"]), self)
+
+            # 위치 및 크기 설정
+            x = btn_config.get("x", defaults["x"])
+            y = btn_config.get("y", defaults["y"])
+            width = btn_config.get("width", defaults["width"])
+            height = btn_config.get("height", defaults["height"])
+            btn.setGeometry(x, y, width, height)
+
+            # 스타일 설정
+            font_size = btn_config.get("font_size", defaults["font_size"])
+            font_color = btn_config.get("font_color", defaults["font_color"])
+            bg_color = btn_config.get("bg_color", defaults["bg_color"])
+            border_color = btn_config.get("border_color", defaults["border_color"])
+            border_width = btn_config.get("border_width", defaults["border_width"])
+            border_radius = btn_config.get("border_radius", defaults["border_radius"])
+
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {bg_color};
+                    color: {font_color};
+                    font-size: {font_size}px;
+                    font-weight: bold;
+                    border: {border_width}px solid {border_color};
+                    border-radius: {border_radius}px;
+                }}
+                QPushButton:hover {{
+                    background-color: {border_color};
+                }}
+                QPushButton:pressed {{
+                    background-color: {font_color};
+                    color: {bg_color};
+                }}
+            """)
+
+            # 클릭 이벤트 연결
+            btn.clicked.connect(lambda checked, lc=lang_code: self.onLanguageSelected(lc))
+
+            # 버튼 저장
+            self.lang_buttons[lang_code] = btn
+
+    def onLanguageSelected(self, lang_code: str):
+        """언어 선택 시 호출"""
+        print(f"언어 선택: {lang_code}")
+
+        # 언어 설정
+        language_manager.current_language = lang_code
+
+        # 다음 화면으로 이동
+        next_index = self.main_window.getNextScreenIndex()
+        self.stack.setCurrentIndex(next_index)
+
     def mousePressEvent(self, event):
+        # 언어 선택 모드가 활성화되어 있으면 화면 터치로 넘어가지 않음
+        if language_manager.is_enabled():
+            return
+
         next_index = self.main_window.getNextScreenIndex()
         self.stack.setCurrentIndex(next_index)
 

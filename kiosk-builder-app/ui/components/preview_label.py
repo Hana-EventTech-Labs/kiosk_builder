@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLabel
 from PySide6.QtCore import Signal, Qt, QPoint, QRect
-from PySide6.QtGui import QMouseEvent, QPainter, QPixmap
+from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen
 
 class DraggablePreviewLabel(QLabel):
     """드래그 앤 드롭을 지원하고 자체적으로 미리보기를 그리는 라벨"""
@@ -21,9 +21,22 @@ class DraggablePreviewLabel(QLabel):
         self._scale = 1.0
         self._render_offset = QPoint()
 
+        # 카드 테두리 옵션
+        self._show_card_border = False
+        self._card_border_color = QColor("#333333")
+        self._card_border_width = 3
+
     def set_pen(self, pen):
         """사각형을 그릴 때 사용할 펜 설정"""
         self._pen = pen
+
+    def set_card_border(self, show: bool = True, color: QColor = None, width: int = 3):
+        """카드 테두리 표시 설정 (인쇄 영역 경계)"""
+        self._show_card_border = show
+        if color:
+            self._card_border_color = color
+        self._card_border_width = width
+        self.update()
 
     def update_preview(self, bg_pixmap, overlay_rect, overlay_pixmap=None):
         """표시할 배경과 사각형/이미지 업데이트"""
@@ -64,20 +77,27 @@ class DraggablePreviewLabel(QLabel):
         """배경과 오버레이 사각형을 그림"""
         super().paintEvent(event)
         painter = QPainter(self)
-        
+
         if self._background_pixmap.isNull():
             return
 
         # 배경 그리기
-        target_rect = QRect(self._render_offset.x(), self._render_offset.y(),
-                            self._original_size.width() / self._scale,
-                            self._original_size.height() / self._scale)
+        target_rect = QRect(int(self._render_offset.x()), int(self._render_offset.y()),
+                            int(self._original_size.width() / self._scale),
+                            int(self._original_size.height() / self._scale))
         painter.drawPixmap(target_rect, self._background_pixmap)
+
+        # 카드 테두리 그리기 (인쇄 영역 경계)
+        if self._show_card_border:
+            border_pen = QPen(self._card_border_color, self._card_border_width, Qt.SolidLine)
+            painter.setPen(border_pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(target_rect)
 
         # 오버레이 사각형 또는 이미지 그리기
         if not self._overlay_rect.isNull():
             scaled_rect = self._get_scaled_rect_on_label()
-            
+
             if not self._overlay_pixmap.isNull():
                 # 이미지가 있으면 이미지를 그림
                 painter.drawPixmap(scaled_rect, self._overlay_pixmap)

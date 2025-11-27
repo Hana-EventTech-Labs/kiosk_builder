@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget,
-                              QTabWidget, QScrollArea, QFrame, QSizePolicy)
+                              QTabWidget, QScrollArea, QFrame, QSizePolicy, QDialog, QDialogButtonBox)
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt, QRect, QSize
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
-from ui.components.live_preview import LivePreviewWidget
+from ui.components.live_preview import LivePreviewWidget, TextPreviewWidget
 from ui.components.position_size_input import PositionSizeInput
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
@@ -29,6 +29,9 @@ class KeyboardTab(BaseTab):
         self.print_input_item_fields = []  # 사용자 입력 텍스트 인쇄 설정
         self.text_item_fields = []  # 고정 텍스트 설정
         self.keyboard_style_fields = {}
+
+        # 언어별 배경화면 필드
+        self.lang_bg_fields = {"ko": {}, "en": {}}
 
         self.init_ui()
 
@@ -93,23 +96,86 @@ class KeyboardTab(BaseTab):
         # 1. 배경화면 설정
         bg_group = QGroupBox("배경화면")
         self.apply_left_aligned_group_style(bg_group)
-        bg_layout = QHBoxLayout(bg_group)
+        bg_group_layout = QVBoxLayout(bg_group)
+
+        # 기본 배경화면 행 (레이블 + ? 버튼 + 입력필드)
+        bg_row = QHBoxLayout()
+        bg_label = QLabel("배경화면:")
+        bg_row.addWidget(bg_label)
+
+        # ? 도움말 버튼
+        help_btn = QPushButton("?")
+        help_btn.setFixedSize(20, 20)
+        help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+            }
+        """)
+        help_btn.clicked.connect(self._show_bg_help_dialog)
+        bg_row.addWidget(help_btn)
+        bg_row.addSpacing(10)
 
         saved_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY)
         self.keyboard_bg_edit = QLineEdit(saved_bg)
         self.keyboard_bg_edit.setReadOnly(True)
         self.keyboard_bg_edit.setPlaceholderText("배경화면 없음")
         self.keyboard_bg_edit.textChanged.connect(self._update_screen_preview)
-        bg_layout.addWidget(self.keyboard_bg_edit, 1)
+        bg_row.addWidget(self.keyboard_bg_edit, 1)
 
         browse_btn = QPushButton("찾기...")
         browse_btn.clicked.connect(self._browse_and_update_background)
-        bg_layout.addWidget(browse_btn)
+        bg_row.addWidget(browse_btn)
 
         reset_btn = QPushButton("초기화")
         reset_btn.setFixedWidth(60)
         reset_btn.clicked.connect(self._reset_background)
-        bg_layout.addWidget(reset_btn)
+        bg_row.addWidget(reset_btn)
+
+        bg_group_layout.addLayout(bg_row)
+
+        # 한국어 배경화면
+        ko_bg_layout = QHBoxLayout()
+        ko_bg_layout.addWidget(QLabel("🇰🇷 한국어:"))
+        saved_ko_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY, lang="ko")
+        self.ko_bg_edit = QLineEdit(saved_ko_bg)
+        self.ko_bg_edit.setReadOnly(True)
+        self.ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        ko_bg_layout.addWidget(self.ko_bg_edit, 1)
+        self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
+        ko_browse_btn = QPushButton("찾기...")
+        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_browse_btn)
+        ko_reset_btn = QPushButton("초기화")
+        ko_reset_btn.setFixedWidth(60)
+        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_reset_btn)
+        bg_group_layout.addLayout(ko_bg_layout)
+
+        # 영어 배경화면
+        en_bg_layout = QHBoxLayout()
+        en_bg_layout.addWidget(QLabel("🇺🇸 English:"))
+        saved_en_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY, lang="en")
+        self.en_bg_edit = QLineEdit(saved_en_bg)
+        self.en_bg_edit.setReadOnly(True)
+        self.en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        en_bg_layout.addWidget(self.en_bg_edit, 1)
+        self.lang_bg_fields["en"]["background"] = self.en_bg_edit
+        en_browse_btn = QPushButton("찾기...")
+        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
+        en_bg_layout.addWidget(en_browse_btn)
+        en_reset_btn = QPushButton("초기화")
+        en_reset_btn.setFixedWidth(60)
+        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
+        en_bg_layout.addWidget(en_reset_btn)
+        bg_group_layout.addLayout(en_bg_layout)
 
         settings_layout.addWidget(bg_group)
 
@@ -272,14 +338,21 @@ class KeyboardTab(BaseTab):
         preview_layout = QVBoxLayout(preview_widget)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
-        preview_group = QGroupBox("카드 인쇄 미리보기")
+        preview_group = QGroupBox("카드 인쇄 미리보기 (58x90mm)")
         self.apply_left_aligned_group_style(preview_group)
         preview_group_layout = QVBoxLayout(preview_group)
 
-        self.card_preview = LivePreviewWidget()
+        # TextPreviewWidget 사용하여 실제 텍스트 렌더링
+        self.card_preview = TextPreviewWidget()
         self.card_preview.position_changed.connect(self._on_card_element_position_changed)
         self.card_preview.size_changed.connect(self._on_card_element_size_changed)
+        self.card_preview.text_size_changed.connect(self._on_text_size_changed)
         preview_group_layout.addWidget(self.card_preview, 0, Qt.AlignHCenter)
+
+        # 안내 문구
+        card_info = QLabel("※ 검정 테두리가 실제 인쇄되는 카드 영역입니다.\n   텍스트를 드래그하여 위치를 조절하세요.")
+        card_info.setStyleSheet("color: #666; font-style: italic;")
+        preview_group_layout.addWidget(card_info, 0, Qt.AlignHCenter)
 
         preview_layout.addWidget(preview_group)
         preview_layout.addStretch()
@@ -727,6 +800,7 @@ class KeyboardTab(BaseTab):
             return
 
         self.card_preview.clear_elements()
+        self.card_preview.clear_texts()
 
         # 카드 크기
         is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
@@ -736,38 +810,82 @@ class KeyboardTab(BaseTab):
         self.card_preview.set_original_size(card_width, card_height)
         self.card_preview.set_background_color(QColor("white"))
 
-        # 사용자 입력 텍스트 인쇄 위치
-        input_colors = [QColor("red"), QColor("blue"), QColor("purple"), QColor("orange"), QColor("brown")]
+        # 카드 테두리 표시 (인쇄 영역 경계)
+        self.card_preview.set_card_border(True, QColor("#333333"), 3)
+
+        # 사용자 입력 텍스트 인쇄 위치 (실제 텍스트로 렌더링)
+        input_colors = [QColor("#E53935"), QColor("#1E88E5"), QColor("#7B1FA2"),
+                        QColor("#FB8C00"), QColor("#5D4037")]
         for i, fields in enumerate(self.print_input_item_fields):
             if "print_pos" in fields:
                 pos = fields["print_pos"]
-                rect = QRect(pos.get_x(), pos.get_y(), pos.get_width(), pos.get_height())
-                # 이름 가져오기
-                label_text = f"입력텍스트{i+1}"
-                if i < len(self.text_input_item_fields) and "label" in self.text_input_item_fields[i]:
-                    label_val = self.text_input_item_fields[i]["label"].text()
-                    if label_val:
-                        label_text = label_val
-                self.card_preview.add_element(
-                    f"print_input_{i}", rect,
-                    color=input_colors[i % len(input_colors)],
-                    label=label_text,
-                    draggable=True
+                x, y = pos.get_x(), pos.get_y()
+
+                # 표시할 텍스트 (placeholder 또는 label 사용)
+                display_text = f"(입력{i+1})"
+                if i < len(self.text_input_item_fields):
+                    screen_fields = self.text_input_item_fields[i]
+                    if "placeholder" in screen_fields and screen_fields["placeholder"].text():
+                        display_text = screen_fields["placeholder"].text()
+                    elif "label" in screen_fields and screen_fields["label"].text():
+                        display_text = f"({screen_fields['label'].text()})"
+
+                # 폰트 크기
+                font_size = fields.get("output_font_size")
+                font_size_val = font_size.value() if font_size else 16
+
+                # 폰트 색상
+                font_color = fields.get("output_font_color")
+                color_val = QColor(font_color.color) if font_color else input_colors[i % len(input_colors)]
+
+                # 폰트 경로
+                font_path = fields.get("output_font")
+                font_path_val = font_path.text() if font_path else ""
+
+                self.card_preview.add_text(
+                    f"print_input_{i}",
+                    display_text,
+                    x, y,
+                    font_path=font_path_val,
+                    font_size=font_size_val,
+                    color=color_val,
+                    draggable=True,
+                    resizable=True
                 )
 
-        # 고정 텍스트 위치
-        fixed_colors = [QColor("green"), QColor("teal"), QColor("cyan"), QColor("magenta"), QColor("gray")]
+        # 고정 텍스트 (실제 텍스트로 렌더링)
+        fixed_colors = [QColor("#43A047"), QColor("#00897B"), QColor("#00ACC1"),
+                        QColor("#D81B60"), QColor("#757575")]
         for i, fields in enumerate(self.text_item_fields):
             if "pos" in fields:
                 pos = fields["pos"]
-                rect = QRect(pos.get_x(), pos.get_y(), pos.get_width(), pos.get_height())
+                x, y = pos.get_x(), pos.get_y()
+
+                # 표시할 텍스트
                 content = fields.get("content")
-                label_text = content.text() if content and content.text() else f"고정텍스트{i+1}"
-                self.card_preview.add_element(
-                    f"fixed_text_{i}", rect,
-                    color=fixed_colors[i % len(fixed_colors)],
-                    label=label_text,
-                    draggable=True
+                display_text = content.text() if content and content.text() else f"텍스트{i+1}"
+
+                # 폰트 크기
+                font_size = fields.get("font_size")
+                font_size_val = font_size.value() if font_size else 16
+
+                # 폰트 색상
+                font_color = fields.get("font_color")
+                color_val = QColor(font_color.color) if font_color else fixed_colors[i % len(fixed_colors)]
+
+                # 폰트 경로
+                font_path = fields.get("font")
+                font_path_val = font_path.text() if font_path else ""
+
+                self.card_preview.add_text(
+                    f"fixed_text_{i}",
+                    display_text,
+                    x, y,
+                    font_path=font_path_val,
+                    font_size=font_size_val,
+                    color=color_val,
+                    draggable=True,
+                    resizable=True
                 )
 
         self.request_real_time_update()
@@ -843,6 +961,24 @@ class KeyboardTab(BaseTab):
                 pos.block_all_signals(False)
         self.request_real_time_update()
 
+    def _on_text_size_changed(self, element_id, new_font_size):
+        """텍스트 크기 변경 (드래그 리사이즈)"""
+        if element_id.startswith("print_input_"):
+            idx = int(element_id.split("_")[2])
+            if idx < len(self.print_input_item_fields) and "output_font_size" in self.print_input_item_fields[idx]:
+                font_size_widget = self.print_input_item_fields[idx]["output_font_size"]
+                font_size_widget.blockSignals(True)
+                font_size_widget.setValue(new_font_size)
+                font_size_widget.blockSignals(False)
+        elif element_id.startswith("fixed_text_"):
+            idx = int(element_id.split("_")[2])
+            if idx < len(self.text_item_fields) and "font_size" in self.text_item_fields[idx]:
+                font_size_widget = self.text_item_fields[idx]["font_size"]
+                font_size_widget.blockSignals(True)
+                font_size_widget.setValue(new_font_size)
+                font_size_widget.blockSignals(False)
+        self.request_real_time_update()
+
     # ==================== 채우기/가운데 정렬 ====================
     def _fill_keyboard_frame(self):
         """키보드를 화면 크기로 채우기"""
@@ -887,6 +1023,57 @@ class KeyboardTab(BaseTab):
         if reply == QMessageBox.Yes:
             FileHandler.delete_background(KEYBOARD_SCREEN_KEY)
             self.keyboard_bg_edit.setText("")
+            self._update_screen_preview()
+
+    # ==================== 배경화면 도움말 및 언어별 배경화면 ====================
+    def _show_bg_help_dialog(self):
+        """배경화면 도움말 다이얼로그 표시"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("배경화면 설정 안내")
+        dialog.setMinimumWidth(400)
+        layout = QVBoxLayout(dialog)
+
+        info_text = QLabel(
+            "<b>📌 배경화면 설정 안내</b><br><br>"
+            "• <b>배경화면</b>: 기본 배경화면입니다. 언어별 배경화면이 없을 경우 사용됩니다.<br><br>"
+            "• <b>🇰🇷 한국어</b>: 사용자가 한국어를 선택했을 때 표시되는 배경화면입니다.<br><br>"
+            "• <b>🇺🇸 English</b>: 사용자가 영어를 선택했을 때 표시되는 배경화면입니다.<br><br>"
+            "<i>※ 언어별 배경화면이 설정되지 않으면 기본 배경화면이 사용됩니다.</i>"
+        )
+        info_text.setWordWrap(True)
+        info_text.setStyleSheet("padding: 10px;")
+        layout.addWidget(info_text)
+
+        btn_box = QDialogButtonBox(QDialogButtonBox.Ok)
+        btn_box.accepted.connect(dialog.accept)
+        layout.addWidget(btn_box)
+
+        dialog.exec()
+
+    def _browse_lang_bg(self, lang_code: str):
+        """언어별 배경화면 파일 선택"""
+        bg_edit = self.lang_bg_fields[lang_code].get("background")
+        if bg_edit:
+            FileHandler.browse_background_file(self, bg_edit, KEYBOARD_SCREEN_KEY, lang=lang_code)
+            saved_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY, lang=lang_code)
+            bg_edit.setText(saved_bg)
+            self._update_screen_preview()
+
+    def _reset_lang_bg(self, lang_code: str):
+        """언어별 배경화면 초기화"""
+        from PySide6.QtWidgets import QMessageBox
+        lang_name = "한국어" if lang_code == "ko" else "영어"
+        reply = QMessageBox.question(
+            self, f"{lang_name} 배경화면 초기화",
+            f"{lang_name} 텍스트 입력 화면의 배경화면을 삭제하시겠습니까?\n삭제 시 기본 배경화면이 사용됩니다.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            FileHandler.delete_background(KEYBOARD_SCREEN_KEY, lang=lang_code)
+            bg_edit = self.lang_bg_fields[lang_code].get("background")
+            if bg_edit:
+                bg_edit.setText("")
             self._update_screen_preview()
 
     # ==================== 설정 저장/로드 ====================

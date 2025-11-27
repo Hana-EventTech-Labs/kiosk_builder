@@ -465,6 +465,7 @@ class BasicTab(BaseTab):
             overlay_pixmap = QPixmap(image_path)
 
         image_rect = QRect(x, y, width, height)
+        self.image_preview_label.set_card_border(True)  # 카드 테두리 표시
         self.image_preview_label.update_preview(card_pixmap, image_rect, overlay_pixmap)
         self.request_real_time_update()
 

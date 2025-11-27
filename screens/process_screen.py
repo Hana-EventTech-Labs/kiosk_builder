@@ -5,7 +5,7 @@ from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from printer_utils.printer_thread import PrinterThread
-from config import config
+from config import config, language_manager
 import os
 
 class ProcessScreen(QWidget):
@@ -43,28 +43,36 @@ class ProcessScreen(QWidget):
                                        self.process_label.sizeHint().width(), self.process_label.sizeHint().height())
     
     def setupBackground(self):
-        # 지원하는 배경 파일들 (우선순위 순)
-        background_files = [
-            "background/5.mp4", "background/5.gif", "background/5.png", "background/5.jpg",
-            "background/process_bg.mp4", "background/process_bg.gif", "background/process_bg.png", "background/process_bg.jpg"
-        ]
-        
         background_file = None
-        for filename in background_files:
-            file_path = f"resources/{filename}"
-            if os.path.exists(file_path):
-                background_file = file_path
-                break
-        
+
+        # 언어 선택 모드가 활성화된 경우 언어별 배경 먼저 확인
+        if language_manager.is_enabled():
+            lang_path = language_manager.get_background_path(5)  # process screen = index 5
+            if lang_path:
+                background_file = lang_path
+
+        # 언어별 배경이 없으면 기본 배경 파일들 확인
+        if background_file is None:
+            background_files = [
+                "background/5.mp4", "background/5.gif", "background/5.png", "background/5.jpg",
+                "background/process_bg.mp4", "background/process_bg.gif", "background/process_bg.png", "background/process_bg.jpg"
+            ]
+
+            for filename in background_files:
+                file_path = f"resources/{filename}"
+                if os.path.exists(file_path):
+                    background_file = file_path
+                    break
+
         if background_file is None:
             # 모든 파일이 없는 경우 빈 배경 사용
             background_label = QLabel(self)
             background_label.resize(*self.screen_size)
             self.background_widget = background_label
             return
-        
+
         file_extension = background_file.lower().split('.')[-1]
-        
+
         if file_extension == 'mp4':
             # MP4 비디오 재생
             self.setupVideoBackground(background_file)
@@ -119,7 +127,14 @@ class ProcessScreen(QWidget):
 
     def createProcessLabel(self):
         process_label = QLabel(self)  # 부모 위젯을 self로 지정
-        process_label.setText(config["process"]["phrase"])
+
+        # 언어 선택 모드가 활성화된 경우 언어별 문구 사용
+        if language_manager.is_enabled():
+            phrase = language_manager.get_phrase("process_phrase")
+        else:
+            phrase = config["process"]["phrase"]
+
+        process_label.setText(phrase if phrase else config["process"]["phrase"])
         
         # 커스텀 폰트 적용
         custom_font = QFont(self.font_family)

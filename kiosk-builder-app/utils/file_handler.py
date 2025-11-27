@@ -19,28 +19,38 @@ class FileHandler:
         "6": "6",
     }
 
+    # 언어 코드 목록
+    LANGUAGE_CODES = [None, "ko", "en"]  # None = 기본, "ko" = 한글, "en" = 영어
+
     @staticmethod
-    def _get_resources_background_path():
-        """resources/background 폴더의 절대 경로를 반환합니다."""
+    def _get_resources_background_path(lang=None):
+        """resources/background 폴더의 절대 경로를 반환합니다.
+
+        Args:
+            lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
+        """
         # 현재 파일(file_handler.py)의 위치를 기준으로 경로 계산
         current_dir = os.path.dirname(os.path.abspath(__file__))
         # utils 폴더에서 상위로 올라가서 resources/background로 이동
+        if lang:
+            return os.path.join(current_dir, "..", "resources", f"background_{lang}")
         return os.path.join(current_dir, "..", "resources", "background")
 
     @staticmethod
-    def resolve_background_path(screen_key):
+    def resolve_background_path(screen_key, lang=None):
         """
         화면 키를 기반으로 실제 배경화면 파일 경로를 찾습니다.
 
         Args:
             screen_key: 화면 식별자 (1, 2, 3, 4, splash, process, complete 등)
+            lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
 
         Returns:
             실제 파일 경로 (절대 경로) 또는 None
         """
         screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
 
-        resources_background_path = FileHandler._get_resources_background_path()
+        resources_background_path = FileHandler._get_resources_background_path(lang)
         supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
 
         for ext in supported_extensions:
@@ -51,34 +61,36 @@ class FileHandler:
         return None
 
     @staticmethod
-    def get_background_display_name(screen_key):
+    def get_background_display_name(screen_key, lang=None):
         """
         화면 키에 해당하는 배경화면의 표시용 파일명을 반환합니다.
 
         Args:
             screen_key: 화면 식별자
+            lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
 
         Returns:
             파일명 (확장자 포함) 또는 빈 문자열
         """
-        file_path = FileHandler.resolve_background_path(screen_key)
+        file_path = FileHandler.resolve_background_path(screen_key, lang)
         if file_path:
             return os.path.basename(file_path)
         return ""
 
     @staticmethod
-    def delete_background(screen_key):
+    def delete_background(screen_key, lang=None):
         """
         화면 키에 해당하는 배경화면 파일을 삭제합니다.
 
         Args:
             screen_key: 화면 식별자
+            lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
 
         Returns:
             삭제 성공 여부
         """
         screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
-        resources_background_path = FileHandler._get_resources_background_path()
+        resources_background_path = FileHandler._get_resources_background_path(lang)
         supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '.mp4']
         deleted = False
 
@@ -219,18 +231,33 @@ class FileHandler:
                     print(f"기존 파일 삭제 실패: {existing_file}, 오류: {e}")
 
     @staticmethod
-    def browse_background_file(parent, line_edit, screen_key):
-        """배경화면 파일 선택 다이얼로그 (이미지, 동영상, GIF 지원)"""
+    def browse_background_file(parent, line_edit, screen_key, lang=None):
+        """배경화면 파일 선택 다이얼로그 (이미지, 동영상, GIF 지원)
+
+        Args:
+            parent: 부모 위젯
+            line_edit: 파일명을 표시할 QLineEdit
+            screen_key: 화면 식별자
+            lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
+        """
+        # 언어별 폴더 경로 설정
+        if lang:
+            folder_name = f"background_{lang}"
+            dialog_title = f"배경화면 파일 선택 ({lang.upper()})"
+        else:
+            folder_name = "background"
+            dialog_title = "배경화면 파일 선택"
+
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, 
-            "배경화면 파일 선택", 
-            "resources/background", 
+            parent,
+            dialog_title,
+            f"resources/{folder_name}",
             "배경화면 파일 (*.png *.jpg *.jpeg *.bmp *.gif *.mp4)"
         )
-        
+
         if file_path:
-            # resources/background 폴더 경로 확인
-            resources_background_path = os.path.abspath("resources/background")
+            # resources/background 또는 resources/background_xx 폴더 경로 확인
+            resources_background_path = os.path.abspath(f"resources/{folder_name}")
             
             # 파일 경로 정규화하여 비교
             normalized_file_path = os.path.normpath(file_path)
@@ -259,9 +286,9 @@ class FileHandler:
                 
                 # 파일 복사 여부 확인
                 reply = QMessageBox.question(
-                    parent, 
-                    "배경화면 파일 복사", 
-                    f"선택한 배경화면을 resources/background/{target_filename}으로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
+                    parent,
+                    "배경화면 파일 복사",
+                    f"선택한 배경화면을 resources/{folder_name}/{target_filename}으로 복사하시겠습니까?\n\n원본: {display_file_path}\n대상: {display_target_path}",
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.Yes
                 )
@@ -281,9 +308,9 @@ class FileHandler:
                         QMessageBox.information(
                             parent,
                             "파일 복사 완료",
-                            f"배경화면이 resources/background/{target_filename}로 복사되었습니다."
+                            f"배경화면이 resources/{folder_name}/{target_filename}로 복사되었습니다."
                         )
-                        
+
                         # 원본 파일 이름을 표시 및 저장
                         line_edit.setText(display_name)
                     except Exception as e:
@@ -296,26 +323,26 @@ class FileHandler:
                 else:
                     # 복사하지 않는 경우 복사 필요 안내
                     QMessageBox.warning(
-                        parent, 
-                        "수동 복사 필요", 
-                        f"배경화면으로 사용하려면 해당 파일을 resources/background/{target_filename}으로 수동으로 복사해야 합니다."
+                        parent,
+                        "수동 복사 필요",
+                        f"배경화면으로 사용하려면 해당 파일을 resources/{folder_name}/{target_filename}으로 수동으로 복사해야 합니다."
                     )
             else:
                 # 이미 리소스 폴더 내부에 있는 경우, 적절한 이름으로 복사
                 target_path = os.path.join(resources_background_path, target_filename)
-                
+
                 # 파일 확장자가 다른 경우에도 적절히 처리
                 if file_path != target_path:
                     try:
                         shutil.copy2(file_path, target_path)
-                        
+
                         # 복사 성공 후 기존 파일들 삭제 (새 파일 제외)
                         FileHandler._remove_existing_background_files(resources_background_path, screen_index, original_ext)
-                        
+
                         QMessageBox.information(
                             parent,
                             "파일 복사 완료",
-                            f"배경화면이 resources/background/{target_filename}로 복사되었습니다."
+                            f"배경화면이 resources/{folder_name}/{target_filename}로 복사되었습니다."
                         )
                     except Exception as e:
                         QMessageBox.critical(

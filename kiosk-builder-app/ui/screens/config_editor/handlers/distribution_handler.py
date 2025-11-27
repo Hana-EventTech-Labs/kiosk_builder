@@ -1,16 +1,55 @@
-from PySide6.QtWidgets import QMessageBox,QDialog
+from PySide6.QtWidgets import QMessageBox, QDialog
 import os
 import sys
 import json
 import shutil
 import subprocess
+import requests
 from ..download_progress_dialog import DownloadProgressDialog
+
+# GitHub 저장소 정보
+GITHUB_REPO = "Hana-EventTech-Labs/kiosk_builder"
+GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
 class DistributionHandler:
     def __init__(self, main_window):
         self.main_window = main_window
         self.target_dir = None
         self.app_name = None
+        self.latest_release_tag = None
+        self.latest_release_url = None
+
+    def _get_latest_release_info(self):
+        """GitHub API를 통해 최신 릴리즈 정보 가져오기"""
+        try:
+            print("GitHub API에서 최신 릴리즈 정보를 가져오는 중...")
+            response = requests.get(GITHUB_API_URL, timeout=10)
+
+            if response.status_code == 200:
+                release_data = response.json()
+                tag_name = release_data.get("tag_name", "v1.0.0")
+                self.latest_release_tag = tag_name
+                self.latest_release_url = f"https://github.com/{GITHUB_REPO}/releases/download/{tag_name}"
+                print(f"최신 릴리즈 버전: {tag_name}")
+                return True
+            else:
+                print(f"GitHub API 응답 오류: {response.status_code}")
+                # 기본값으로 fallback
+                self.latest_release_tag = "v1.0.0"
+                self.latest_release_url = f"https://github.com/{GITHUB_REPO}/releases/download/v1.0.0"
+                return False
+
+        except requests.exceptions.Timeout:
+            print("GitHub API 요청 타임아웃")
+            self.latest_release_tag = "v1.0.0"
+            self.latest_release_url = f"https://github.com/{GITHUB_REPO}/releases/download/v1.0.0"
+            return False
+
+        except Exception as e:
+            print(f"최신 릴리즈 정보 가져오기 실패: {e}")
+            self.latest_release_tag = "v1.0.0"
+            self.latest_release_url = f"https://github.com/{GITHUB_REPO}/releases/download/v1.0.0"
+            return False
 
     def create_distribution(self):
         """배포용 파일 생성 및 복사"""
@@ -40,7 +79,10 @@ class DistributionHandler:
             # 8. 리소스 복사
             copied_folders, copied_resource_files = self._copy_resources()
 
-            # 9. 결과 표시
+            # 9. 언어별 배경 폴더 확인 및 생성 (리소스 복사 후 재확인)
+            self._ensure_language_folders()
+
+            # 10. 결과 표시
             self._show_results(
                 created_dirs, builder_copied, downloaded_files, 
                 failed_downloads, copied_folders, copied_resource_files, auth_copied
@@ -111,8 +153,105 @@ class DistributionHandler:
         os.makedirs(self.target_dir, exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin"), exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin", "resources", "background"), exist_ok=True)
+        os.makedirs(os.path.join(self.target_dir, "bin", "resources", "background_ko"), exist_ok=True)
+        os.makedirs(os.path.join(self.target_dir, "bin", "resources", "background_en"), exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin", "resources", "font"), exist_ok=True)
         os.makedirs(os.path.join(self.target_dir, "bin", "resources", "frames"), exist_ok=True)
+
+        # 언어별 폴더에 README 파일 생성
+        self._create_language_folder_readme()
+
+    def _create_language_folder_readme(self):
+        """언어별 배경 폴더에 README 파일 생성"""
+        # 한국어 폴더 README
+        ko_readme = """===============================================
+한국어 배경화면 폴더
+===============================================
+
+이 폴더에 한국어 화면용 배경 이미지를 넣어주세요.
+
+[파일명 규칙]
+화면번호.확장자
+
+[화면 번호]
+0 = 시작 화면 (Splash)
+1 = 카메라 화면
+2 = 텍스트 입력 화면
+3 = QR 코드 화면
+4 = 프레임 선택 화면
+5 = 처리 중 화면
+6 = 완료 화면
+
+[지원 확장자]
+.mp4 (동영상), .gif (애니메이션), .png (이미지), .jpg (이미지)
+
+[예시]
+0.png -> 한국어 시작화면 배경
+1.jpg -> 한국어 카메라화면 배경
+
+[참고]
+파일이 없는 화면은 기본 배경(background 폴더)이 사용됩니다.
+"""
+
+        # 영어 폴더 README
+        en_readme = """===============================================
+English Background Folder
+===============================================
+
+Place English screen backgrounds in this folder.
+
+[File Naming]
+screen_number.extension
+
+[Screen Numbers]
+0 = Splash Screen
+1 = Camera Screen
+2 = Text Input Screen
+3 = QR Code Screen
+4 = Frame Selection Screen
+5 = Processing Screen
+6 = Complete Screen
+
+[Supported Extensions]
+.mp4 (video), .gif (animation), .png (image), .jpg (image)
+
+[Examples]
+0.png -> English splash background
+1.jpg -> English camera background
+
+[Notes]
+Screens without files will use default backgrounds (from background folder).
+"""
+
+        try:
+            ko_path = os.path.join(self.target_dir, "bin", "resources", "background_ko", "README.txt")
+            with open(ko_path, 'w', encoding='utf-8') as f:
+                f.write(ko_readme)
+
+            en_path = os.path.join(self.target_dir, "bin", "resources", "background_en", "README.txt")
+            with open(en_path, 'w', encoding='utf-8') as f:
+                f.write(en_readme)
+        except Exception as e:
+            print(f"README 파일 생성 실패: {e}")
+
+    def _ensure_language_folders(self):
+        """언어별 배경 폴더가 존재하는지 확인하고 없으면 생성"""
+        resources_target = os.path.join(self.target_dir, "bin", "resources")
+
+        ko_folder = os.path.join(resources_target, "background_ko")
+        en_folder = os.path.join(resources_target, "background_en")
+
+        # 폴더가 없으면 생성
+        if not os.path.exists(ko_folder):
+            os.makedirs(ko_folder, exist_ok=True)
+            print(f"background_ko 폴더 생성됨")
+
+        if not os.path.exists(en_folder):
+            os.makedirs(en_folder, exist_ok=True)
+            print(f"background_en 폴더 생성됨")
+
+        # README 파일이 없으면 생성
+        self._create_language_folder_readme()
 
     def _copy_config_files(self):
         """설정 파일 복사"""
@@ -260,8 +399,12 @@ class DistributionHandler:
             {"name": "super-kiosk-builder.exe"}
         ]
 
-        # GitHub 릴리즈 URL 설정
-        github_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
+        # GitHub API를 통해 최신 릴리즈 정보 가져오기
+        self._get_latest_release_info()
+
+        # GitHub 릴리즈 URL 설정 (최신 버전 자동 감지)
+        github_base_url = self.latest_release_url
+        print(f"다운로드 URL: {github_base_url}")
         
         # 다운로드 대화상자 표시
         try:
@@ -402,61 +545,6 @@ class DistributionHandler:
         return True
 
 
-    def _show_results(self, created_dirs, builder_copied, downloaded_files, 
-                    failed_downloads, copied_folders, copied_resource_files, auth_copied):
-        """결과 표시"""
-        app_folder_name = os.path.basename(self.target_dir)
-        result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
-        
-        if created_dirs:
-            result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
-        
-        success_items = []
-        
-        # GitHub 다운로드된 파일들 추가
-        if downloaded_files:
-            success_items.extend(downloaded_files)
-        
-        if copied_folders:
-            success_items.extend(copied_folders)
-        
-        if auth_copied:
-            success_items.append("auth_settings.dat (로그인 정보)")
-        
-        if success_items:
-            result_message += "다음 항목이 성공적으로 복사되었습니다:\n\n"
-            result_message += "- " + "\n- ".join(success_items) + "\n\n"
-            
-            dll_files = [f for f in copied_resource_files if f.endswith(".dll")]
-            font_files = [f for f in copied_resource_files if f.endswith((".ttf", ".otf"))]
-            
-            if dll_files:
-                result_message += f"DLL 파일 {len(dll_files)}개가 복사되었습니다.\n"
-            
-            if font_files:
-                result_message += f"폰트 파일 {len(font_files)}개가 복사되었습니다.\n\n"
-            
-            if auth_copied:
-                result_message += "📋 로그인 정보가 포함되어 자동 로그인이 가능합니다.\n"
-            else:
-                result_message += "🔐 로그인 정보가 포함되지 않아 보안상 안전합니다.\n"
-        
-        # 실패한 항목만 표시 (실제로 실패한 것만)
-        if failed_downloads:
-            result_message += "다음 항목을 찾을 수 없어 복사하지 못했습니다:\n\n"
-            failure_items = [f"{f} (파일을 찾을 수 없음)" for f in failed_downloads]
-            result_message += "- " + "\n- ".join(failure_items) + "\n\n"
-        
-        if success_items:
-            QMessageBox.information(self.main_window, "배포용 파일 생성 완료", result_message)
-            self._log_distribution_creation()
-        else:
-            QMessageBox.warning(
-                self.main_window, 
-                "배포용 파일 생성 실패", 
-                result_message + "필요한 파일을 찾을 수 없습니다."
-            )
-            
     def _copy_resources(self):
         """리소스 폴더 복사"""
         if getattr(sys, 'frozen', False):
@@ -518,11 +606,15 @@ class DistributionHandler:
 
         return copied_files
 
-    def _show_results(self, created_dirs, builder_copied, downloaded_files, 
+    def _show_results(self, created_dirs, builder_copied, downloaded_files,
                       failed_downloads, copied_folders, copied_resource_files, auth_copied):
         """결과 표시"""
         app_folder_name = os.path.basename(self.target_dir)
         result_message = f"배포 폴더 '{app_folder_name}'이(가) 생성되었습니다.\n\n"
+
+        # 다운로드한 버전 표시
+        if self.latest_release_tag:
+            result_message += f"📦 다운로드 버전: {self.latest_release_tag}\n\n"
         
         if created_dirs:
             result_message += "다음 폴더를 자동으로 생성했습니다:\n- " + "\n- ".join(created_dirs) + "\n\n"
