@@ -46,7 +46,7 @@ class PositionSizeInput(QWidget):
         widget = QFrame()
         widget.setStyleSheet("""
             QFrame {
-                background-color: #f8f9fa;
+                background-color: #ffffff;
                 border: 1px solid #e9ecef;
                 border-radius: 8px;
                 padding: 8px;
@@ -96,7 +96,7 @@ class PositionSizeInput(QWidget):
         widget = QFrame()
         widget.setStyleSheet("""
             QFrame {
-                background-color: #f8f9fa;
+                background-color: #ffffff;
                 border: 1px solid #e9ecef;
                 border-radius: 8px;
                 padding: 8px;

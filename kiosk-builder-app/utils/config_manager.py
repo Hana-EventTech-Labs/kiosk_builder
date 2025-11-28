@@ -111,9 +111,9 @@ class ConfigManager:
     def _get_default_config(self):
         return {
             "app_name": "",
-            "screen_size": { "width": 1920, "height": 1080 },
+            "screen_size": { "width": 1080, "height": 1920 },
             "camera_size": { "width": 1920, "height": 1080 },
-            "crop_area": { "width": 1920, "height": 1080, "x": 0, "y": 0 },
+            "crop_area": { "width": 543, "height": 864, "x": 688, "y": 108 },
             "camera_count": { "number": 3, "font_size": 350, "font_color": "#ffffff" },
             "screen_order": [0, 1, 2, 3, 4, 5, 6],
             "frame": { "x": 0, "y": 0, "width": 1080, "height": 720 },

@@ -152,7 +152,8 @@ class LivePreviewWidget(QWidget):
     def add_element(self, element_id: str, rect: QRect,
                     color: QColor = None, image_path: str = None,
                     draggable: bool = True, resizable: bool = True,
-                    label: str = None, border_width: int = 2):
+                    label: str = None, border_width: int = 2,
+                    custom_renderer: callable = None, renderer_data: dict = None):
         """
         오버레이 요소 추가
 
@@ -165,6 +166,8 @@ class LivePreviewWidget(QWidget):
             resizable: 크기 조절 가능 여부
             label: 요소 레이블
             border_width: 테두리 두께
+            custom_renderer: 커스텀 렌더러 함수 (painter, rect, data) -> None
+            renderer_data: 커스텀 렌더러에 전달할 데이터
         """
         # 기존 요소가 있으면 업데이트
         for element in self._overlay_elements:
@@ -175,6 +178,8 @@ class LivePreviewWidget(QWidget):
                 element['resizable'] = resizable
                 element['label'] = label
                 element['border_width'] = border_width
+                element['custom_renderer'] = custom_renderer
+                element['renderer_data'] = renderer_data
                 if image_path:
                     element['image_path'] = image_path
                     element['image_pixmap'] = self._load_image(image_path)
@@ -195,7 +200,9 @@ class LivePreviewWidget(QWidget):
             'draggable': draggable,
             'resizable': resizable,
             'label': label,
-            'border_width': border_width
+            'border_width': border_width,
+            'custom_renderer': custom_renderer,
+            'renderer_data': renderer_data
         })
         self.update()
 
@@ -361,7 +368,17 @@ class LivePreviewWidget(QWidget):
         for element in self._overlay_elements:
             preview_rect = self._original_to_preview(element['rect'])
 
-            if element['image_pixmap'] and not element['image_pixmap'].isNull():
+            # 커스텀 렌더러가 있으면 사용
+            if element.get('custom_renderer'):
+                try:
+                    element['custom_renderer'](painter, preview_rect, element.get('renderer_data', {}))
+                except Exception as e:
+                    # 렌더러 오류 시 기본 사각형 그리기
+                    pen = QPen(element['color'], element['border_width'], Qt.SolidLine)
+                    painter.setPen(pen)
+                    painter.setBrush(Qt.NoBrush)
+                    painter.drawRect(preview_rect)
+            elif element.get('image_pixmap') and not element['image_pixmap'].isNull():
                 # 이미지 그리기
                 painter.drawPixmap(preview_rect, element['image_pixmap'])
             else:

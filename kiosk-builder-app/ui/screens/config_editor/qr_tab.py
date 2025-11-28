@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QWidget, QTabWidget,
                               QDialog, QDialogButtonBox)
 from PySide6.QtGui import QColor
-from PySide6.QtCore import Qt, QRect
+from PySide6.QtCore import Qt, QRect, QSize
 from ui.components.inputs import NumberLineEdit
 from ui.components.live_preview import LivePreviewWidget
 from ui.components.position_size_input import PositionSizeInput
@@ -18,6 +18,7 @@ class QRTab(BaseTab):
         self.tab_manager = None
         self.qr_preview = None
         self.card_preview = None
+        self.sub_tabs = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
         self.init_ui()
@@ -25,108 +26,73 @@ class QRTab(BaseTab):
     def init_ui(self):
         scroll_content_layout = self.create_tab_with_scroll()
 
-        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
-        main_layout = QHBoxLayout()
-        scroll_content_layout.addLayout(main_layout)
-
-        # 설정 영역
-        settings_widget = QWidget()
-        content_layout = QVBoxLayout(settings_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-
-        # 배경화면 설정
-        bg_group = QGroupBox("배경화면 설정")
-        self.apply_left_aligned_group_style(bg_group)
-        bg_group_layout = QVBoxLayout(bg_group)
-
-        # 기본 배경화면 행 (레이블 + ? 버튼 + 입력필드)
-        bg_row = QHBoxLayout()
-        bg_label = QLabel("배경화면:")
-        bg_row.addWidget(bg_label)
-
-        # ? 도움말 버튼
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(20, 20)
-        help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-                font-size: 12px;
+        # ═══════════════════════════════════════════════════════════════
+        # 서브 탭 위젯 (각 탭 내부에 좌측 설정 + 우측 미리보기)
+        # ═══════════════════════════════════════════════════════════════
+        self.sub_tabs = QTabWidget()
+        self.sub_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #ccc;
+                background: white;
+                border-radius: 4px;
             }
-            QPushButton:hover {
-                background-color: #2980b9;
+            QTabBar::tab {
+                background: #ffffff;
+                border: 1px solid #ccc;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background: #2196F3;
+                color: white;
+                border-bottom-color: white;
+            }
+            QTabBar::tab:hover:!selected {
+                background: #f8f8f8;
             }
         """)
-        help_btn.clicked.connect(self._show_bg_help_dialog)
-        bg_row.addWidget(help_btn)
-        bg_row.addSpacing(10)
 
-        saved_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY)
-        self.qr_bg_edit = QLineEdit(saved_bg)
-        self.qr_bg_edit.setReadOnly(True)
-        self.qr_bg_edit.setPlaceholderText("배경화면 없음")
-        self.qr_bg_edit.textChanged.connect(self._update_qr_preview)
-        bg_row.addWidget(self.qr_bg_edit, 1)
+        # 탭 1: 화면 설정 (배경 + 화면 미리보기)
+        self._create_screen_settings_tab()
 
-        browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(self._browse_and_update_background)
-        bg_row.addWidget(browse_button)
+        # 탭 2: 인쇄 설정 (QR 코드 위치, 이미지 인쇄 위치 + 카드 미리보기)
+        self._create_print_settings_tab()
 
-        reset_button = QPushButton("초기화")
-        reset_button.setFixedWidth(60)
-        reset_button.setToolTip("배경화면을 삭제합니다")
-        reset_button.clicked.connect(self._reset_background)
-        bg_row.addWidget(reset_button)
+        scroll_content_layout.addWidget(self.sub_tabs)
+        scroll_content_layout.addStretch()
 
-        bg_group_layout.addLayout(bg_row)
+        # 초기 미리보기 업데이트
+        self._update_qr_preview()
+        self._update_card_preview()
 
-        # 한국어 배경화면
-        ko_bg_layout = QHBoxLayout()
-        ko_bg_layout.addWidget(QLabel("🇰🇷 한국어:"))
-        saved_ko_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY, lang="ko")
-        self.ko_bg_edit = QLineEdit(saved_ko_bg)
-        self.ko_bg_edit.setReadOnly(True)
-        self.ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        ko_bg_layout.addWidget(self.ko_bg_edit, 1)
-        self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
-        ko_browse_btn = QPushButton("찾기...")
-        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_browse_btn)
-        ko_reset_btn = QPushButton("초기화")
-        ko_reset_btn.setFixedWidth(60)
-        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_reset_btn)
-        bg_group_layout.addLayout(ko_bg_layout)
+    # ═══════════════════════════════════════════════════════════════
+    # 탭 1: 화면 설정 (좌측 설정 + 우측 화면 미리보기)
+    # ═══════════════════════════════════════════════════════════════
+    def _create_screen_settings_tab(self):
+        """화면 설정 탭 생성 (배경화면 + QR코드 화면 위치 + 화면 미리보기)"""
+        tab_widget = QWidget()
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(20)
 
-        # 영어 배경화면
-        en_bg_layout = QHBoxLayout()
-        en_bg_layout.addWidget(QLabel("🇺🇸 English:"))
-        saved_en_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY, lang="en")
-        self.en_bg_edit = QLineEdit(saved_en_bg)
-        self.en_bg_edit.setReadOnly(True)
-        self.en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        en_bg_layout.addWidget(self.en_bg_edit, 1)
-        self.lang_bg_fields["en"]["background"] = self.en_bg_edit
-        en_browse_btn = QPushButton("찾기...")
-        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
-        en_bg_layout.addWidget(en_browse_btn)
-        en_reset_btn = QPushButton("초기화")
-        en_reset_btn.setFixedWidth(60)
-        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
-        en_bg_layout.addWidget(en_reset_btn)
-        bg_group_layout.addLayout(en_bg_layout)
+        # ───────────────────────────────────────────────────────────
+        # 좌측: 설정 영역
+        # ───────────────────────────────────────────────────────────
+        settings_widget = QWidget()
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.setSpacing(12)
 
-        content_layout.addWidget(bg_group)
+        # 배경화면 설정
+        self._init_background_settings(settings_layout)
 
-        # QR 코드 설정 그룹
+        # QR 코드 화면 위치 설정
         qr_group = QGroupBox("📊 QR 코드 화면 위치")
         self.apply_left_aligned_group_style(qr_group)
         qr_layout = QVBoxLayout(qr_group)
 
-        # 위치/크기 직관적 입력
         self.qr_position_input = PositionSizeInput()
         self.qr_position_input.set_values(
             x=self.config["qr"]["x"],
@@ -137,14 +103,48 @@ class QRTab(BaseTab):
         self.qr_position_input.value_changed.connect(self._update_qr_preview)
         qr_layout.addWidget(self.qr_position_input)
 
-        content_layout.addWidget(qr_group)
+        settings_layout.addWidget(qr_group)
+        settings_layout.addStretch()
 
-        # 업로드 이미지 설정 그룹박스
-        qr_uploaded_group = QGroupBox("🖨️ 이미지 인쇄 위치")
+        tab_layout.addWidget(settings_widget, 1)
+
+        # ───────────────────────────────────────────────────────────
+        # 우측: 화면 미리보기
+        # ───────────────────────────────────────────────────────────
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._init_screen_preview(preview_layout)
+        preview_layout.addStretch()
+
+        tab_layout.addWidget(preview_widget, 1)
+
+        self.sub_tabs.addTab(tab_widget, "화면 설정")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 탭 2: 인쇄 설정 (좌측 설정 + 우측 카드 미리보기)
+    # ═══════════════════════════════════════════════════════════════
+    def _create_print_settings_tab(self):
+        """인쇄 설정 탭 생성 (QR 이미지 인쇄 위치 + 카드 미리보기)"""
+        tab_widget = QWidget()
+        tab_layout = QHBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(10, 10, 10, 10)
+        tab_layout.setSpacing(20)
+
+        # ───────────────────────────────────────────────────────────
+        # 좌측: 설정 영역
+        # ───────────────────────────────────────────────────────────
+        settings_widget = QWidget()
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.setSpacing(12)
+
+        # QR 이미지 인쇄 위치 설정
+        qr_uploaded_group = QGroupBox("🖨️ QR 이미지 인쇄 위치")
         self.apply_left_aligned_group_style(qr_uploaded_group)
         qr_uploaded_layout = QVBoxLayout(qr_uploaded_group)
 
-        # 위치/크기 직관적 입력
         self.qr_uploaded_input = PositionSizeInput()
         self.qr_uploaded_input.set_values(
             x=self.config["qr_uploaded_image"]["x"],
@@ -155,62 +155,208 @@ class QRTab(BaseTab):
         self.qr_uploaded_input.value_changed.connect(self._update_card_preview)
         qr_uploaded_layout.addWidget(self.qr_uploaded_input)
 
-        content_layout.addWidget(qr_uploaded_group)
-        content_layout.addStretch()
+        settings_layout.addWidget(qr_uploaded_group)
 
-        main_layout.addWidget(settings_widget, 1)
+        # 빠른 정렬 버튼 그룹
+        align_group = QGroupBox("🎯 빠른 정렬")
+        self.apply_left_aligned_group_style(align_group)
+        align_layout = QVBoxLayout(align_group)
+        align_layout.setSpacing(8)
 
-        # 우측 미리보기 영역
-        previews_widget = QWidget()
-        previews_layout = QVBoxLayout(previews_widget)
-        previews_layout.setContentsMargins(0, 0, 0, 0)
+        # 첫 번째 줄: 채우기, 가운데 정렬
+        row1 = QHBoxLayout()
+        fill_btn = QPushButton("채우기")
+        fill_btn.clicked.connect(self._fill_image_frame)
+        center_btn = QPushButton("가운데 정렬")
+        center_btn.clicked.connect(self._center_image_frame)
+        row1.addWidget(fill_btn)
+        row1.addWidget(center_btn)
+        align_layout.addLayout(row1)
 
-        # QR 코드 화면 미리보기
-        qr_preview_group = QGroupBox("화면 미리보기")
-        self.apply_left_aligned_group_style(qr_preview_group)
-        qr_preview_layout = QVBoxLayout(qr_preview_group)
+        # 두 번째 줄: 넓이 맞추기, 높이 맞추기
+        row2 = QHBoxLayout()
+        fit_width_btn = QPushButton("넓이 맞추기")
+        fit_width_btn.clicked.connect(self._fit_image_width)
+        fit_height_btn = QPushButton("높이 맞추기")
+        fit_height_btn.clicked.connect(self._fit_image_height)
+        row2.addWidget(fit_width_btn)
+        row2.addWidget(fit_height_btn)
+        align_layout.addLayout(row2)
 
-        self.qr_preview = LivePreviewWidget()
+        settings_layout.addWidget(align_group)
+        settings_layout.addStretch()
+
+        tab_layout.addWidget(settings_widget, 1)
+
+        # ───────────────────────────────────────────────────────────
+        # 우측: 카드 인쇄 미리보기
+        # ───────────────────────────────────────────────────────────
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        self._init_card_preview(preview_layout)
+        preview_layout.addStretch()
+
+        tab_layout.addWidget(preview_widget, 1)
+
+        self.sub_tabs.addTab(tab_widget, "인쇄 설정")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 배경 설정
+    # ═══════════════════════════════════════════════════════════════
+    def _init_background_settings(self, parent_layout):
+        """배경 설정 그룹"""
+        # 그룹박스 헤더 (타이틀 + ? 버튼)
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 5)
+        header_layout.setSpacing(8)
+
+        title_label = QLabel("배경 설정")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        header_layout.addWidget(title_label)
+
+        help_btn = self.create_help_button("배경화면 설정 안내")
+        help_btn.clicked.connect(self._show_bg_help_dialog)
+        header_layout.addWidget(help_btn)
+        header_layout.addStretch()
+
+        parent_layout.addWidget(header_widget)
+
+        # 배경 설정 내용 그룹
+        bg_group = QGroupBox()
+        self.apply_left_aligned_group_style(bg_group)
+        bg_form = QFormLayout(bg_group)
+        bg_form.setSpacing(8)
+
+        # 라벨 너비 고정
+        LABEL_WIDTH = 80
+
+        # 기본 배경화면 행
+        basic_label = QLabel("기본:")
+        basic_label.setFixedWidth(LABEL_WIDTH)
+        bg_row = QHBoxLayout()
+        saved_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY)
+        self.qr_bg_edit = QLineEdit(saved_bg)
+        self.qr_bg_edit.setReadOnly(True)
+        self.qr_bg_edit.setPlaceholderText("배경화면 없음")
+        self.qr_bg_edit.textChanged.connect(self._update_qr_preview)
+        bg_row.addWidget(self.qr_bg_edit, 1)
+
+        browse_button = QPushButton("찾기...")
+        browse_button.setFixedWidth(60)
+        browse_button.clicked.connect(self._browse_and_update_background)
+        bg_row.addWidget(browse_button)
+
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        bg_row.addWidget(reset_button)
+        bg_form.addRow(basic_label, bg_row)
+
+        # 한국어 배경화면
+        ko_label = QLabel("🇰🇷 한국어:")
+        ko_label.setFixedWidth(LABEL_WIDTH)
+        ko_bg_layout = QHBoxLayout()
+        saved_ko_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY, lang="ko")
+        self.ko_bg_edit = QLineEdit(saved_ko_bg)
+        self.ko_bg_edit.setReadOnly(True)
+        self.ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        ko_bg_layout.addWidget(self.ko_bg_edit, 1)
+        self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
+        ko_browse_btn = QPushButton("찾기...")
+        ko_browse_btn.setFixedWidth(60)
+        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_browse_btn)
+        ko_reset_btn = QPushButton("초기화")
+        ko_reset_btn.setFixedWidth(60)
+        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_reset_btn)
+        bg_form.addRow(ko_label, ko_bg_layout)
+
+        # 영어 배경화면
+        en_label = QLabel("🇺🇸 English:")
+        en_label.setFixedWidth(LABEL_WIDTH)
+        en_bg_layout = QHBoxLayout()
+        saved_en_bg = FileHandler.get_background_display_name(QR_SCREEN_KEY, lang="en")
+        self.en_bg_edit = QLineEdit(saved_en_bg)
+        self.en_bg_edit.setReadOnly(True)
+        self.en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        en_bg_layout.addWidget(self.en_bg_edit, 1)
+        self.lang_bg_fields["en"]["background"] = self.en_bg_edit
+        en_browse_btn = QPushButton("찾기...")
+        en_browse_btn.setFixedWidth(60)
+        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
+        en_bg_layout.addWidget(en_browse_btn)
+        en_reset_btn = QPushButton("초기화")
+        en_reset_btn.setFixedWidth(60)
+        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
+        en_bg_layout.addWidget(en_reset_btn)
+        bg_form.addRow(en_label, en_bg_layout)
+
+        parent_layout.addWidget(bg_group)
+
+    # ═══════════════════════════════════════════════════════════════
+    # 미리보기 영역
+    # ═══════════════════════════════════════════════════════════════
+    def _init_screen_preview(self, parent_layout):
+        """화면 미리보기 영역 초기화"""
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("QR 코드 영역을 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
+
+        self.qr_preview = LivePreviewWidget(preview_size=QSize(350, 350))
         self.qr_preview.position_changed.connect(self._on_qr_position_changed)
         self.qr_preview.size_changed.connect(self._on_qr_size_changed)
-        qr_preview_layout.addWidget(self.qr_preview, 0, Qt.AlignHCenter)
+        preview_layout.addWidget(self.qr_preview, 0, Qt.AlignCenter)
 
-        qr_button_layout = QHBoxLayout()
-        fill_button_qr = QPushButton("채우기")
-        fill_button_qr.clicked.connect(self._fill_qr_frame)
-        center_button_qr = QPushButton("가운데 정렬")
-        center_button_qr.clicked.connect(self._center_qr_frame)
-        qr_button_layout.addWidget(fill_button_qr)
-        qr_button_layout.addWidget(center_button_qr)
-        qr_preview_layout.addLayout(qr_button_layout)
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
 
-        previews_layout.addWidget(qr_preview_group)
+        button_layout = QHBoxLayout()
+        fill_button = QPushButton("채우기")
+        fill_button.clicked.connect(self._fill_qr_frame)
+        center_button = QPushButton("가운데 정렬")
+        center_button.clicked.connect(self._center_qr_frame)
+        button_layout.addWidget(fill_button)
+        button_layout.addWidget(center_button)
+        preview_layout.addLayout(button_layout)
 
-        # 카드 인쇄 미리보기
-        card_preview_group = QGroupBox("카드 인쇄 미리보기")
-        self.apply_left_aligned_group_style(card_preview_group)
-        card_preview_layout = QVBoxLayout(card_preview_group)
+        parent_layout.addWidget(preview_group)
 
-        self.card_preview = LivePreviewWidget()
+    def _init_card_preview(self, parent_layout):
+        """QR 이미지 인쇄 미리보기 영역 초기화"""
+        preview_group = QGroupBox("QR 이미지 인쇄 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("이미지 영역을 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
+
+        self.card_preview = LivePreviewWidget(preview_size=QSize(350, 350))
         self.card_preview.position_changed.connect(self._on_image_position_changed)
         self.card_preview.size_changed.connect(self._on_image_size_changed)
-        card_preview_layout.addWidget(self.card_preview, 0, Qt.AlignHCenter)
+        preview_layout.addWidget(self.card_preview, 0, Qt.AlignCenter)
 
-        image_button_layout = QHBoxLayout()
-        fill_button_image = QPushButton("채우기")
-        fill_button_image.clicked.connect(self._fill_image_frame)
-        center_button_image = QPushButton("가운데 정렬")
-        center_button_image.clicked.connect(self._center_image_frame)
-        image_button_layout.addWidget(fill_button_image)
-        image_button_layout.addWidget(center_button_image)
-        card_preview_layout.addLayout(image_button_layout)
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
 
-        previews_layout.addWidget(card_preview_group)
-        main_layout.addWidget(previews_widget, 1)
-
-        # 초기 미리보기 업데이트
-        self._update_qr_preview()
-        self._update_card_preview()
+        parent_layout.addWidget(preview_group)
 
     def _browse_and_update_background(self):
         """배경화면 파일 선택 및 업데이트"""
@@ -319,7 +465,7 @@ class QRTab(BaseTab):
         card_height = 1012 if is_portrait else 636
 
         self.qr_uploaded_input.set_values(x=0, y=0, width=card_width, height=card_height)
-        self.request_real_time_update()
+        self._update_card_preview()
 
     def _center_image_frame(self):
         """업로드된 이미지를 카드의 중앙에 정렬합니다."""
@@ -335,7 +481,25 @@ class QRTab(BaseTab):
 
         self.qr_uploaded_input.set_x(center_x)
         self.qr_uploaded_input.set_y(center_y)
-        self.request_real_time_update()
+        self._update_card_preview()
+
+    def _fit_image_width(self):
+        """이미지 넓이만 카드 넓이에 맞춥니다 (높이 유지)."""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_width = 636 if is_portrait else 1012
+
+        self.qr_uploaded_input.set_x(0)
+        self.qr_uploaded_input.set_width(card_width)
+        self._update_card_preview()
+
+    def _fit_image_height(self):
+        """이미지 높이만 카드 높이에 맞춥니다 (넓이 유지)."""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        card_height = 1012 if is_portrait else 636
+
+        self.qr_uploaded_input.set_y(0)
+        self.qr_uploaded_input.set_height(card_height)
+        self._update_card_preview()
 
     def _on_qr_position_changed(self, element_id, x, y):
         """드래그로 QR 코드 위치 변경 시 호출"""
@@ -387,7 +551,8 @@ class QRTab(BaseTab):
 
         # 배경 이미지 설정 - screen_key를 사용하여 실제 파일 경로 찾기
         bg_path = FileHandler.resolve_background_path(QR_SCREEN_KEY)
-        self.qr_preview.set_background(bg_path, QColor("#1a1a1a"))
+        self.qr_preview.set_background(bg_path, QColor("#ffffff"))
+        self.qr_preview.set_card_border(True, QColor("#333333"), 2)
 
         # QR 코드 영역 추가
         try:
@@ -439,7 +604,7 @@ class QRTab(BaseTab):
             "image_area",
             image_rect,
             color=QColor("red"),
-            label="이미지",
+            label="QR 이미지",
             draggable=True
         )
 

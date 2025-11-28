@@ -121,6 +121,42 @@ class StyleManager:
             }}
             QScrollArea {{
                 border: none;
-                background-color: transparent;
+                background-color: white;
+            }}
+            QPushButton {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_dark']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+                min-height: 24px;
+            }}
+            QPushButton:hover {{
+                background-color: #f0f0f0;
+                border-color: #aaa;
+            }}
+            QPushButton:pressed {{
+                background-color: #e0e0e0;
+            }}
+            QPushButton:disabled {{
+                background-color: {COLORS['disabled']};
+                color: {COLORS['disabled_text']};
+                border-color: {COLORS['disabled']};
+            }}
+            QLineEdit {{
+                background-color: {COLORS['background']};
+                color: {COLORS['text_dark']};
+                border: 1px solid {COLORS['border']};
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-size: 12px;
+                min-height: 24px;
+            }}
+            QLineEdit:focus {{
+                border-color: {COLORS['primary']};
+            }}
+            QLineEdit:read-only {{
+                background-color: #f8f9fa;
             }}
         """

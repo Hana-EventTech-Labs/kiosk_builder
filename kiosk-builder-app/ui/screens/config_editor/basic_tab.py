@@ -2,7 +2,7 @@
 import os
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect, Signal
 from ui.components.inputs import NumberLineEdit, ModernLineEdit
@@ -33,80 +33,81 @@ class BasicTab(BaseTab):
         content_layout = self.create_tab_with_scroll()
 
         # ═══════════════════════════════════════════════════════════
-        # 메인 2열 레이아웃: 좌측(설정) | 우측(미리보기)
+        # 서브 탭 위젯 생성
         # ═══════════════════════════════════════════════════════════
-        main_layout = QHBoxLayout()
-        main_layout.setSpacing(20)
-        content_layout.addLayout(main_layout)
+        self.sub_tabs = QTabWidget()
+        self.sub_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #ccc;
+                background: white;
+                border-radius: 4px;
+            }
+            QTabBar::tab {
+                background: #ffffff;
+                color: #666;
+                padding: 8px 20px;
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background: #2196F3;
+                color: white;
+                font-weight: bold;
+            }
+            QTabBar::tab:hover:!selected {
+                background: #f8f8f8;
+            }
+        """)
 
-        # ───────────────────────────────────────────────────────────
-        # 좌측: 설정 영역
-        # ───────────────────────────────────────────────────────────
-        settings_widget = QWidget()
-        settings_layout = QVBoxLayout(settings_widget)
-        settings_layout.setContentsMargins(0, 0, 0, 0)
-        settings_layout.setSpacing(12)
+        # 4개의 서브 탭 생성
+        self._create_app_settings_tab()       # 앱 기본 설정
+        self._create_display_settings_tab()   # 디스플레이
+        self._create_print_settings_tab()     # 인쇄 설정
+        self._create_fixed_image_tab()        # 고정 이미지
 
-        # 1. 앱 기본 설정 그룹
-        self._init_app_settings(settings_layout)
-
-        # 2. 디스플레이 & 카메라 설정 그룹
-        self._init_display_camera_settings(settings_layout)
-
-        # 3. 인쇄 설정 그룹
-        self._init_print_settings(settings_layout)
-
-        settings_layout.addStretch()
-        main_layout.addWidget(settings_widget, 3)  # 비율 3
-
-        # ───────────────────────────────────────────────────────────
-        # 우측: 미리보기 + 고정 이미지 설정 영역
-        # ───────────────────────────────────────────────────────────
-        preview_widget = QWidget()
-        preview_layout = QVBoxLayout(preview_widget)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
-        preview_layout.setSpacing(12)
-
-        # 고정 이미지 설정 (토글 형식) - 미리보기 포함
-        self._init_fixed_image_settings(preview_layout)
-
-        preview_layout.addStretch()
-        main_layout.addWidget(preview_widget, 2)  # 비율 2
+        content_layout.addWidget(self.sub_tabs)
 
         # 초기 미리보기 업데이트
         self.update_card_preview()
 
     # ═══════════════════════════════════════════════════════════════
-    # 1. 앱 기본 설정
+    # 1. 앱 기본 설정 탭
     # ═══════════════════════════════════════════════════════════════
-    def _init_app_settings(self, parent_layout):
-        """앱 기본 설정 그룹 초기화"""
-        app_group = QGroupBox("📱 앱 기본 설정")
-        self.apply_left_aligned_group_style(app_group)
-        app_layout = QVBoxLayout(app_group)
-        app_layout.setSpacing(10)
+    def _create_app_settings_tab(self):
+        """앱 기본 설정 탭 생성"""
+        tab = QWidget()
+        main_layout = QVBoxLayout(tab)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # 앱 이름
-        name_layout = QFormLayout()
+        # 앱 이름 그룹
+        name_group = QGroupBox("앱 이름")
+        self.apply_left_aligned_group_style(name_group)
+        name_layout = QVBoxLayout(name_group)
+        name_layout.setSpacing(10)
+
+        name_form = QFormLayout()
         self.app_name_edit = ModernLineEdit(placeholder="앱 이름을 입력하세요")
         self.app_name_edit.setFixedHeight(35)
         self.app_name_edit.setText(self.config["app_name"])
-        name_layout.addRow("앱 이름:", self.app_name_edit)
-        app_layout.addLayout(name_layout)
+        name_form.addRow("앱 이름:", self.app_name_edit)
+        name_layout.addLayout(name_form)
 
-        # 구분선
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setStyleSheet("background-color: #ddd;")
-        app_layout.addWidget(separator)
+        main_layout.addWidget(name_group)
 
-        # 화면 순서 선택
-        screen_label = QLabel("화면 순서:")
-        screen_label.setStyleSheet("font-weight: bold; color: #555;")
-        app_layout.addWidget(screen_label)
+        # 화면 순서 그룹
+        screen_group = QGroupBox("화면 순서")
+        self.apply_left_aligned_group_style(screen_group)
+        screen_layout = QVBoxLayout(screen_group)
+        screen_layout.setSpacing(10)
+
+        screen_label = QLabel("활성화할 화면을 선택하세요:")
+        screen_label.setStyleSheet("color: #555; font-size: 12px;")
+        screen_layout.addWidget(screen_label)
 
         screen_order_layout = QGridLayout()
-        screen_order_layout.setSpacing(8)
+        screen_order_layout.setSpacing(10)
 
         self.screen_options = [
             (0, "스플래쉬"), (1, "촬영"), (2, "키보드"),
@@ -124,64 +125,79 @@ class BasicTab(BaseTab):
             screen_order_layout.addWidget(checkbox, row, col)
             self.screen_order_checkboxes.append(checkbox)
 
-        app_layout.addLayout(screen_order_layout)
-        parent_layout.addWidget(app_group)
+        screen_layout.addLayout(screen_order_layout)
+        main_layout.addWidget(screen_group)
+
+        main_layout.addStretch()
+        self.sub_tabs.addTab(tab, "📱 앱 기본 설정")
 
     # ═══════════════════════════════════════════════════════════════
-    # 2. 디스플레이 설정
+    # 2. 디스플레이 탭
     # ═══════════════════════════════════════════════════════════════
-    def _init_display_camera_settings(self, parent_layout):
-        """디스플레이 설정 그룹 초기화"""
-        display_group = QGroupBox("🖥️ 디스플레이")
-        self.apply_left_aligned_group_style(display_group)
-        display_layout = QVBoxLayout(display_group)
-        display_layout.setSpacing(10)
+    def _create_display_settings_tab(self):
+        """디스플레이 설정 탭 생성"""
+        tab = QWidget()
+        main_layout = QVBoxLayout(tab)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # 모니터 크기
-        monitor_layout = QHBoxLayout()
-        monitor_layout.addWidget(QLabel("모니터 크기:"))
+        # 모니터 크기 그룹
+        monitor_group = QGroupBox("모니터 크기")
+        self.apply_left_aligned_group_style(monitor_group)
+        monitor_layout = QVBoxLayout(monitor_group)
+        monitor_layout.setSpacing(10)
+
+        size_layout = QHBoxLayout()
+        size_layout.addWidget(QLabel("가로:"))
 
         self.screen_width_edit = NumberLineEdit()
         self.screen_width_edit.setValue(self.config["screen_size"]["width"])
-        self.screen_width_edit.setFixedWidth(80)
+        self.screen_width_edit.setFixedWidth(100)
         self.screen_width_edit.editingFinished.connect(self._on_monitor_size_changed)
-        monitor_layout.addWidget(self.screen_width_edit)
+        size_layout.addWidget(self.screen_width_edit)
 
-        monitor_layout.addWidget(QLabel("×"))
+        size_layout.addWidget(QLabel("×"))
 
+        size_layout.addWidget(QLabel("세로:"))
         self.screen_height_edit = NumberLineEdit()
         self.screen_height_edit.setValue(self.config["screen_size"]["height"])
-        self.screen_height_edit.setFixedWidth(80)
+        self.screen_height_edit.setFixedWidth(100)
         self.screen_height_edit.editingFinished.connect(self._on_monitor_size_changed)
-        monitor_layout.addWidget(self.screen_height_edit)
+        size_layout.addWidget(self.screen_height_edit)
 
-        monitor_layout.addWidget(QLabel("px"))
-        monitor_layout.addStretch()
-        display_layout.addLayout(monitor_layout)
+        size_layout.addWidget(QLabel("px"))
+        size_layout.addStretch()
+        monitor_layout.addLayout(size_layout)
 
         # 설명 라벨
-        info_label = QLabel("💡 카메라 관련 설정은 '촬영화면' 탭에서 설정하세요")
-        info_label.setStyleSheet("color: #666; font-size: 11px; font-style: italic;")
-        display_layout.addWidget(info_label)
+        info_label = QLabel("실제 키오스크 디스플레이의 해상도를 입력하세요.\n카메라 관련 설정은 '촬영화면' 탭에서 설정할 수 있습니다.")
+        info_label.setStyleSheet("color: #666; font-size: 11px; font-style: italic; padding: 10px;")
+        monitor_layout.addWidget(info_label)
 
-        parent_layout.addWidget(display_group)
+        main_layout.addWidget(monitor_group)
+
+        main_layout.addStretch()
+        self.sub_tabs.addTab(tab, "🖥️ 디스플레이")
 
     # ═══════════════════════════════════════════════════════════════
-    # 3. 인쇄 설정 (고정 이미지 설정 분리됨)
+    # 3. 인쇄 설정 탭
     # ═══════════════════════════════════════════════════════════════
-    def _init_print_settings(self, parent_layout):
-        """인쇄 설정 그룹 초기화 (프린터 기본 설정만)"""
-        print_group = QGroupBox("🖨️ 인쇄 설정")
-        self.apply_left_aligned_group_style(print_group)
-        print_layout = QVBoxLayout(print_group)
-        print_layout.setSpacing(10)
+    def _create_print_settings_tab(self):
+        """인쇄 설정 탭 생성"""
+        tab = QWidget()
+        main_layout = QVBoxLayout(tab)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # 프린터 모드
-        mode_layout = QHBoxLayout()
-        mode_layout.addWidget(QLabel("모드:"))
+        # 프린터 모드 그룹
+        mode_group = QGroupBox("프린터 모드")
+        self.apply_left_aligned_group_style(mode_group)
+        mode_layout = QVBoxLayout(mode_group)
+        mode_layout.setSpacing(10)
 
-        self.preview_mode_radio = QRadioButton("미리보기")
-        self.print_mode_radio = QRadioButton("인쇄")
+        mode_row = QHBoxLayout()
+        self.preview_mode_radio = QRadioButton("미리보기 모드")
+        self.print_mode_radio = QRadioButton("인쇄 모드")
 
         current_print_mode = self.config.get("printer", {}).get("print_mode", False)
         if current_print_mode:
@@ -189,20 +205,32 @@ class BasicTab(BaseTab):
         else:
             self.preview_mode_radio.setChecked(True)
 
-        mode_layout.addWidget(self.preview_mode_radio)
-        mode_layout.addWidget(self.print_mode_radio)
-        mode_layout.addStretch()
-        print_layout.addLayout(mode_layout)
+        mode_row.addWidget(self.preview_mode_radio)
+        mode_row.addWidget(self.print_mode_radio)
+        mode_row.addStretch()
+        mode_layout.addLayout(mode_row)
 
-        # 패널 타입
-        panel_layout = QHBoxLayout()
-        panel_layout.addWidget(QLabel("패널:"))
+        mode_info = QLabel("미리보기 모드: 실제 인쇄 없이 결과물 미리보기\n인쇄 모드: 프린터로 실제 인쇄 실행")
+        mode_info.setStyleSheet("color: #888; font-size: 10px; padding-left: 5px;")
+        mode_layout.addWidget(mode_info)
+
+        main_layout.addWidget(mode_group)
+
+        # 패널 설정 그룹
+        panel_group = QGroupBox("패널 설정")
+        self.apply_left_aligned_group_style(panel_group)
+        panel_layout = QVBoxLayout(panel_group)
+        panel_layout.setSpacing(10)
+
+        panel_row = QHBoxLayout()
+        panel_row.addWidget(QLabel("패널 타입:"))
 
         self.panel_combo = QComboBox()
         self.panel_combo.addItem("YMC (컬러)", 1)
         self.panel_combo.addItem("Resin (블랙/실버)", 2)
         self.panel_combo.addItem("Overlay (보호막)", 4)
         self.panel_combo.addItem("UV (형광)", 8)
+        self.panel_combo.setMinimumWidth(200)
 
         current_panel_id = self.config.get("printer", {}).get("panel_id", 1)
         for i in range(self.panel_combo.count()):
@@ -210,16 +238,21 @@ class BasicTab(BaseTab):
                 self.panel_combo.setCurrentIndex(i)
                 break
 
-        panel_layout.addWidget(self.panel_combo)
-        panel_layout.addStretch()
-        print_layout.addLayout(panel_layout)
+        panel_row.addWidget(self.panel_combo)
+        panel_row.addStretch()
+        panel_layout.addLayout(panel_row)
 
-        # 카드 방향
-        orientation_layout = QHBoxLayout()
-        orientation_layout.addWidget(QLabel("카드 방향:"))
+        main_layout.addWidget(panel_group)
 
-        self.card_portrait_radio = QRadioButton("세로")
-        self.card_landscape_radio = QRadioButton("가로")
+        # 카드 방향 그룹
+        orientation_group = QGroupBox("카드 방향")
+        self.apply_left_aligned_group_style(orientation_group)
+        orientation_layout = QVBoxLayout(orientation_group)
+        orientation_layout.setSpacing(10)
+
+        orientation_row = QHBoxLayout()
+        self.card_portrait_radio = QRadioButton("세로 (Portrait)")
+        self.card_landscape_radio = QRadioButton("가로 (Landscape)")
 
         card_config = self.config.get("card", {})
         if card_config.get("orientation", "portrait") == "portrait":
@@ -230,31 +263,52 @@ class BasicTab(BaseTab):
         self.card_portrait_radio.toggled.connect(self._on_orientation_changed)
         self.card_landscape_radio.toggled.connect(self._on_orientation_changed)
 
-        orientation_layout.addWidget(self.card_portrait_radio)
-        orientation_layout.addWidget(self.card_landscape_radio)
-        orientation_layout.addStretch()
-        print_layout.addLayout(orientation_layout)
+        orientation_row.addWidget(self.card_portrait_radio)
+        orientation_row.addWidget(self.card_landscape_radio)
+        orientation_row.addStretch()
+        orientation_layout.addLayout(orientation_row)
 
-        parent_layout.addWidget(print_group)
+        orientation_info = QLabel("인쇄할 카드의 방향을 선택하세요.\n세로: 636 x 1012 px / 가로: 1012 x 636 px")
+        orientation_info.setStyleSheet("color: #888; font-size: 10px; padding-left: 5px;")
+        orientation_layout.addWidget(orientation_info)
+
+        main_layout.addWidget(orientation_group)
+
+        main_layout.addStretch()
+        self.sub_tabs.addTab(tab, "🖨️ 인쇄 설정")
 
     # ═══════════════════════════════════════════════════════════════
-    # 고정 이미지 설정 (토글 형식, 미리보기 포함)
+    # 4. 고정 이미지 탭
     # ═══════════════════════════════════════════════════════════════
-    def _init_fixed_image_settings(self, parent_layout):
-        """고정 이미지 설정 (토글 형식, 1개 사용 시에만 미리보기 표시)"""
-        # 접이식 그룹박스
-        image_collapsible = CollapsibleGroupBox("🖼️ 고정 이미지 설정", collapsed=False)
+    def _create_fixed_image_tab(self):
+        """고정 이미지 설정 탭 생성 (미리보기 포함)"""
+        tab = QWidget()
+        main_layout = QHBoxLayout(tab)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
 
-        image_widget = QWidget()
-        image_layout = QVBoxLayout(image_widget)
-        image_layout.setSpacing(12)
-        image_layout.setContentsMargins(0, 0, 0, 0)
+        # ───────────────────────────────────────────────────────────
+        # 좌측: 설정 영역 (스크롤 가능)
+        # ───────────────────────────────────────────────────────────
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        settings_scroll.setStyleSheet("QScrollArea { border: none; background-color: white; }")
 
-        # 이미지 사용 여부
-        use_layout = QHBoxLayout()
-        use_label = QLabel("이미지 사용:")
-        use_label.setStyleSheet("font-weight: bold; color: #555;")
-        use_layout.addWidget(use_label)
+        settings_widget = QWidget()
+        settings_widget.setStyleSheet("background-color: white;")
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setSpacing(12)
+        settings_layout.setContentsMargins(0, 0, 10, 0)
+
+        # 이미지 사용 여부 그룹
+        use_group = QGroupBox("이미지 사용")
+        self.apply_left_aligned_group_style(use_group)
+        use_layout = QVBoxLayout(use_group)
+        use_layout.setSpacing(10)
+
+        use_row = QHBoxLayout()
+        use_row.addWidget(QLabel("고정 이미지:"))
 
         self.image_count_combo = QComboBox()
         self.image_count_combo.addItems(["사용 안함", "1개 사용"])
@@ -263,30 +317,81 @@ class BasicTab(BaseTab):
             current_count = 0
         self.image_count_combo.setCurrentIndex(current_count)
         self.image_count_combo.currentIndexChanged.connect(self.update_image_items)
-        use_layout.addWidget(self.image_count_combo)
-        use_layout.addStretch()
-        image_layout.addLayout(use_layout)
+        use_row.addWidget(self.image_count_combo)
+        use_row.addStretch()
+        use_layout.addLayout(use_row)
 
-        # 이미지 항목 컨테이너 (미리보기 + 설정 포함)
+        use_info = QLabel("모든 인쇄물에 공통으로 적용될 고정 이미지를 설정합니다.\n(예: 로고, 워터마크 등)")
+        use_info.setStyleSheet("color: #888; font-size: 10px;")
+        use_layout.addWidget(use_info)
+
+        settings_layout.addWidget(use_group)
+
+        # 이미지 항목 컨테이너
         self.image_items_container = QWidget()
         self.image_items_layout = QVBoxLayout(self.image_items_container)
         self.image_items_layout.setContentsMargins(0, 0, 0, 0)
         self.image_items_layout.setSpacing(12)
 
         self.image_item_fields = []
-        self.image_preview_label = None  # 초기화
-
         self.update_image_items(current_count)
 
-        image_layout.addWidget(self.image_items_container)
-        image_collapsible.addWidget(image_widget)
-        parent_layout.addWidget(image_collapsible)
+        settings_layout.addWidget(self.image_items_container)
+        settings_layout.addStretch()
+
+        settings_scroll.setWidget(settings_widget)
+        main_layout.addWidget(settings_scroll, 3)
+
+        # ───────────────────────────────────────────────────────────
+        # 우측: 미리보기 영역
+        # ───────────────────────────────────────────────────────────
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setSpacing(10)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("인쇄물 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_group_layout = QVBoxLayout(preview_group)
+        preview_group_layout.setSpacing(10)
+
+        # 미리보기 라벨
+        self.image_preview_label = DraggablePreviewLabel()
+        self.image_preview_label.position_changed.connect(self._on_image_position_changed)
+        self.image_preview_label.setFixedSize(280, 280)
+        self.image_preview_label.setAlignment(Qt.AlignCenter)
+        self.image_preview_label.setStyleSheet("""
+            border: 1px solid #ccc;
+            background-color: #ffffff;
+            border-radius: 6px;
+        """)
+        preview_group_layout.addWidget(self.image_preview_label, 0, Qt.AlignCenter)
+
+        # 버튼
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(8)
+        fill_btn = QPushButton("채우기")
+        fill_btn.setFixedHeight(30)
+        fill_btn.clicked.connect(self._fill_image_frame)
+        center_btn = QPushButton("가운데")
+        center_btn.setFixedHeight(30)
+        center_btn.clicked.connect(self._center_image_frame)
+        btn_layout.addWidget(fill_btn)
+        btn_layout.addWidget(center_btn)
+        preview_group_layout.addLayout(btn_layout)
+
+        preview_layout.addWidget(preview_group)
+        preview_layout.addStretch()
+
+        main_layout.addWidget(preview_widget, 2)
+
+        self.sub_tabs.addTab(tab, "🖼️ 고정 이미지")
 
     # ═══════════════════════════════════════════════════════════════
     # 이미지 설정 UI
     # ═══════════════════════════════════════════════════════════════
     def update_image_items(self, count):
-        """이미지 항목 UI 업데이트 (미리보기 포함)"""
+        """이미지 항목 UI 업데이트"""
         self.config["images"]["count"] = count
 
         # 기존 위젯 제거
@@ -296,66 +401,22 @@ class BasicTab(BaseTab):
                 item.widget().deleteLater()
 
         self.image_item_fields = []
-        self.image_preview_label = None
 
         if count == 1:
             item_data = self.config["images"]["items"][0] if self.config["images"]["items"] else {
                 "filename": "", "x": 0, "y": 0, "width": 300, "height": 300
             }
 
-            # ─────────────────────────────────────────
-            # 미리보기 영역 (상단)
-            # ─────────────────────────────────────────
-            preview_container = QWidget()
-            preview_container.setObjectName("previewContainer")
-            preview_container.setStyleSheet("""
-                QWidget#previewContainer {
-                    background-color: #f8f9fa;
-                    border: 1px solid #e9ecef;
-                    border-radius: 8px;
-                }
-            """)
-            preview_layout = QVBoxLayout(preview_container)
-            preview_layout.setContentsMargins(12, 12, 12, 12)
-            preview_layout.setSpacing(8)
+            # 이미지 설정 그룹
+            settings_group = QGroupBox("이미지 설정")
+            self.apply_left_aligned_group_style(settings_group)
+            settings_group_layout = QVBoxLayout(settings_group)
+            settings_group_layout.setSpacing(10)
 
-            # 미리보기 헤더
-            preview_header = QLabel("📋 인쇄물 미리보기")
-            preview_header.setStyleSheet("font-weight: bold; color: #333; background: transparent; border: none;")
-            preview_layout.addWidget(preview_header)
-
-            # 미리보기 라벨
-            self.image_preview_label = DraggablePreviewLabel()
-            self.image_preview_label.position_changed.connect(self._on_image_position_changed)
-            self.image_preview_label.setFixedSize(240, 240)
-            self.image_preview_label.setAlignment(Qt.AlignCenter)
-            self.image_preview_label.setStyleSheet("""
-                border: 1px solid #ccc;
-                background-color: white;
-                border-radius: 6px;
-            """)
-            preview_layout.addWidget(self.image_preview_label, 0, Qt.AlignCenter)
-
-            # 버튼
-            btn_layout = QHBoxLayout()
-            btn_layout.setSpacing(8)
-            fill_btn = QPushButton("채우기")
-            fill_btn.setFixedHeight(28)
-            fill_btn.clicked.connect(self._fill_image_frame)
-            center_btn = QPushButton("가운데")
-            center_btn.setFixedHeight(28)
-            center_btn.clicked.connect(self._center_image_frame)
-            btn_layout.addWidget(fill_btn)
-            btn_layout.addWidget(center_btn)
-            preview_layout.addLayout(btn_layout)
-
-            self.image_items_layout.addWidget(preview_container)
-
-            # ─────────────────────────────────────────
-            # 이미지 설정 영역 (하단)
-            # ─────────────────────────────────────────
             item_widget, item_fields = self._create_image_item_ui(item_data)
-            self.image_items_layout.addWidget(item_widget)
+            settings_group_layout.addWidget(item_widget)
+
+            self.image_items_layout.addWidget(settings_group)
             self.image_item_fields.append(item_fields)
 
             # 미리보기 업데이트
@@ -402,18 +463,25 @@ class BasicTab(BaseTab):
         item_fields["position_size"] = position_size
 
         # 인쇄 버튼
+        print_group = QGroupBox("테스트 인쇄")
+        self.apply_left_aligned_group_style(print_group)
+        print_group_layout = QVBoxLayout(print_group)
+
         print_layout = QHBoxLayout()
         print_layout.addWidget(QLabel("매수:"))
         self.print_count_edit = NumberLineEdit()
-        self.print_count_edit.setFixedWidth(50)
+        self.print_count_edit.setFixedWidth(60)
         self.print_count_edit.setValue(1)
         print_layout.addWidget(self.print_count_edit)
 
         self.print_button = QPushButton("🖨️ 인쇄")
+        self.print_button.setFixedHeight(32)
         self.print_button.clicked.connect(self._on_print_button_clicked)
         print_layout.addWidget(self.print_button)
         print_layout.addStretch()
-        layout.addLayout(print_layout)
+        print_group_layout.addLayout(print_layout)
+
+        layout.addWidget(print_group)
 
         return widget, item_fields
 
@@ -484,7 +552,7 @@ class BasicTab(BaseTab):
         if not self.image_item_fields:
             return
 
-        is_portrait = self.card_portrait_radio.isChecked()
+        is_portrait = self.card_portrait_radio.isChecked() if self.card_portrait_radio else True
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
 
@@ -497,7 +565,7 @@ class BasicTab(BaseTab):
         if not self.image_item_fields:
             return
 
-        is_portrait = self.card_portrait_radio.isChecked()
+        is_portrait = self.card_portrait_radio.isChecked() if self.card_portrait_radio else True
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
 
@@ -537,9 +605,63 @@ class BasicTab(BaseTab):
         self.config_changed.emit()
 
     def _on_monitor_size_changed(self):
-        self.config["screen_size"]["width"] = self.screen_width_edit.value()
-        self.config["screen_size"]["height"] = self.screen_height_edit.value()
+        new_width = self.screen_width_edit.value()
+        new_height = self.screen_height_edit.value()
+
+        self.config["screen_size"]["width"] = new_width
+        self.config["screen_size"]["height"] = new_height
+
+        # 모든 화면 좌표 기반 설정 조정
+        self._adjust_screen_coordinates(new_width, new_height)
+
         self.config_changed.emit()
+
+    def _adjust_screen_coordinates(self, max_width: int, max_height: int):
+        """모니터 크기에 맞게 모든 화면 좌표 설정 조정"""
+
+        def clamp_rect(cfg: dict, x_key="x", y_key="y", w_key="width", h_key="height"):
+            """x, y, width, height 값을 모니터 범위 내로 조정"""
+            if x_key in cfg:
+                cfg[x_key] = max(0, min(cfg[x_key], max_width - 10))
+            if y_key in cfg:
+                cfg[y_key] = max(0, min(cfg[y_key], max_height - 10))
+            if w_key in cfg:
+                x_val = cfg.get(x_key, 0)
+                cfg[w_key] = min(cfg[w_key], max_width - x_val)
+            if h_key in cfg:
+                y_val = cfg.get(y_key, 0)
+                cfg[h_key] = min(cfg[h_key], max_height - y_val)
+
+        def clamp_position(cfg: dict, x_key="x", y_key="y"):
+            """x, y 위치만 조정 (크기 없는 경우)"""
+            if x_key in cfg:
+                cfg[x_key] = max(0, min(cfg[x_key], max_width - 10))
+            if y_key in cfg:
+                cfg[y_key] = max(0, min(cfg[y_key], max_height - 10))
+
+        # 1. 키보드 설정
+        if "keyboard" in self.config:
+            clamp_rect(self.config["keyboard"])
+
+        # 2. 텍스트 입력창 (화면 표시용)
+        if "text_input" in self.config and "items" in self.config["text_input"]:
+            for item in self.config["text_input"]["items"]:
+                clamp_rect(item, "screen_x", "screen_y", "screen_width", "screen_height")
+
+        # 3. 프레임 설정
+        if "frame" in self.config:
+            clamp_rect(self.config["frame"])
+
+        # 4. splash/process/complete 위치
+        for screen_key in ["splash", "process", "complete"]:
+            if screen_key in self.config:
+                clamp_position(self.config[screen_key])
+
+        # 5. 언어 선택 버튼
+        if "language" in self.config:
+            for btn_key in ["ko_button", "en_button"]:
+                if btn_key in self.config["language"]:
+                    clamp_rect(self.config["language"][btn_key])
 
     # ═══════════════════════════════════════════════════════════════
     # 인쇄 기능

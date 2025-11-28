@@ -28,7 +28,7 @@ class ColorPickerButton(QPushButton):
             }}
             QPushButton:hover {{
                 border-color: #999;
-                background-color: #f5f5f5;
+                background-color: #f8f8f8;
             }}
         """)
         # 색상 코드와 스와치 아이콘 표시

@@ -1,12 +1,15 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget,
-                              QTabWidget, QScrollArea, QFrame, QSizePolicy, QDialog, QDialogButtonBox)
-from PySide6.QtGui import QColor
-from PySide6.QtCore import Qt, QRect, QSize
+                              QTabWidget, QScrollArea, QFrame, QSizePolicy, QDialog,
+                              QDialogButtonBox, QGridLayout)
+from PySide6.QtGui import QColor, QPen, QBrush, QFont
+from PySide6.QtCore import Qt, QRect, QSize, QRectF
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import LivePreviewWidget, TextPreviewWidget
 from ui.components.position_size_input import PositionSizeInput
+from ui.components.collapsible_group import CollapsibleGroupBox
+from ui.components.keyboard_preview import KeyboardStylePreview
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -22,6 +25,7 @@ class KeyboardTab(BaseTab):
         # 미리보기 위젯
         self.screen_preview = None  # 화면 미리보기 (화면 설정 탭)
         self.card_preview = None    # 카드 미리보기 (인쇄 설정 탭)
+        self.keyboard_style_preview = None  # 키보드 스타일 미리보기
 
         # 설정 필드들
         self.keyboard_position_input = None
@@ -47,7 +51,7 @@ class KeyboardTab(BaseTab):
                 border-radius: 4px;
             }
             QTabBar::tab {
-                background: #e0e0e0;
+                background: #ffffff;
                 color: #666;
                 padding: 8px 20px;
                 margin-right: 2px;
@@ -60,7 +64,7 @@ class KeyboardTab(BaseTab):
                 font-weight: bold;
             }
             QTabBar::tab:hover:!selected {
-                background: #d0d0d0;
+                background: #f8f8f8;
             }
         """)
 
@@ -80,49 +84,52 @@ class KeyboardTab(BaseTab):
         """화면 설정 탭 생성 (배경화면, 키보드, 입력창 화면 표시)"""
         tab = QWidget()
         main_layout = QHBoxLayout(tab)
-        main_layout.setSpacing(15)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(5, 5, 5, 5)
 
         # 좌측: 설정 영역 (스크롤 가능)
         settings_scroll = QScrollArea()
         settings_scroll.setWidgetResizable(True)
         settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        settings_scroll.setStyleSheet("QScrollArea { border: none; }")
-        settings_scroll.setMinimumWidth(400)
+        settings_scroll.setStyleSheet("QScrollArea { border: none; background-color: white; }")
+        settings_scroll.setMinimumWidth(380)
 
         settings_widget = QWidget()
+        settings_widget.setStyleSheet("background-color: white;")
         settings_layout = QVBoxLayout(settings_widget)
-        settings_layout.setSpacing(12)
+        settings_layout.setSpacing(8)
+        settings_layout.setContentsMargins(0, 0, 5, 0)
 
-        # 1. 배경화면 설정
-        bg_group = QGroupBox("배경화면")
-        self.apply_left_aligned_group_style(bg_group)
-        bg_group_layout = QVBoxLayout(bg_group)
+        # 1. 배경 설정 헤더 (타이틀 + ? 버튼)
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 5)
+        header_layout.setSpacing(8)
 
-        # 기본 배경화면 행 (레이블 + ? 버튼 + 입력필드)
-        bg_row = QHBoxLayout()
-        bg_label = QLabel("배경화면:")
-        bg_row.addWidget(bg_label)
+        title_label = QLabel("배경 설정")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        header_layout.addWidget(title_label)
 
-        # ? 도움말 버튼
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(20, 20)
-        help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
+        help_btn = self.create_help_button("배경화면 설정 안내")
         help_btn.clicked.connect(self._show_bg_help_dialog)
-        bg_row.addWidget(help_btn)
-        bg_row.addSpacing(10)
+        header_layout.addWidget(help_btn)
+        header_layout.addStretch()
 
+        settings_layout.addWidget(header_widget)
+
+        # 배경 설정 내용 그룹
+        bg_group = QGroupBox()
+        self.apply_left_aligned_group_style(bg_group)
+        bg_form = QFormLayout(bg_group)
+        bg_form.setSpacing(8)
+
+        # 라벨 너비 고정
+        LABEL_WIDTH = 80
+
+        # 기본 배경화면 행
+        basic_label = QLabel("기본:")
+        basic_label.setFixedWidth(LABEL_WIDTH)
+        bg_row = QHBoxLayout()
         saved_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY)
         self.keyboard_bg_edit = QLineEdit(saved_bg)
         self.keyboard_bg_edit.setReadOnly(True)
@@ -131,19 +138,21 @@ class KeyboardTab(BaseTab):
         bg_row.addWidget(self.keyboard_bg_edit, 1)
 
         browse_btn = QPushButton("찾기...")
+        browse_btn.setFixedWidth(60)
         browse_btn.clicked.connect(self._browse_and_update_background)
         bg_row.addWidget(browse_btn)
 
         reset_btn = QPushButton("초기화")
         reset_btn.setFixedWidth(60)
+        reset_btn.setToolTip("배경화면을 삭제합니다")
         reset_btn.clicked.connect(self._reset_background)
         bg_row.addWidget(reset_btn)
-
-        bg_group_layout.addLayout(bg_row)
+        bg_form.addRow(basic_label, bg_row)
 
         # 한국어 배경화면
+        ko_label = QLabel("🇰🇷 한국어:")
+        ko_label.setFixedWidth(LABEL_WIDTH)
         ko_bg_layout = QHBoxLayout()
-        ko_bg_layout.addWidget(QLabel("🇰🇷 한국어:"))
         saved_ko_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY, lang="ko")
         self.ko_bg_edit = QLineEdit(saved_ko_bg)
         self.ko_bg_edit.setReadOnly(True)
@@ -151,17 +160,19 @@ class KeyboardTab(BaseTab):
         ko_bg_layout.addWidget(self.ko_bg_edit, 1)
         self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
         ko_browse_btn = QPushButton("찾기...")
+        ko_browse_btn.setFixedWidth(60)
         ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
         ko_bg_layout.addWidget(ko_browse_btn)
         ko_reset_btn = QPushButton("초기화")
         ko_reset_btn.setFixedWidth(60)
         ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
         ko_bg_layout.addWidget(ko_reset_btn)
-        bg_group_layout.addLayout(ko_bg_layout)
+        bg_form.addRow(ko_label, ko_bg_layout)
 
         # 영어 배경화면
+        en_label = QLabel("🇺🇸 English:")
+        en_label.setFixedWidth(LABEL_WIDTH)
         en_bg_layout = QHBoxLayout()
-        en_bg_layout.addWidget(QLabel("🇺🇸 English:"))
         saved_en_bg = FileHandler.get_background_display_name(KEYBOARD_SCREEN_KEY, lang="en")
         self.en_bg_edit = QLineEdit(saved_en_bg)
         self.en_bg_edit.setReadOnly(True)
@@ -169,13 +180,14 @@ class KeyboardTab(BaseTab):
         en_bg_layout.addWidget(self.en_bg_edit, 1)
         self.lang_bg_fields["en"]["background"] = self.en_bg_edit
         en_browse_btn = QPushButton("찾기...")
+        en_browse_btn.setFixedWidth(60)
         en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
         en_bg_layout.addWidget(en_browse_btn)
         en_reset_btn = QPushButton("초기화")
         en_reset_btn.setFixedWidth(60)
         en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
         en_bg_layout.addWidget(en_reset_btn)
-        bg_group_layout.addLayout(en_bg_layout)
+        bg_form.addRow(en_label, en_bg_layout)
 
         settings_layout.addWidget(bg_group)
 
@@ -183,6 +195,8 @@ class KeyboardTab(BaseTab):
         keyboard_group = QGroupBox("키보드 위치")
         self.apply_left_aligned_group_style(keyboard_group)
         keyboard_layout = QVBoxLayout(keyboard_group)
+        keyboard_layout.setSpacing(4)
+        keyboard_layout.setContentsMargins(8, 12, 8, 8)
 
         self.keyboard_position_input = PositionSizeInput()
         self.keyboard_position_input.set_values(
@@ -194,11 +208,14 @@ class KeyboardTab(BaseTab):
         self.keyboard_position_input.value_changed.connect(self._update_screen_preview)
         keyboard_layout.addWidget(self.keyboard_position_input)
 
-        # 버튼들
+        # 버튼들 (더 작게)
         btn_layout = QHBoxLayout()
-        fill_btn = QPushButton("화면 채우기")
+        btn_layout.setSpacing(5)
+        fill_btn = QPushButton("채우기")
+        fill_btn.setFixedWidth(55)
         fill_btn.clicked.connect(self._fill_keyboard_frame)
-        center_btn = QPushButton("가운데 정렬")
+        center_btn = QPushButton("가운데")
+        center_btn.setFixedWidth(55)
         center_btn.clicked.connect(self._center_keyboard_frame)
         btn_layout.addWidget(fill_btn)
         btn_layout.addWidget(center_btn)
@@ -208,33 +225,36 @@ class KeyboardTab(BaseTab):
         settings_layout.addWidget(keyboard_group)
 
         # 3. 입력창 설정 (화면 표시만)
-        input_group = QGroupBox("입력창 (화면에 표시되는 입력 필드)")
+        input_group = QGroupBox("입력창")
         self.apply_left_aligned_group_style(input_group)
         input_layout = QVBoxLayout(input_group)
+        input_layout.setSpacing(5)
+        input_layout.setContentsMargins(8, 12, 8, 8)
 
-        # 입력창 개수
+        # 입력창 개수 + 안내 (한 줄로)
         count_layout = QHBoxLayout()
-        count_layout.addWidget(QLabel("입력창 개수:"))
+        count_layout.setSpacing(5)
+        count_layout.addWidget(QLabel("개수:"))
         self.text_input_count_spinbox = QSpinBox()
         self.text_input_count_spinbox.setRange(1, 10)
+        self.text_input_count_spinbox.setFixedWidth(50)
         count_value = max(1, self.config["text_input"]["count"])
         self.text_input_count_spinbox.setValue(count_value)
         self.text_input_count_spinbox.valueChanged.connect(self._on_input_count_changed)
         count_layout.addWidget(self.text_input_count_spinbox)
+
+        # 안내 문구 (같은 줄에 표시)
+        info_label = QLabel("※ 인쇄 위치는 [인쇄 설정]에서 설정")
+        info_label.setStyleSheet("color: #888; font-size: 11px;")
+        count_layout.addWidget(info_label)
         count_layout.addStretch()
         input_layout.addLayout(count_layout)
-
-        # 안내 문구
-        info_label = QLabel("※ 입력창에 입력된 텍스트의 인쇄 위치는 [인쇄 설정] 탭에서 설정합니다.")
-        info_label.setStyleSheet("color: #666; font-style: italic;")
-        info_label.setWordWrap(True)
-        input_layout.addWidget(info_label)
 
         # 입력창 항목들 컨테이너
         self.input_items_container = QWidget()
         self.input_items_layout = QVBoxLayout(self.input_items_container)
         self.input_items_layout.setContentsMargins(0, 0, 0, 0)
-        self.input_items_layout.setSpacing(10)
+        self.input_items_layout.setSpacing(6)
         input_layout.addWidget(self.input_items_container)
 
         settings_layout.addWidget(input_group)
@@ -251,11 +271,22 @@ class KeyboardTab(BaseTab):
         preview_group = QGroupBox("화면 미리보기")
         self.apply_left_aligned_group_style(preview_group)
         preview_group_layout = QVBoxLayout(preview_group)
+        preview_group_layout.setAlignment(Qt.AlignCenter)
 
-        self.screen_preview = LivePreviewWidget()
+        desc = QLabel("키보드/입력창을 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_group_layout.addWidget(desc)
+
+        self.screen_preview = LivePreviewWidget(preview_size=QSize(350, 350))
         self.screen_preview.position_changed.connect(self._on_screen_element_position_changed)
         self.screen_preview.size_changed.connect(self._on_screen_element_size_changed)
-        preview_group_layout.addWidget(self.screen_preview, 0, Qt.AlignHCenter)
+        preview_group_layout.addWidget(self.screen_preview, 0, Qt.AlignCenter)
+
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_group_layout.addWidget(hint)
 
         preview_layout.addWidget(preview_group)
         preview_layout.addStretch()
@@ -278,9 +309,10 @@ class KeyboardTab(BaseTab):
         settings_scroll = QScrollArea()
         settings_scroll.setWidgetResizable(True)
         settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        settings_scroll.setStyleSheet("QScrollArea { border: none; }")
+        settings_scroll.setStyleSheet("QScrollArea { border: none; background-color: white; }")
 
         settings_widget = QWidget()
+        settings_widget.setStyleSheet("background-color: white;")
         settings_layout = QVBoxLayout(settings_widget)
         settings_layout.setSpacing(15)
 
@@ -341,18 +373,24 @@ class KeyboardTab(BaseTab):
         preview_group = QGroupBox("카드 인쇄 미리보기 (58x90mm)")
         self.apply_left_aligned_group_style(preview_group)
         preview_group_layout = QVBoxLayout(preview_group)
+        preview_group_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_group_layout.addWidget(desc)
 
         # TextPreviewWidget 사용하여 실제 텍스트 렌더링
         self.card_preview = TextPreviewWidget()
         self.card_preview.position_changed.connect(self._on_card_element_position_changed)
         self.card_preview.size_changed.connect(self._on_card_element_size_changed)
         self.card_preview.text_size_changed.connect(self._on_text_size_changed)
-        preview_group_layout.addWidget(self.card_preview, 0, Qt.AlignHCenter)
+        preview_group_layout.addWidget(self.card_preview, 0, Qt.AlignCenter)
 
-        # 안내 문구
-        card_info = QLabel("※ 검정 테두리가 실제 인쇄되는 카드 영역입니다.\n   텍스트를 드래그하여 위치를 조절하세요.")
-        card_info.setStyleSheet("color: #666; font-style: italic;")
-        preview_group_layout.addWidget(card_info, 0, Qt.AlignHCenter)
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_group_layout.addWidget(hint)
 
         preview_layout.addWidget(preview_group)
         preview_layout.addStretch()
@@ -368,101 +406,400 @@ class KeyboardTab(BaseTab):
 
     # ==================== 키보드 스타일 탭 ====================
     def _create_style_settings_tab(self):
-        """키보드 스타일 탭 생성"""
+        """키보드 스타일 탭 생성 (콤팩트 레이아웃 + 미리보기)"""
         tab = QWidget()
         main_layout = QHBoxLayout(tab)
-        main_layout.setSpacing(20)
+        main_layout.setSpacing(15)
 
-        # 좌측: 색상 설정
-        color_scroll = QScrollArea()
-        color_scroll.setWidgetResizable(True)
-        color_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        color_scroll.setStyleSheet("QScrollArea { border: none; }")
+        # ========== 좌측: 설정 영역 (스크롤 가능) ==========
+        settings_scroll = QScrollArea()
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        settings_scroll.setStyleSheet("QScrollArea { border: none; background-color: white; }")
+        settings_scroll.setMinimumWidth(380)
 
-        color_widget = QWidget()
-        color_layout = QVBoxLayout(color_widget)
+        settings_widget = QWidget()
+        settings_widget.setStyleSheet("background-color: white;")
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setSpacing(8)
+        settings_layout.setContentsMargins(5, 5, 5, 5)
 
-        color_group = QGroupBox("키보드 색상")
-        self.apply_left_aligned_group_style(color_group)
-        color_form = QFormLayout(color_group)
+        # 1. 키보드 컨테이너 스타일 (접이식)
+        container_group = CollapsibleGroupBox("키보드 컨테이너", collapsed=False)
+        container_grid = QGridLayout()
+        container_grid.setSpacing(8)
 
-        color_keys = [
-            ("bg_color", "배경색"),
-            ("border_color", "테두리색"),
-            ("button_bg_color", "버튼 배경"),
-            ("button_text_color", "버튼 글자"),
-            ("button_pressed_color", "버튼 누름"),
-            ("hangul_btn_color", "한글 버튼"),
-            ("shift_btn_color", "Shift 버튼"),
-            ("backspace_btn_color", "지우기 버튼"),
-            ("next_btn_color", "다음 버튼")
-        ]
+        # 배경색, 테두리색
+        container_grid.addWidget(QLabel("배경색:"), 0, 0)
+        bg_color = ColorPickerButton(self.config["keyboard"].get("bg_color", "#1B2838"))
+        bg_color.color_changed.connect(self._on_style_changed)
+        container_grid.addWidget(bg_color, 0, 1)
+        self.keyboard_style_fields["bg_color"] = bg_color
 
-        for key, label in color_keys:
-            color_button = ColorPickerButton(self.config["keyboard"].get(key, "#ffffff"))
-            color_form.addRow(f"{label}:", color_button)
-            self.keyboard_style_fields[key] = color_button
+        container_grid.addWidget(QLabel("테두리색:"), 0, 2)
+        border_color = ColorPickerButton(self.config["keyboard"].get("border_color", "#00FFC2"))
+        border_color.color_changed.connect(self._on_style_changed)
+        container_grid.addWidget(border_color, 0, 3)
+        self.keyboard_style_fields["border_color"] = border_color
 
-        color_layout.addWidget(color_group)
-        color_layout.addStretch()
+        # 두께, 둥글기
+        container_grid.addWidget(QLabel("두께:"), 1, 0)
+        border_width = NumberLineEdit()
+        border_width.setValue(self.config["keyboard"].get("border_width", 2))
+        border_width.setFixedWidth(60)
+        border_width.textChanged.connect(self._on_style_changed)
+        container_grid.addWidget(border_width, 1, 1)
+        self.keyboard_style_fields["border_width"] = border_width
 
-        color_scroll.setWidget(color_widget)
-        main_layout.addWidget(color_scroll, 1)
+        container_grid.addWidget(QLabel("둥글기:"), 1, 2)
+        border_radius = NumberLineEdit()
+        border_radius.setValue(self.config["keyboard"].get("border_radius", 15))
+        border_radius.setFixedWidth(60)
+        border_radius.textChanged.connect(self._on_style_changed)
+        container_grid.addWidget(border_radius, 1, 3)
+        self.keyboard_style_fields["border_radius"] = border_radius
 
-        # 우측: 크기 및 기타 설정
-        size_scroll = QScrollArea()
-        size_scroll.setWidgetResizable(True)
-        size_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        size_scroll.setStyleSheet("QScrollArea { border: none; }")
+        # 여백, 글자크기
+        container_grid.addWidget(QLabel("여백:"), 2, 0)
+        padding = NumberLineEdit()
+        padding.setValue(self.config["keyboard"].get("padding", 10))
+        padding.setFixedWidth(60)
+        padding.textChanged.connect(self._on_style_changed)
+        container_grid.addWidget(padding, 2, 1)
+        self.keyboard_style_fields["padding"] = padding
 
-        size_widget = QWidget()
-        size_layout = QVBoxLayout(size_widget)
+        container_grid.addWidget(QLabel("글자크기:"), 2, 2)
+        font_size = NumberLineEdit()
+        font_size.setValue(self.config["keyboard"].get("font_size", 28))
+        font_size.setFixedWidth(60)
+        font_size.textChanged.connect(self._on_style_changed)
+        container_grid.addWidget(font_size, 2, 3)
+        self.keyboard_style_fields["font_size"] = font_size
 
-        size_group = QGroupBox("키보드 크기/여백")
-        self.apply_left_aligned_group_style(size_group)
-        size_form = QFormLayout(size_group)
+        container_group.addLayout(container_grid)
+        settings_layout.addWidget(container_group)
 
-        number_keys = [
-            ("border_width", "테두리 두께"),
-            ("border_radius", "테두리 둥글기"),
-            ("padding", "내부 여백"),
-            ("font_size", "글자 크기"),
-            ("button_radius", "버튼 둥글기"),
-            ("special_btn_width", "특수버튼 너비")
-        ]
+        # 2. 일반 버튼 스타일 (접이식)
+        button_group = CollapsibleGroupBox("일반 버튼", collapsed=False)
+        button_grid = QGridLayout()
+        button_grid.setSpacing(8)
 
-        for key, label in number_keys:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["keyboard"].get(key, 0))
-            size_form.addRow(f"{label}:", line_edit)
-            self.keyboard_style_fields[key] = line_edit
+        # 버튼 배경, 글자색
+        button_grid.addWidget(QLabel("배경:"), 0, 0)
+        btn_bg = ColorPickerButton(self.config["keyboard"].get("button_bg_color", "#2D3748"))
+        btn_bg.color_changed.connect(self._on_style_changed)
+        button_grid.addWidget(btn_bg, 0, 1)
+        self.keyboard_style_fields["button_bg_color"] = btn_bg
 
-        size_layout.addWidget(size_group)
+        button_grid.addWidget(QLabel("글자:"), 0, 2)
+        btn_text = ColorPickerButton(self.config["keyboard"].get("button_text_color", "white"))
+        btn_text.color_changed.connect(self._on_style_changed)
+        button_grid.addWidget(btn_text, 0, 3)
+        self.keyboard_style_fields["button_text_color"] = btn_text
 
-        # 입력 제한 설정
-        limit_group = QGroupBox("입력 글자 수 제한")
-        self.apply_left_aligned_group_style(limit_group)
-        limit_form = QFormLayout(limit_group)
+        # 누름색, 둥글기
+        button_grid.addWidget(QLabel("누름:"), 1, 0)
+        btn_pressed = ColorPickerButton(self.config["keyboard"].get("button_pressed_color", "#4A5568"))
+        btn_pressed.color_changed.connect(self._on_style_changed)
+        button_grid.addWidget(btn_pressed, 1, 1)
+        self.keyboard_style_fields["button_pressed_color"] = btn_pressed
 
-        limit_keys = [
-            ("max_hangul", "최대 한글"),
-            ("max_lowercase", "최대 소문자"),
-            ("max_uppercase", "최대 대문자")
-        ]
+        button_grid.addWidget(QLabel("둥글기:"), 1, 2)
+        btn_radius = NumberLineEdit()
+        btn_radius.setValue(self.config["keyboard"].get("button_radius", 10))
+        btn_radius.setFixedWidth(60)
+        btn_radius.textChanged.connect(self._on_style_changed)
+        button_grid.addWidget(btn_radius, 1, 3)
+        self.keyboard_style_fields["button_radius"] = btn_radius
 
-        for key, label in limit_keys:
-            line_edit = NumberLineEdit()
-            line_edit.setValue(self.config["keyboard"].get(key, 10))
-            limit_form.addRow(f"{label}:", line_edit)
-            self.keyboard_style_fields[key] = line_edit
+        button_group.addLayout(button_grid)
+        settings_layout.addWidget(button_group)
 
-        size_layout.addWidget(limit_group)
-        size_layout.addStretch()
+        # 3. 특수 버튼 스타일 (접이식)
+        special_group = CollapsibleGroupBox("특수 버튼", collapsed=False)
+        special_grid = QGridLayout()
+        special_grid.setSpacing(8)
 
-        size_scroll.setWidget(size_widget)
-        main_layout.addWidget(size_scroll, 1)
+        # 한/영, Shift
+        special_grid.addWidget(QLabel("한/영:"), 0, 0)
+        hangul_btn = ColorPickerButton(self.config["keyboard"].get("hangul_btn_color", "#4299E1"))
+        hangul_btn.color_changed.connect(self._on_style_changed)
+        special_grid.addWidget(hangul_btn, 0, 1)
+        self.keyboard_style_fields["hangul_btn_color"] = hangul_btn
+
+        special_grid.addWidget(QLabel("Shift:"), 0, 2)
+        shift_btn = ColorPickerButton(self.config["keyboard"].get("shift_btn_color", "#3182CE"))
+        shift_btn.color_changed.connect(self._on_style_changed)
+        special_grid.addWidget(shift_btn, 0, 3)
+        self.keyboard_style_fields["shift_btn_color"] = shift_btn
+
+        # 지우기, 다음
+        special_grid.addWidget(QLabel("지우기:"), 1, 0)
+        backspace_btn = ColorPickerButton(self.config["keyboard"].get("backspace_btn_color", "#6ae517"))
+        backspace_btn.color_changed.connect(self._on_style_changed)
+        special_grid.addWidget(backspace_btn, 1, 1)
+        self.keyboard_style_fields["backspace_btn_color"] = backspace_btn
+
+        special_grid.addWidget(QLabel("다음:"), 1, 2)
+        next_btn = ColorPickerButton(self.config["keyboard"].get("next_btn_color", "#48BB78"))
+        next_btn.color_changed.connect(self._on_style_changed)
+        special_grid.addWidget(next_btn, 1, 3)
+        self.keyboard_style_fields["next_btn_color"] = next_btn
+
+        # 특수버튼 너비
+        special_grid.addWidget(QLabel("너비:"), 2, 0)
+        special_width = NumberLineEdit()
+        special_width.setValue(self.config["keyboard"].get("special_btn_width", 100))
+        special_width.setFixedWidth(60)
+        special_width.textChanged.connect(self._on_style_changed)
+        special_grid.addWidget(special_width, 2, 1)
+        self.keyboard_style_fields["special_btn_width"] = special_width
+
+        special_group.addLayout(special_grid)
+        settings_layout.addWidget(special_group)
+
+        # 4. 입력 제한 (접이식, 기본 접힘)
+        limit_group = CollapsibleGroupBox("입력 글자 수 제한", collapsed=True)
+        limit_grid = QGridLayout()
+        limit_grid.setSpacing(8)
+
+        limit_grid.addWidget(QLabel("한글:"), 0, 0)
+        max_hangul = NumberLineEdit()
+        max_hangul.setValue(self.config["keyboard"].get("max_hangul", 100))
+        max_hangul.setFixedWidth(60)
+        limit_grid.addWidget(max_hangul, 0, 1)
+        self.keyboard_style_fields["max_hangul"] = max_hangul
+
+        limit_grid.addWidget(QLabel("소문자:"), 0, 2)
+        max_lower = NumberLineEdit()
+        max_lower.setValue(self.config["keyboard"].get("max_lowercase", 100))
+        max_lower.setFixedWidth(60)
+        limit_grid.addWidget(max_lower, 0, 3)
+        self.keyboard_style_fields["max_lowercase"] = max_lower
+
+        limit_grid.addWidget(QLabel("대문자:"), 1, 0)
+        max_upper = NumberLineEdit()
+        max_upper.setValue(self.config["keyboard"].get("max_uppercase", 100))
+        max_upper.setFixedWidth(60)
+        limit_grid.addWidget(max_upper, 1, 1)
+        self.keyboard_style_fields["max_uppercase"] = max_upper
+
+        limit_group.addLayout(limit_grid)
+        settings_layout.addWidget(limit_group)
+
+        settings_layout.addStretch()
+        settings_scroll.setWidget(settings_widget)
+        main_layout.addWidget(settings_scroll, 1)
+
+        # ========== 우측: 미리보기 영역 ==========
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("키보드 스타일 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_group_layout = QVBoxLayout(preview_group)
+
+        # 키보드 스타일 미리보기 위젯
+        self.keyboard_style_preview = KeyboardStylePreview()
+        self.keyboard_style_preview.setMinimumSize(300, 200)
+        preview_group_layout.addWidget(self.keyboard_style_preview, 0, Qt.AlignHCenter)
+
+        # 안내 문구
+        info_label = QLabel("※ 위 미리보기는 실제 키보드의 축소 버전입니다.\n   색상과 스타일이 실시간으로 반영됩니다.")
+        info_label.setStyleSheet("color: #666; font-style: italic;")
+        info_label.setAlignment(Qt.AlignCenter)
+        preview_group_layout.addWidget(info_label)
+
+        preview_layout.addWidget(preview_group)
+        preview_layout.addStretch()
+
+        main_layout.addWidget(preview_widget, 1)
 
         self.sub_tabs.addTab(tab, "키보드 스타일")
+
+        # 초기 미리보기 업데이트
+        self._update_keyboard_style_preview()
+
+    def _on_style_changed(self):
+        """스타일 필드 변경 시 미리보기 업데이트"""
+        self._update_keyboard_style_preview()
+        self._update_screen_preview()  # 화면 미리보기에도 반영
+
+    def _update_keyboard_style_preview(self):
+        """키보드 스타일 미리보기 업데이트"""
+        if not self.keyboard_style_preview:
+            return
+
+        style_config = {}
+        for key, widget in self.keyboard_style_fields.items():
+            if isinstance(widget, ColorPickerButton):
+                style_config[key] = widget.color
+            elif isinstance(widget, NumberLineEdit):
+                style_config[key] = widget.value()
+
+        self.keyboard_style_preview.update_style(style_config)
+
+    def _get_current_keyboard_style(self) -> dict:
+        """현재 키보드 스타일 설정값 반환"""
+        style = {
+            "bg_color": self.config["keyboard"].get("bg_color", "#1B2838"),
+            "border_color": self.config["keyboard"].get("border_color", "#00FFC2"),
+            "border_width": self.config["keyboard"].get("border_width", 2),
+            "border_radius": self.config["keyboard"].get("border_radius", 15),
+            "padding": self.config["keyboard"].get("padding", 10),
+            "font_size": self.config["keyboard"].get("font_size", 28),
+            "button_bg_color": self.config["keyboard"].get("button_bg_color", "#2D3748"),
+            "button_text_color": self.config["keyboard"].get("button_text_color", "white"),
+            "button_pressed_color": self.config["keyboard"].get("button_pressed_color", "#4A5568"),
+            "button_radius": self.config["keyboard"].get("button_radius", 10),
+            "hangul_btn_color": self.config["keyboard"].get("hangul_btn_color", "#4299E1"),
+            "shift_btn_color": self.config["keyboard"].get("shift_btn_color", "#3182CE"),
+            "backspace_btn_color": self.config["keyboard"].get("backspace_btn_color", "#6ae517"),
+            "next_btn_color": self.config["keyboard"].get("next_btn_color", "#48BB78"),
+        }
+
+        # 스타일 필드가 있으면 현재 UI 값으로 덮어쓰기
+        for key, widget in self.keyboard_style_fields.items():
+            if isinstance(widget, ColorPickerButton):
+                style[key] = widget.color
+            elif isinstance(widget, NumberLineEdit):
+                style[key] = widget.value()
+
+        return style
+
+    def _render_keyboard_preview(self, painter, rect: QRect, style: dict):
+        """화면 미리보기에 키보드 스타일 렌더링"""
+        if not style:
+            style = self._get_current_keyboard_style()
+
+        # 키보드 배경
+        border_width = max(1, style.get("border_width", 2) // 3)
+        border_radius = min(style.get("border_radius", 15) // 2, rect.width() // 10, rect.height() // 10)
+
+        painter.setPen(QPen(QColor(style.get("border_color", "#00FFC2")), border_width))
+        painter.setBrush(QBrush(QColor(style.get("bg_color", "#1B2838"))))
+        painter.drawRoundedRect(rect, border_radius, border_radius)
+
+        # 키보드 내부 영역
+        inner_padding = style.get("padding", 10) // 3 + border_width
+        inner_rect = rect.adjusted(inner_padding, inner_padding, -inner_padding, -inner_padding)
+
+        if inner_rect.width() <= 0 or inner_rect.height() <= 0:
+            return
+
+        # 간소화된 키 레이아웃
+        keys = [
+            ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+            ["ㅂ", "ㅈ", "ㄷ", "ㄱ", "ㅅ", "ㅛ", "ㅕ", "ㅑ", "ㅐ", "ㅔ"],
+            ["ㅁ", "ㄴ", "ㅇ", "ㄹ", "ㅎ", "ㅗ", "ㅓ", "ㅏ", "ㅣ"],
+            ["ㅋ", "ㅌ", "ㅊ", "ㅍ", "ㅠ", "ㅜ", "ㅡ"],
+        ]
+        special_keys = ["한", "Sh", "Space", "←", "다음"]
+        special_colors = [
+            style.get("hangul_btn_color", "#4299E1"),
+            style.get("shift_btn_color", "#3182CE"),
+            style.get("button_bg_color", "#2D3748"),
+            style.get("backspace_btn_color", "#6ae517"),
+            style.get("next_btn_color", "#48BB78"),
+        ]
+
+        key_spacing = 2
+        button_radius = min(style.get("button_radius", 10) // 2, 5)
+        total_rows = len(keys) + 1
+        row_height = (inner_rect.height() - key_spacing * (total_rows - 1)) / total_rows
+
+        # 폰트 설정 (미리보기용 작은 폰트)
+        font_size = max(6, min(int(row_height / 2.5), 10))
+        font = QFont("맑은 고딕", font_size)
+        painter.setFont(font)
+
+        current_y = inner_rect.top()
+
+        # 일반 키 그리기
+        for row in keys:
+            key_count = len(row)
+            key_width = (inner_rect.width() - key_spacing * (key_count - 1)) / key_count
+            current_x = inner_rect.left()
+
+            for key in row:
+                key_rect = QRectF(current_x, current_y, key_width - 1, row_height - 1)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QBrush(QColor(style.get("button_bg_color", "#2D3748"))))
+                painter.drawRoundedRect(key_rect, button_radius, button_radius)
+
+                painter.setPen(QColor(style.get("button_text_color", "white")))
+                painter.drawText(key_rect, Qt.AlignCenter, key)
+                current_x += key_width + key_spacing
+
+            current_y += row_height + key_spacing
+
+        # 특수 키 그리기
+        widths = [2, 2, 4, 2, 2]
+        total_units = sum(widths)
+        unit_width = (inner_rect.width() - key_spacing * (len(special_keys) - 1)) / total_units
+        current_x = inner_rect.left()
+
+        for key, color, width_units in zip(special_keys, special_colors, widths):
+            key_width = unit_width * width_units
+            key_rect = QRectF(current_x, current_y, key_width - 1, row_height - 1)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(QBrush(QColor(color)))
+            painter.drawRoundedRect(key_rect, button_radius, button_radius)
+
+            painter.setPen(QColor(style.get("button_text_color", "white")))
+            painter.drawText(key_rect, Qt.AlignCenter, key)
+            current_x += key_width + key_spacing
+
+    def _render_input_field_preview(self, painter, rect: QRect, data: dict):
+        """화면 미리보기에 입력창 스타일 렌더링 (라벨 + 힌트 포함)"""
+        if not data:
+            data = {"label": "", "placeholder": "", "font_size": 36, "index": 0}
+
+        label_text = data.get("label", "")
+        placeholder_text = data.get("placeholder", "")
+        font_size = data.get("font_size", 36)
+        index = data.get("index", 0)
+
+        # 미리보기에서의 폰트 크기 (원본 대비 축소, 최소/최대 제한)
+        # 미리보기가 축소되어 있으므로 폰트도 비례 축소
+        preview_font_size = max(6, min(int(font_size / 4), 16))
+
+        # 라벨 영역 (입력창 왼쪽)
+        if label_text:
+            label_width = min(80, rect.width() // 4)  # 라벨 최대 너비
+            label_rect = QRectF(
+                rect.x() - label_width - 5,
+                rect.y(),
+                label_width,
+                rect.height()
+            )
+            # 라벨 텍스트 그리기
+            font = QFont("맑은 고딕", max(6, preview_font_size - 2))
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QColor("#333333"))
+            painter.drawText(label_rect, Qt.AlignRight | Qt.AlignVCenter, label_text)
+
+        # 입력창 배경 (흰색 + 초록 테두리)
+        border_radius = min(8, rect.height() // 6)
+        painter.setPen(QPen(QColor("#00FFC2"), 2))
+        painter.setBrush(QBrush(QColor("white")))
+        painter.drawRoundedRect(QRectF(rect), border_radius, border_radius)
+
+        # 힌트 텍스트 (회색으로 입력창 내부에 표시) - 설정된 폰트 크기 반영
+        font = QFont("맑은 고딕", preview_font_size)
+        painter.setFont(font)
+
+        if placeholder_text:
+            painter.setPen(QColor("#999999"))  # 회색 힌트 텍스트
+            text_rect = QRectF(rect.x() + 5, rect.y(), rect.width() - 10, rect.height())
+            painter.drawText(text_rect, Qt.AlignCenter, placeholder_text)
+        else:
+            # 힌트가 없으면 기본 텍스트 표시
+            painter.setPen(QColor("#cccccc"))
+            text_rect = QRectF(rect.x() + 5, rect.y(), rect.width() - 10, rect.height())
+            painter.drawText(text_rect, Qt.AlignCenter, f"입력창 {index + 1}")
 
     # ==================== 입력창 화면 표시 관리 ====================
     def _on_input_count_changed(self, count):
@@ -493,42 +830,71 @@ class KeyboardTab(BaseTab):
             if i < len(self.config["text_input"]["items"]):
                 item_data.update(self.config["text_input"]["items"][i])
 
-            # 항목 그룹 생성
+            # 항목 그룹 생성 (더 콤팩트하게)
             item_group = QGroupBox(f"입력창 {i+1}")
             item_group.setStyleSheet("""
                 QGroupBox {
                     font-weight: bold;
-                    border: 2px solid #2196F3;
-                    border-radius: 6px;
-                    margin-top: 10px;
-                    padding-top: 10px;
+                    border: 1px solid #2196F3;
+                    border-radius: 4px;
+                    margin-top: 8px;
+                    padding-top: 8px;
                 }
                 QGroupBox::title {
                     subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 5px;
+                    left: 8px;
+                    padding: 0 3px;
                     color: #2196F3;
+                    font-size: 12px;
                 }
             """)
-            item_layout = QFormLayout(item_group)
-            item_layout.setSpacing(6)
+            item_layout = QVBoxLayout(item_group)
+            item_layout.setSpacing(4)
+            item_layout.setContentsMargins(6, 10, 6, 6)
 
             fields = {}
 
-            # 이름
+            # 첫째 줄: 라벨 + 힌트 + 글자크기 (더 콤팩트하게)
+            first_row = QHBoxLayout()
+            first_row.setSpacing(8)
+
+            # 라벨 (입력창 왼쪽에 표시) - 인라인
+            label_label = QLabel("라벨:")
+            label_label.setStyleSheet("color: #2196F3; font-size: 11px;")
+            first_row.addWidget(label_label)
             label_edit = QLineEdit(item_data.get("label", ""))
-            label_edit.setPlaceholderText("예: 이름, 전화번호")
-            label_edit.textChanged.connect(lambda: self._update_all_previews())
-            item_layout.addRow("항목 이름:", label_edit)
+            label_edit.setPlaceholderText("이름")
+            label_edit.setFixedWidth(80)
+            label_edit.textChanged.connect(self._update_all_previews)
+            first_row.addWidget(label_edit)
             fields["label"] = label_edit
 
-            # 입력 예시
+            # 힌트 (입력창 안에 회색으로 표시) - 인라인
+            hint_label = QLabel("힌트:")
+            hint_label.setStyleSheet("color: #2196F3; font-size: 11px;")
+            first_row.addWidget(hint_label)
             placeholder_edit = QLineEdit(item_data.get("placeholder", ""))
-            placeholder_edit.setPlaceholderText("예: 홍길동")
-            item_layout.addRow("입력 예시:", placeholder_edit)
+            placeholder_edit.setPlaceholderText("홍길동")
+            placeholder_edit.setFixedWidth(100)
+            placeholder_edit.textChanged.connect(self._update_screen_preview)
+            first_row.addWidget(placeholder_edit)
             fields["placeholder"] = placeholder_edit
 
-            # 화면 위치
+            # 글자 크기 - 인라인
+            font_label = QLabel("글자:")
+            font_label.setStyleSheet("color: #2196F3; font-size: 11px;")
+            first_row.addWidget(font_label)
+            font_size_edit = NumberLineEdit()
+            font_size_edit.setValue(item_data.get("font_size", 36))
+            font_size_edit.setFixedWidth(45)
+            font_size_edit.textChanged.connect(self._update_screen_preview)
+            first_row.addWidget(font_size_edit)
+            fields["font_size"] = font_size_edit
+
+            first_row.addStretch()
+            item_layout.addLayout(first_row)
+
+            # 둘째 줄: 화면 위치/크기 (카드 형식 유지)
             screen_pos = PositionSizeInput()
             screen_pos.set_values(
                 x=item_data.get("screen_x", 40),
@@ -537,15 +903,8 @@ class KeyboardTab(BaseTab):
                 height=item_data.get("screen_height", 70)
             )
             screen_pos.value_changed.connect(self._update_screen_preview)
-            item_layout.addRow("화면 위치:", screen_pos)
+            item_layout.addWidget(screen_pos)
             fields["screen_pos"] = screen_pos
-
-            # 화면 폰트 크기
-            font_size_edit = NumberLineEdit()
-            font_size_edit.setValue(item_data.get("font_size", 36))
-            font_size_edit.setFixedWidth(80)
-            item_layout.addRow("글자 크기:", font_size_edit)
-            fields["font_size"] = font_size_edit
 
             self.input_items_layout.addWidget(item_group)
             self.text_input_item_fields.append(fields)
@@ -760,9 +1119,10 @@ class KeyboardTab(BaseTab):
 
         # 배경 이미지
         bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY)
-        self.screen_preview.set_background(bg_path, QColor("#1a1a1a"))
+        self.screen_preview.set_background(bg_path, QColor("#ffffff"))
+        self.screen_preview.set_card_border(True, QColor("#333333"), 2)
 
-        # 키보드 영역
+        # 키보드 영역 - 스타일 적용된 미리보기
         if self.keyboard_position_input:
             kb_rect = QRect(
                 self.keyboard_position_input.get_x(),
@@ -770,26 +1130,38 @@ class KeyboardTab(BaseTab):
                 self.keyboard_position_input.get_width(),
                 self.keyboard_position_input.get_height()
             )
+            # 현재 키보드 스타일 데이터 수집
+            keyboard_style = self._get_current_keyboard_style()
             self.screen_preview.add_element(
                 "keyboard", kb_rect,
                 color=QColor("red"),
                 label="키보드",
-                draggable=True
+                draggable=True,
+                custom_renderer=self._render_keyboard_preview,
+                renderer_data=keyboard_style
             )
 
-        # 입력창들
-        colors = [QColor("lime"), QColor("cyan"), QColor("yellow"), QColor("magenta"), QColor("orange")]
+        # 입력창들 - 실제 입력창 스타일로 렌더링
         for i, fields in enumerate(self.text_input_item_fields):
             if "screen_pos" in fields:
                 pos = fields["screen_pos"]
                 rect = QRect(pos.get_x(), pos.get_y(), pos.get_width(), pos.get_height())
-                label = fields.get("label")
-                label_text = label.text() if label and label.text() else f"입력창{i+1}"
+
+                # 입력창 데이터 수집
+                input_data = {
+                    "label": fields.get("label").text() if fields.get("label") else "",
+                    "placeholder": fields.get("placeholder").text() if fields.get("placeholder") else "",
+                    "font_size": fields.get("font_size").value() if fields.get("font_size") else 36,
+                    "index": i
+                }
+
                 self.screen_preview.add_element(
                     f"input_{i}", rect,
-                    color=colors[i % len(colors)],
-                    label=label_text,
-                    draggable=True
+                    color=QColor("#00FFC2"),  # 기본 테두리 색상 (폴백용)
+                    label=None,  # 커스텀 렌더러가 라벨 처리
+                    draggable=True,
+                    custom_renderer=self._render_input_field_preview,
+                    renderer_data=input_data
                 )
 
         self.request_real_time_update()

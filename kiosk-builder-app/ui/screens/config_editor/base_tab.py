@@ -1,7 +1,8 @@
 #모든 설정 탭의 기본 클래스(부모 클래스)
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel, QGroupBox
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QScrollArea, QLabel, QGroupBox, QPushButton
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from ui.styles.colors import COLORS
 from ui.components.collapsible_group import CollapsibleGroupBox, CardGroupBox
 
@@ -16,6 +17,7 @@ class BaseTab(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QScrollArea.NoFrame)  # 프레임 제거
+        scroll.setStyleSheet("QScrollArea { background-color: white; }")
         
         # 스크롤 내용 위젯
         content_widget = QWidget()
@@ -101,3 +103,29 @@ class BaseTab(QWidget):
     def create_card_group(self, title: str) -> CardGroupBox:
         """카드 스타일 그룹박스 생성"""
         return CardGroupBox(title, self)
+
+    def create_help_button(self, tooltip: str = "도움말") -> QPushButton:
+        """직관적인 도움말 버튼 생성 - 모든 탭에서 통일된 스타일"""
+        help_btn = QPushButton("?")
+        help_btn.setFixedSize(20, 20)
+        help_btn.setToolTip(tooltip)
+        help_btn.setCursor(Qt.PointingHandCursor)
+        help_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: 2px solid #138496;
+                border-radius: 10px;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 0px;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+                border-color: #117a8b;
+            }
+            QPushButton:pressed {
+                background-color: #117a8b;
+            }
+        """)
+        return help_btn

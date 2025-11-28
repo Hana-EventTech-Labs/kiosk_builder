@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout,
                               QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget, QLabel, QTabWidget,
-                              QDialog, QDialogButtonBox)
-from PySide6.QtCore import Qt, QRect
+                              QDialog, QDialogButtonBox, QFrame)
+from PySide6.QtCore import Qt, QRect, QSize
 from PySide6.QtGui import QColor
 from .base_tab import BaseTab
 from ui.components.inputs import NumberLineEdit
@@ -16,7 +16,10 @@ FRAME_SCREEN_KEY = "4"
 class FrameTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
-        self.screen_preview = None
+        self.sub_tabs = None
+        # 각 탭의 미리보기 위젯
+        self.screen_preview_screen = None
+        self.screen_preview_frame = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
         self.init_ui()
@@ -24,137 +27,152 @@ class FrameTab(BaseTab):
     def init_ui(self):
         scroll_content_layout = self.create_tab_with_scroll()
 
-        # 메인 레이아웃 (좌: 설정, 우: 미리보기)
-        main_layout = QHBoxLayout()
-        scroll_content_layout.addLayout(main_layout)
-
-        # 설정 영역
-        settings_widget = QWidget()
-        content_layout = QVBoxLayout(settings_widget)
-        content_layout.setContentsMargins(0, 0, 0, 0)
-
-        # 배경화면 설정 그룹
-        bg_group = QGroupBox("배경화면 설정")
-        self.apply_left_aligned_group_style(bg_group)
-        bg_group_layout = QVBoxLayout(bg_group)
-
-        # 기본 배경화면 행 (레이블 + ? 버튼 + 입력필드)
-        bg_row = QHBoxLayout()
-        bg_label = QLabel("배경화면:")
-        bg_row.addWidget(bg_label)
-
-        # ? 도움말 버튼
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(20, 20)
-        help_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-weight: bold;
-                font-size: 12px;
+        # ═══════════════════════════════════════════════════════════════
+        # 서브 탭 위젯 (각 탭 내부에 설정+미리보기)
+        # ═══════════════════════════════════════════════════════════════
+        self.sub_tabs = QTabWidget()
+        self.sub_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #ccc;
+                background: white;
+                border-radius: 4px;
             }
-            QPushButton:hover {
-                background-color: #2980b9;
+            QTabBar::tab {
+                background: #ffffff;
+                border: 1px solid #ccc;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background: #2196F3;
+                color: white;
+                border-bottom-color: white;
+            }
+            QTabBar::tab:hover:!selected {
+                background: #f8f8f8;
             }
         """)
-        help_btn.clicked.connect(self._show_bg_help_dialog)
-        bg_row.addWidget(help_btn)
-        bg_row.addSpacing(10)
 
-        saved_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY)
-        self.frame_bg_edit = QLineEdit(saved_bg)
-        self.frame_bg_edit.setReadOnly(True)
-        self.frame_bg_edit.setPlaceholderText("배경화면 없음")
-        self.frame_bg_edit.textChanged.connect(self._update_screen_preview)
-        bg_row.addWidget(self.frame_bg_edit, 1)
+        # 탭 1: 화면 설정 (배경)
+        self._create_screen_settings_tab()
 
-        browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(self._on_browse_background)
-        bg_row.addWidget(browse_button)
+        # 탭 2: 프레임 설정
+        self._create_frame_settings_tab()
 
-        reset_button = QPushButton("초기화")
-        reset_button.setFixedWidth(60)
-        reset_button.setToolTip("배경화면을 삭제합니다")
-        reset_button.clicked.connect(self._reset_background)
-        bg_row.addWidget(reset_button)
+        scroll_content_layout.addWidget(self.sub_tabs)
+        scroll_content_layout.addStretch()
 
-        bg_group_layout.addLayout(bg_row)
+        # 기존 프레임 목록 로드
+        self.load_frame_list()
 
-        # 한국어 배경화면
-        ko_bg_layout = QHBoxLayout()
-        ko_bg_layout.addWidget(QLabel("🇰🇷 한국어:"))
-        saved_ko_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY, lang="ko")
-        self.ko_bg_edit = QLineEdit(saved_ko_bg)
-        self.ko_bg_edit.setReadOnly(True)
-        self.ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        ko_bg_layout.addWidget(self.ko_bg_edit, 1)
-        self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
-        ko_browse_btn = QPushButton("찾기...")
-        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_browse_btn)
-        ko_reset_btn = QPushButton("초기화")
-        ko_reset_btn.setFixedWidth(60)
-        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_reset_btn)
-        bg_group_layout.addLayout(ko_bg_layout)
+        # 초기 미리보기 업데이트
+        self._update_screen_preview()
 
-        # 영어 배경화면
-        en_bg_layout = QHBoxLayout()
-        en_bg_layout.addWidget(QLabel("🇺🇸 English:"))
-        saved_en_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY, lang="en")
-        self.en_bg_edit = QLineEdit(saved_en_bg)
-        self.en_bg_edit.setReadOnly(True)
-        self.en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        en_bg_layout.addWidget(self.en_bg_edit, 1)
-        self.lang_bg_fields["en"]["background"] = self.en_bg_edit
-        en_browse_btn = QPushButton("찾기...")
-        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
-        en_bg_layout.addWidget(en_browse_btn)
-        en_reset_btn = QPushButton("초기화")
-        en_reset_btn.setFixedWidth(60)
-        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
-        en_bg_layout.addWidget(en_reset_btn)
-        bg_group_layout.addLayout(en_bg_layout)
+    # ═══════════════════════════════════════════════════════════════
+    # 탭 1: 화면 설정
+    # ═══════════════════════════════════════════════════════════════
+    def _create_screen_settings_tab(self):
+        """화면 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
+        tab_widget = QWidget()
+        tab_main_layout = QHBoxLayout(tab_widget)
+        tab_main_layout.setContentsMargins(10, 10, 10, 10)
+        tab_main_layout.setSpacing(20)
 
-        content_layout.addWidget(bg_group)
+        # 좌측: 설정 영역
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
+
+        self._init_background_settings(left_layout)
+        left_layout.addStretch()
+
+        tab_main_layout.addWidget(left_widget, 1)
+
+        # 우측: 미리보기 영역
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("프레임 영역을 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
+
+        self.screen_preview_screen = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_screen.position_changed.connect(self._on_frame_position_changed)
+        self.screen_preview_screen.size_changed.connect(self._on_frame_size_changed)
+        preview_layout.addWidget(self.screen_preview_screen, 0, Qt.AlignCenter)
+
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
+
+        right_layout.addWidget(preview_group)
+
+        tab_main_layout.addWidget(right_widget, 1)
+
+        self.sub_tabs.addTab(tab_widget, "화면 설정")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 탭 2: 프레임 설정
+    # ═══════════════════════════════════════════════════════════════
+    def _create_frame_settings_tab(self):
+        """프레임 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
+        tab_widget = QWidget()
+        tab_main_layout = QHBoxLayout(tab_widget)
+        tab_main_layout.setContentsMargins(10, 10, 10, 10)
+        tab_main_layout.setSpacing(20)
+
+        # 좌측: 설정 영역
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
 
         # 프레임 추가 그룹
         frame_add_group = QGroupBox("프레임 추가")
         self.apply_left_aligned_group_style(frame_add_group)
         frame_add_layout = QVBoxLayout(frame_add_group)
-        
+
         # 프레임 파일 추가 레이아웃
         add_frame_layout = QHBoxLayout()
         self.frame_file_edit = QLineEdit()
         self.frame_file_edit.setPlaceholderText("프레임 파일을 선택하세요...")
         add_frame_layout.addWidget(self.frame_file_edit, 1)
-        
+
         # 프레임 파일 선택 버튼
         frame_browse_button = QPushButton("찾기...")
         frame_browse_button.clicked.connect(self.browse_frame_file)
         add_frame_layout.addWidget(frame_browse_button)
-        
+
         # 프레임 추가 버튼
         add_frame_button = QPushButton("프레임 추가")
         add_frame_button.clicked.connect(self.add_frame_to_list)
         add_frame_layout.addWidget(add_frame_button)
-        
+
         frame_add_layout.addLayout(add_frame_layout)
-        
+
         # 프레임 목록
         self.frame_list = QListWidget()
         self.frame_list.setMaximumHeight(150)
         self.frame_list.currentItemChanged.connect(self._on_frame_selection_changed)
         frame_add_layout.addWidget(self.frame_list)
-        
+
         # 프레임 삭제 버튼
         remove_frame_button = QPushButton("선택한 프레임 삭제")
         remove_frame_button.clicked.connect(self.remove_frame_from_list)
         frame_add_layout.addWidget(remove_frame_button)
-        
-        content_layout.addWidget(frame_add_group)
+
+        left_layout.addWidget(frame_add_group)
 
         # 프레임 설정 그룹
         frame_group = QGroupBox("📐 프레임 설정")
@@ -190,7 +208,6 @@ class FrameTab(BaseTab):
         frame_layout.addWidget(self.frame_size_input)
 
         # 구분선
-        from PySide6.QtWidgets import QFrame
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setStyleSheet("background-color: #ddd;")
@@ -224,37 +241,137 @@ class FrameTab(BaseTab):
         self.frame_fields["font_color"] = font_color_button
 
         frame_layout.addLayout(font_form)
-        content_layout.addWidget(frame_group)
-        content_layout.addStretch()
+        left_layout.addWidget(frame_group)
+        left_layout.addStretch()
 
-        # 좌측 설정 영역을 메인 레이아웃에 추가
-        main_layout.addWidget(settings_widget, 1)
+        tab_main_layout.addWidget(left_widget, 1)
 
-        # 우측 미리보기 영역
-        preview_widget = QWidget()
-        preview_layout = QVBoxLayout(preview_widget)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
+        # 우측: 미리보기 영역
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
 
-        # 화면 미리보기
-        screen_preview_group = QGroupBox("화면 미리보기")
-        self.apply_left_aligned_group_style(screen_preview_group)
-        screen_preview_layout = QVBoxLayout(screen_preview_group)
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
 
-        self.screen_preview = LivePreviewWidget()
-        self.screen_preview.position_changed.connect(self._on_frame_position_changed)
-        self.screen_preview.size_changed.connect(self._on_frame_size_changed)
-        screen_preview_layout.addWidget(self.screen_preview, 0, Qt.AlignHCenter)
+        desc = QLabel("프레임 영역을 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
 
-        preview_layout.addWidget(screen_preview_group)
-        preview_layout.addStretch()
+        self.screen_preview_frame = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_frame.position_changed.connect(self._on_frame_position_changed)
+        self.screen_preview_frame.size_changed.connect(self._on_frame_size_changed)
+        preview_layout.addWidget(self.screen_preview_frame, 0, Qt.AlignCenter)
 
-        main_layout.addWidget(preview_widget, 1)
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
 
-        # 기존 프레임 목록 로드
-        self.load_frame_list()
+        right_layout.addWidget(preview_group)
 
-        # 초기 미리보기 업데이트
-        self._update_screen_preview()
+        tab_main_layout.addWidget(right_widget, 1)
+
+        self.sub_tabs.addTab(tab_widget, "프레임 설정")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 배경 설정
+    # ═══════════════════════════════════════════════════════════════
+    def _init_background_settings(self, parent_layout):
+        """배경 설정 그룹"""
+        # 그룹박스 헤더 (타이틀 + ? 버튼)
+        header_widget = QWidget()
+        header_layout = QHBoxLayout(header_widget)
+        header_layout.setContentsMargins(0, 0, 0, 5)
+        header_layout.setSpacing(8)
+
+        title_label = QLabel("배경 설정")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        header_layout.addWidget(title_label)
+
+        help_btn = self.create_help_button("배경화면 설정 안내")
+        help_btn.clicked.connect(self._show_bg_help_dialog)
+        header_layout.addWidget(help_btn)
+        header_layout.addStretch()
+
+        parent_layout.addWidget(header_widget)
+
+        # 배경 설정 내용 그룹
+        bg_group = QGroupBox()
+        self.apply_left_aligned_group_style(bg_group)
+        bg_form = QFormLayout(bg_group)
+        bg_form.setSpacing(8)
+
+        # 라벨 너비 고정
+        LABEL_WIDTH = 80
+
+        # 기본 배경화면 행
+        basic_label = QLabel("기본:")
+        basic_label.setFixedWidth(LABEL_WIDTH)
+        bg_row = QHBoxLayout()
+        saved_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY)
+        self.frame_bg_edit = QLineEdit(saved_bg)
+        self.frame_bg_edit.setReadOnly(True)
+        self.frame_bg_edit.setPlaceholderText("배경화면 없음")
+        self.frame_bg_edit.textChanged.connect(self._update_screen_preview)
+        bg_row.addWidget(self.frame_bg_edit, 1)
+
+        browse_button = QPushButton("찾기...")
+        browse_button.setFixedWidth(60)
+        browse_button.clicked.connect(self._on_browse_background)
+        bg_row.addWidget(browse_button)
+
+        reset_button = QPushButton("초기화")
+        reset_button.setFixedWidth(60)
+        reset_button.setToolTip("배경화면을 삭제합니다")
+        reset_button.clicked.connect(self._reset_background)
+        bg_row.addWidget(reset_button)
+        bg_form.addRow(basic_label, bg_row)
+
+        # 한국어 배경화면
+        ko_label = QLabel("🇰🇷 한국어:")
+        ko_label.setFixedWidth(LABEL_WIDTH)
+        ko_bg_layout = QHBoxLayout()
+        saved_ko_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY, lang="ko")
+        self.ko_bg_edit = QLineEdit(saved_ko_bg)
+        self.ko_bg_edit.setReadOnly(True)
+        self.ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        ko_bg_layout.addWidget(self.ko_bg_edit, 1)
+        self.lang_bg_fields["ko"]["background"] = self.ko_bg_edit
+        ko_browse_btn = QPushButton("찾기...")
+        ko_browse_btn.setFixedWidth(60)
+        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_browse_btn)
+        ko_reset_btn = QPushButton("초기화")
+        ko_reset_btn.setFixedWidth(60)
+        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
+        ko_bg_layout.addWidget(ko_reset_btn)
+        bg_form.addRow(ko_label, ko_bg_layout)
+
+        # 영어 배경화면
+        en_label = QLabel("🇺🇸 English:")
+        en_label.setFixedWidth(LABEL_WIDTH)
+        en_bg_layout = QHBoxLayout()
+        saved_en_bg = FileHandler.get_background_display_name(FRAME_SCREEN_KEY, lang="en")
+        self.en_bg_edit = QLineEdit(saved_en_bg)
+        self.en_bg_edit.setReadOnly(True)
+        self.en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
+        en_bg_layout.addWidget(self.en_bg_edit, 1)
+        self.lang_bg_fields["en"]["background"] = self.en_bg_edit
+        en_browse_btn = QPushButton("찾기...")
+        en_browse_btn.setFixedWidth(60)
+        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
+        en_bg_layout.addWidget(en_browse_btn)
+        en_reset_btn = QPushButton("초기화")
+        en_reset_btn.setFixedWidth(60)
+        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
+        en_bg_layout.addWidget(en_reset_btn)
+        bg_form.addRow(en_label, en_bg_layout)
+
+        parent_layout.addWidget(bg_group)
 
     def _on_browse_background(self):
         """배경화면 파일 선택"""
@@ -328,10 +445,7 @@ class FrameTab(BaseTab):
             self._update_screen_preview()
 
     def _update_screen_preview(self):
-        """화면 미리보기 업데이트"""
-        if not self.screen_preview:
-            return
-
+        """화면 미리보기 업데이트 - 모든 탭의 미리보기 동기화"""
         # 모니터 크기
         try:
             monitor_width = self.config["screen_size"]["width"]
@@ -339,14 +453,10 @@ class FrameTab(BaseTab):
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
 
-        # 원본 크기 설정
-        self.screen_preview.set_original_size(monitor_width, monitor_height)
-
-        # 배경 이미지 설정 - screen_key를 사용하여 실제 파일 경로 찾기
+        # 배경 이미지 경로
         bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY)
-        self.screen_preview.set_background(bg_path, QColor("#1a1a1a"))
 
-        # 프레임 영역 표시 (설정된 크기)
+        # 프레임 영역 크기
         try:
             frame_width = self.frame_size_input.get_width()
             frame_height = self.frame_size_input.get_height()
@@ -358,20 +468,28 @@ class FrameTab(BaseTab):
         frame_y = (monitor_height - frame_height) // 2
         frame_rect = QRect(frame_x, frame_y, frame_width, frame_height)
 
-        # 선택된 프레임 이미지가 있으면 표시
-        selected_item = self.frame_list.currentItem()
+        # 선택된 프레임 이미지
+        selected_item = self.frame_list.currentItem() if hasattr(self, 'frame_list') else None
         frame_image_name = selected_item.text() if selected_item else None
-        # 프레임 파일 경로 resolve
         frame_image_path = FileHandler.resolve_frame_path(frame_image_name) if frame_image_name else None
 
-        self.screen_preview.add_element(
-            "frame_area",
-            frame_rect,
-            color=QColor("cyan"),
-            image_path=frame_image_path,
-            label="프레임",
-            draggable=True
-        )
+        # 2개의 미리보기 위젯 업데이트
+        for preview in [self.screen_preview_screen, self.screen_preview_frame]:
+            if not preview:
+                continue
+
+            preview.set_original_size(monitor_width, monitor_height)
+            preview.set_background(bg_path, QColor("#ffffff"))
+            preview.set_card_border(True, QColor("#333333"), 2)
+
+            preview.add_element(
+                "frame_area",
+                frame_rect,
+                color=QColor("cyan"),
+                image_path=frame_image_path,
+                label="프레임",
+                draggable=True
+            )
 
         self.request_real_time_update()
 
@@ -404,18 +522,18 @@ class FrameTab(BaseTab):
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "경고", "프레임 파일을 선택해주세요.")
             return
-        
+
         # 중복 확인
         for i in range(self.frame_list.count()):
             if self.frame_list.item(i).text() == frame_file:
                 from PySide6.QtWidgets import QMessageBox
                 QMessageBox.warning(self, "경고", "이미 추가된 프레임입니다.")
                 return
-        
+
         # 목록에 추가
         self.frame_list.addItem(frame_file)
         self.frame_file_edit.clear()
-        
+
         # config 업데이트
         self.update_frame_config()
 
@@ -425,7 +543,7 @@ class FrameTab(BaseTab):
         if current_item:
             row = self.frame_list.row(current_item)
             self.frame_list.takeItem(row)
-            
+
             # config 업데이트
             self.update_frame_config()
         else:
@@ -437,17 +555,17 @@ class FrameTab(BaseTab):
         frame_files = []
         for i in range(self.frame_list.count()):
             frame_files.append(self.frame_list.item(i).text())
-        
+
         if "photo_frame" not in self.config:
             self.config["photo_frame"] = {}
-        
+
         self.config["photo_frame"]["frame_files"] = frame_files
 
     def load_frame_list(self):
         """config에서 프레임 목록 로드"""
         frame_files = self.config.get("photo_frame", {}).get("frame_files", [])
         self.frame_list.clear()
-        
+
         for frame_file in frame_files:
             self.frame_list.addItem(frame_file)
 
@@ -504,4 +622,4 @@ class FrameTab(BaseTab):
                     widget.setText(config["photo_frame"].get(key, ""))
 
         # 미리보기 업데이트
-        self._update_screen_preview() 
+        self._update_screen_preview()

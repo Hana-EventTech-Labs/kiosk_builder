@@ -1,7 +1,7 @@
 # kiosk-builder-app/ui/screens/config_editor/main_window.py 수정
 
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
-from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication
+from PySide6.QtCore import Qt, QSettings
 from PySide6.QtGui import QIcon
 import copy
 import os
@@ -52,34 +52,40 @@ class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
         self.current_version = get_version() if VERSION_AVAILABLE else "1.0.0"
-        
+
+        # 창 위치/크기 설정 저장용
+        self.settings = QSettings("HanaEventTech", "SKProgram")
+
         # 핵심 매니저들 초기화
         self.config_manager = ConfigManager.get_instance()
         self.auth_manager = AuthManager()
         self.config = self.config_manager.get_config()
-        
+
         # GitHub 설정 (필요하면 나중에 제거)
         # self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
-        
+
         # UI 매니저들 초기화
         self.style_manager = StyleManager()
         self.menu_manager = MenuManager(self)
         self.tab_manager = TabManager(self)
         self.button_manager = ButtonManager(self)
-        
+
         # 핸들러들 초기화
         self.config_handler_ui = ConfigHandlerUI(self)
         self.distribution_handler = DistributionHandler(self)
-        
+
         # UI 초기화
         self.init_ui()
         # self.init_auto_updater()  # 이 줄 삭제
         self.config_handler_ui.update_save_button_state()
 
+        # 저장된 창 위치/크기 복원
+        self._restore_window_geometry()
+
     def init_ui(self):
         """UI 초기화"""
         self.setWindowTitle(f"S.K Program - 설정 편집기 v{self.current_version}")
-        self.setMinimumSize(1250, 900)
+        self.setMinimumSize(1300, 950)
         
         # 스타일 적용
         self.style_manager.apply_styles(self)
@@ -144,3 +150,42 @@ class ConfigEditor(QMainWindow):
         # 저장 버튼 상태 업데이트도 필요
         self.config_handler_ui.update_save_button_state()
 
+    def _restore_window_geometry(self):
+        """저장된 창 위치/크기 복원"""
+        # 저장된 geometry가 있으면 복원
+        geometry = self.settings.value("window/geometry")
+        if geometry:
+            self.restoreGeometry(geometry)
+        else:
+            # 저장된 값이 없으면 기본 크기로 화면 중앙에 배치
+            self.resize(1400, 1000)
+            self._center_on_screen()
+
+        # 최대화 상태 복원
+        is_maximized = self.settings.value("window/maximized", False, type=bool)
+        if is_maximized:
+            self.showMaximized()
+
+    def _center_on_screen(self):
+        """창을 화면 중앙에 배치"""
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.availableGeometry()
+            window_geometry = self.frameGeometry()
+            center_point = screen_geometry.center()
+            window_geometry.moveCenter(center_point)
+            self.move(window_geometry.topLeft())
+
+    def _save_window_geometry(self):
+        """창 위치/크기 저장"""
+        # 최대화 상태 저장
+        self.settings.setValue("window/maximized", self.isMaximized())
+
+        # 최대화 상태가 아닐 때만 geometry 저장 (최대화 해제 시 원래 크기로 복원되도록)
+        if not self.isMaximized():
+            self.settings.setValue("window/geometry", self.saveGeometry())
+
+    def closeEvent(self, event):
+        """창 닫힐 때 위치/크기 저장"""
+        self._save_window_geometry()
+        event.accept()

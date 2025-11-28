@@ -60,7 +60,7 @@ class CollapsibleGroupBox(QWidget):
                 padding: 8px 12px;
             }}
             QFrame#headerFrame:hover {{
-                background-color: #F0F0F0;
+                background-color: #f8f8f8;
             }}
         """)
 
