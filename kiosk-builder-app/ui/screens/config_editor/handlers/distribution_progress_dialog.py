@@ -122,6 +122,7 @@ class DistributionWorker(QThread):
             total_size = int(response.headers.get('content-length', 0))
             downloaded_size = 0
             chunk_size = 8192
+            last_logged_percent = -1  # 마지막으로 로그한 퍼센트 (중복 방지)
 
             with open(target_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=chunk_size):
@@ -132,8 +133,11 @@ class DistributionWorker(QThread):
                         # 다운로드 진행률 (로그에 표시)
                         if total_size > 0:
                             percent = int((downloaded_size / total_size) * 100)
-                            if percent % 20 == 0:  # 20% 단위로 로그
-                                self.log_message.emit(f"    {percent}% ({downloaded_size // (1024*1024)} MB)")
+                            # 20% 단위로 로그하되, 이미 로그한 퍼센트는 건너뛰기
+                            log_percent = (percent // 20) * 20  # 0, 20, 40, 60, 80, 100
+                            if log_percent > last_logged_percent and log_percent > 0:
+                                self.log_message.emit(f"    {log_percent}% ({downloaded_size // (1024*1024)} MB)")
+                                last_logged_percent = log_percent
 
             if downloaded_size < 10000:  # 10KB 미만이면 실패
                 raise Exception(f"파일이 너무 작습니다 ({downloaded_size} bytes)")

@@ -10,16 +10,14 @@ PROJECT_MANAGER_URL = "https://kiosk-manager-production.up.railway.app"
 def login(login_id: str, password: str) -> tuple[bool, str, int]:
     """
     로그인 함수
-    
+
     Args:
         login_id: 사용자 아이디
         password: 비밀번호
-        
+
     Returns:
         tuple: (성공 여부, 메시지, 사용자 ID)
     """
-
-def login(login_id: str, password: str) -> tuple[bool, str]:
     url = f"{BASE_URL}/api/auth/login"
     payload = {"login_id": login_id, "password": password}
     try:

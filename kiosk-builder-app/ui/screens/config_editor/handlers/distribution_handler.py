@@ -321,12 +321,13 @@ Screens without files will use default backgrounds (from background folder).
 
         if self.online_mode:
             # 온라인 모드: 최소 설정만 포함 (활성화 후 서버에서 다운로드)
+            # screen_order는 사용자가 선택한 값 사용
             minimal_config = {
                 "app_name": self.main_window.config.get("app_name", "Kiosk"),
                 "screen_size": self.main_window.config.get("screen_size", {"width": 1080, "height": 1920}),
                 "online_mode": True,
                 "require_activation": True,
-                "screen_order": [0, 1, 2, 3, 4, 5, 6]
+                "screen_order": self.main_window.config.get("screen_order", [0, 1, 2, 3, 4, 5, 6])
             }
             with open(target_config_path, 'w', encoding='utf-8') as f:
                 json.dump(minimal_config, f, ensure_ascii=False, indent=4)

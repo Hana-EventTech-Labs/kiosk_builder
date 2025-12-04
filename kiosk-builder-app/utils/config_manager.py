@@ -19,21 +19,35 @@ class ConfigManager:
         if ConfigManager._instance is not None:
             raise Exception("This class is a singleton!")
         else:
+            # EXE 모드에서는 실행 파일 위치 기준, 개발 모드에서는 스크립트 위치 기준
+            self.base_dir = self._get_base_dir()
             self.config_paths = [
-                "config.json",
-                "config/config.json",
-                "../config/config.json",
-                "bin/config.json",
+                os.path.join(self.base_dir, "config.json"),
+                os.path.join(self.base_dir, "config", "config.json"),
+                os.path.join(self.base_dir, "..", "config", "config.json"),
+                os.path.join(self.base_dir, "bin", "config.json"),
+                "config.json",  # 하위 호환성을 위해 cwd 기준도 유지
             ]
             self.config_path = self._find_config_file()
             self.default_config = self._get_default_config()
             self.config = self._load_config()
             ConfigManager._instance = self
 
+    def _get_base_dir(self):
+        """실행 기준 디렉토리 반환"""
+        if getattr(sys, 'frozen', False):
+            # EXE 모드: 실행 파일이 있는 디렉토리
+            return os.path.dirname(sys.executable)
+        else:
+            # 개발 모드: 스크립트 파일이 있는 상위 디렉토리 (kiosk-builder-app)
+            return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
     def _find_config_file(self):
         for path in self.config_paths:
             if os.path.exists(path):
+                print(f"[ConfigManager] config.json 발견: {path}")
                 return path
+        print(f"[ConfigManager] config.json 못 찾음, 기본 경로 사용: {self.config_paths[0]}")
         return self.config_paths[0]
 
     def _load_config(self):

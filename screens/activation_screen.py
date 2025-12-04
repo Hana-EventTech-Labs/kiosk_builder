@@ -537,6 +537,10 @@ class ActivationScreen(QWidget):
 
     def goToNextScreen(self):
         """다음 화면 (스플래쉬)으로 이동"""
+        # 활성화 후 스플래시 화면 재생성 (새 config 반영)
+        if hasattr(self.main_window, 'rebuildSplashScreen'):
+            self.main_window.rebuildSplashScreen()
+
         # 인덱스 1은 스플래쉬 화면
         self.stack.setCurrentIndex(1)
 

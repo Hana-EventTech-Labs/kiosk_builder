@@ -81,36 +81,92 @@ class KioskApp(QMainWindow):
         # 활성화 필요 여부 확인
         self.require_activation = config.get("require_activation", True)
 
-        # 활성화 화면 (첫 번째로 시작)
-        self.activation_screen = ActivationScreen(self.stack, self.screen_size, self)
+        # 온라인 모드에서 아직 활성화되지 않은 경우: 활성화 화면만 생성
+        # (다른 화면들은 config가 없어서 생성 불가)
+        needs_activation = self.require_activation and not self.isAlreadyActivated()
 
-        self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
-        self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
+        if needs_activation:
+            print("활성화 필요: 활성화 화면만 생성")
+            # 활성화 화면만 생성
+            self.activation_screen = ActivationScreen(self.stack, self.screen_size, self)
+            self.stack.addWidget(self.activation_screen)  # 인덱스 0
 
-        # 텍스트 입력 화면
-        self.text_input_screen = TextInputScreen(self.stack, self.screen_size, self)
+            # 나머지 화면은 None으로 초기화 (활성화 후 생성됨)
+            self.splash_screen = None
+            self.photo_screen = None
+            self.text_input_screen = None
+            self.process_screen = None
+            self.complete_screen = None
+            self.qr_screen = None
+            self.frame_screen = None
+        else:
+            # 오프라인 모드 또는 이미 활성화된 경우: 모든 화면 생성
+            print("전체 화면 생성 (오프라인 모드 또는 이미 활성화됨)")
+            self.activation_screen = ActivationScreen(self.stack, self.screen_size, self)
+            self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
+            self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
+            self.text_input_screen = TextInputScreen(self.stack, self.screen_size, self)
+            self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
+            self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
+            self.qr_screen = QR_screen(self.stack, self.screen_size, self)
+            self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
 
-        self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
-        self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
-        self.qr_screen = QR_screen(self.stack, self.screen_size, self)
-        self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
+            self.stack.addWidget(self.activation_screen)  # 인덱스 0 (활성화)
+            self.stack.addWidget(self.splash_screen)      # 인덱스 1
+            self.stack.addWidget(self.photo_screen)       # 인덱스 2
+            self.stack.addWidget(self.text_input_screen)  # 인덱스 3
+            self.stack.addWidget(self.qr_screen)          # 인덱스 4
+            self.stack.addWidget(self.frame_screen)       # 인덱스 5
+            self.stack.addWidget(self.process_screen)     # 인덱스 6
+            self.stack.addWidget(self.complete_screen)    # 인덱스 7
 
-        self.stack.addWidget(self.activation_screen)  # 인덱스 0 (활성화)
-        self.stack.addWidget(self.splash_screen)      # 인덱스 1
-        self.stack.addWidget(self.photo_screen)       # 인덱스 2
-        self.stack.addWidget(self.text_input_screen)  # 인덱스 3
-        self.stack.addWidget(self.qr_screen)          # 인덱스 4
-        self.stack.addWidget(self.frame_screen)       # 인덱스 5
-        self.stack.addWidget(self.process_screen)     # 인덱스 6
-        self.stack.addWidget(self.complete_screen)    # 인덱스 7
+            # 오프라인 모드 또는 이미 활성화된 경우 활성화 화면 건너뛰기
+            if not self.require_activation:
+                print("오프라인 모드: 활성화 화면 건너뛰기")
+                self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
+            else:
+                print("이미 활성화됨: 활성화 화면 건너뛰기")
+                self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
 
-        # 오프라인 모드 또는 이미 활성화된 경우 활성화 화면 건너뛰기
-        if not self.require_activation:
-            print("오프라인 모드: 활성화 화면 건너뛰기")
-            self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
-        elif self.isAlreadyActivated():
-            print("이미 활성화됨: 활성화 화면 건너뛰기")
-            self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
+    def buildAllScreens(self):
+        """활성화 후 모든 화면 생성 (config 다운로드 후 호출)"""
+        try:
+            print("모든 화면 생성 중...")
+
+            # config 모듈 다시 로드
+            import importlib
+            import config as config_module
+            importlib.reload(config_module)
+            from config import config
+
+            # 모든 화면 생성
+            self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
+            self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
+            self.text_input_screen = TextInputScreen(self.stack, self.screen_size, self)
+            self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
+            self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
+            self.qr_screen = QR_screen(self.stack, self.screen_size, self)
+            self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
+
+            # 스택에 추가 (인덱스 1부터)
+            self.stack.addWidget(self.splash_screen)      # 인덱스 1
+            self.stack.addWidget(self.photo_screen)       # 인덱스 2
+            self.stack.addWidget(self.text_input_screen)  # 인덱스 3
+            self.stack.addWidget(self.qr_screen)          # 인덱스 4
+            self.stack.addWidget(self.frame_screen)       # 인덱스 5
+            self.stack.addWidget(self.process_screen)     # 인덱스 6
+            self.stack.addWidget(self.complete_screen)    # 인덱스 7
+
+            print("모든 화면 생성 완료")
+        except Exception as e:
+            print(f"화면 생성 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def rebuildSplashScreen(self):
+        """스플래시 화면 재생성 (활성화 후 config 반영) - 하위 호환성"""
+        # buildAllScreens로 대체
+        self.buildAllScreens()
 
     def isAlreadyActivated(self):
         """이미 활성화되었는지 확인 (activation.json 존재 여부)"""
