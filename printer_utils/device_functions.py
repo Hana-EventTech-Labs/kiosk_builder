@@ -1,9 +1,18 @@
-from .cffi_defs import ffi, lib
+from .cffi_defs import ffi, lib, get_lib
 from pathlib import Path
 import ctypes
 
+
+def _check_dll_loaded():
+    """DLL이 로드되었는지 확인"""
+    return get_lib() is not None
+
+
 # 연결된 프린터 목록을 가져오는 함수
 def get_device_list():
+    if not _check_dll_loaded():
+        print("[device_functions] DLL이 로드되지 않아 프린터 목록을 가져올 수 없습니다.")
+        return -1, None
     # SMART_PRINTER_LIST 구조체 메모리 할당
     printer_list = ffi.new("SMART_PRINTER_LIST *")
     # DLL의 SmartComm_GetDeviceList2 함수를 호출하여 프린터 목록을 채움
@@ -54,6 +63,8 @@ def print_image(device_handle):
 
 # 열려있는 프린터 장치의 연결을 종료하는 함수
 def close_device(device_handle):
+    if not _check_dll_loaded():
+        return
     lib.SmartComm_CloseDevice(device_handle)
 
 def get_printer_status(device_handle):

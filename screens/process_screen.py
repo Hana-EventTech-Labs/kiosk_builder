@@ -149,11 +149,18 @@ class ProcessScreen(QWidget):
         return process_label
         
     def showEvent(self, event):
+        # 앱이 종료 중이면 무시 (cleanup 중 showEvent 호출 방지)
+        if hasattr(self.main_window, 'is_closing') and self.main_window.is_closing:
+            print("[ProcessScreen] 앱 종료 중 - showEvent 무시")
+            return
+
+        print(f"[ProcessScreen] showEvent 호출됨!")
         # PrinterThread가 이미 실행 중인지 확인
         if self.printer_thread is None or not self.printer_thread.isRunning():
             # 프린터 스레드 생성
+            print(f"[ProcessScreen] PrinterThread 생성 시도...")
             self.printer_thread = PrinterThread()
-            
+
             # 에러 시그널을 팝업 메시지 표시 함수에 연결
             self.printer_thread.error.connect(self.show_error_popup)
 

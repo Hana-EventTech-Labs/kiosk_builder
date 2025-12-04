@@ -7,7 +7,8 @@ from screens.splash_screen import SplashScreen
 from screens.process_screen import ProcessScreen
 from screens.complete_screen import CompleteScreen
 from screens.camera_screen import CameraScreen
-from screens.text_input_screen import TextInputScreen  # 추가된 부분
+from screens.text_input_screen import TextInputScreen
+from screens.activation_screen import ActivationScreen  # 활성화 화면 추가
 from config import config
 from webcam_utils.webcam_controller import release_camera
 from PySide6.QtWidgets import QWidget
@@ -52,6 +53,7 @@ class SingleApplication(QApplication):
 class KioskApp(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.is_closing = False  # 종료 중 플래그
         self.setWindowTitle(config["app_name"])
         self.screen_size = (config["screen_size"]["width"], config["screen_size"]["height"])
         self.setFixedSize(*self.screen_size)
@@ -75,29 +77,69 @@ class KioskApp(QMainWindow):
 
     def setupStack(self):
         self.stack = QStackedWidget()
+
+        # 활성화 필요 여부 확인
+        self.require_activation = config.get("require_activation", True)
+
+        # 활성화 화면 (첫 번째로 시작)
+        self.activation_screen = ActivationScreen(self.stack, self.screen_size, self)
+
         self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
         self.photo_screen = CameraScreen(self.stack, self.screen_size, self)
-        
-        # 2번 화면 (텍스트 입력)
+
+        # 텍스트 입력 화면
         self.text_input_screen = TextInputScreen(self.stack, self.screen_size, self)
-        
+
         self.process_screen = ProcessScreen(self.stack, self.screen_size, self)
         self.complete_screen = CompleteScreen(self.stack, self.screen_size, self)
         self.qr_screen = QR_screen(self.stack, self.screen_size, self)
         self.frame_screen = FrameScreen(self.stack, self.screen_size, self)
 
-        self.stack.addWidget(self.splash_screen)      # 인덱스 0
-        self.stack.addWidget(self.photo_screen)       # 인덱스 1
-        self.stack.addWidget(self.text_input_screen)  # 인덱스 2
-        self.stack.addWidget(self.qr_screen)         # 인덱스 3
-        self.stack.addWidget(self.frame_screen)       # 인덱스 4
-        self.stack.addWidget(self.process_screen)     # 인덱스 5
-        self.stack.addWidget(self.complete_screen)    # 인덱스 6
+        self.stack.addWidget(self.activation_screen)  # 인덱스 0 (활성화)
+        self.stack.addWidget(self.splash_screen)      # 인덱스 1
+        self.stack.addWidget(self.photo_screen)       # 인덱스 2
+        self.stack.addWidget(self.text_input_screen)  # 인덱스 3
+        self.stack.addWidget(self.qr_screen)          # 인덱스 4
+        self.stack.addWidget(self.frame_screen)       # 인덱스 5
+        self.stack.addWidget(self.process_screen)     # 인덱스 6
+        self.stack.addWidget(self.complete_screen)    # 인덱스 7
+
+        # 오프라인 모드 또는 이미 활성화된 경우 활성화 화면 건너뛰기
+        if not self.require_activation:
+            print("오프라인 모드: 활성화 화면 건너뛰기")
+            self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
+        elif self.isAlreadyActivated():
+            print("이미 활성화됨: 활성화 화면 건너뛰기")
+            self.stack.setCurrentIndex(1)  # 스플래시 화면부터 시작
+
+    def isAlreadyActivated(self):
+        """이미 활성화되었는지 확인 (activation.json 존재 여부)"""
+        try:
+            if getattr(sys, 'frozen', False):
+                base_dir = os.path.dirname(os.path.abspath(sys.executable))
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+
+            activation_file = os.path.join(base_dir, "activation.json")
+
+            if os.path.exists(activation_file):
+                import json
+                with open(activation_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    if data.get("activated", False):
+                        print(f"활성화 정보 확인: {data.get('event_name', 'Unknown')}")
+                        return True
+            return False
+        except Exception as e:
+            print(f"활성화 상태 확인 오류: {e}")
+            return False
 
     def getNextScreenIndex(self):
         # screen_order의 다음 인덱스로 이동
         self.current_index = (self.current_index + 1) % len(config["screen_order"])
-        return config["screen_order"][self.current_index]
+        # screen_order 값 + 1 = 실제 Stack 인덱스 (activation_screen이 0번이므로)
+        # 0=스플래쉬→1, 1=촬영→2, 2=키보드→3, 3=QR→4, 4=프레임→5, 5=발급중→6, 6=완료→7
+        return config["screen_order"][self.current_index] + 1
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Escape:
@@ -105,11 +147,12 @@ class KioskApp(QMainWindow):
     
     def cleanup_resources(self):
         """모든 리소스 정리"""
+        self.is_closing = True  # 종료 중 플래그 설정
         print("프로그램 종료 중... 리소스를 정리합니다.")
-        
+
         # 1. 모든 화면의 리소스 해제
         screens = [
-            'splash_screen', 'photo_screen', 'text_input_screen', 
+            'activation_screen', 'splash_screen', 'photo_screen', 'text_input_screen',
             'process_screen', 'complete_screen', 'qr_screen', 'frame_screen'
         ]
         

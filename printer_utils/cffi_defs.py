@@ -137,8 +137,59 @@ int SmartComm_DrawBarcode(
 
 """)
 
-dll_path = Path(__file__).parent / ".." / "resources" / "SmartComm2.dll"
-lib = ffi.dlopen(str(dll_path.resolve()))
+# DLL Lazy Loading - 필요할 때만 로드
+import sys
+
+_lib = None  # 내부 캐시
+
+def get_dll_path():
+    """DLL 경로 반환"""
+    if getattr(sys, 'frozen', False):
+        # EXE 모드: 먼저 _MEIPASS (EXE 내부 리소스)에서 찾기
+        meipass_dll = Path(sys._MEIPASS) / "resources" / "SmartComm2.dll"
+        if meipass_dll.exists():
+            return meipass_dll
+        # _MEIPASS에 없으면 EXE 위치의 resources 폴더에서 찾기 (활성화 후 다운로드된 경우)
+        base_dir = Path(sys.executable).parent
+        return base_dir / "resources" / "SmartComm2.dll"
+    else:
+        # 개발 모드: 스크립트 기준 상대 경로
+        return Path(__file__).parent / ".." / "resources" / "SmartComm2.dll"
+
+def get_lib():
+    """DLL 라이브러리 반환 (lazy loading)"""
+    global _lib
+    if _lib is not None:
+        return _lib
+
+    dll_path = get_dll_path()
+    try:
+        _lib = ffi.dlopen(str(dll_path.resolve()))
+        print(f"[cffi_defs] SmartComm2.dll 로드 성공: {dll_path}")
+        return _lib
+    except OSError as e:
+        print(f"[cffi_defs] WARNING: SmartComm2.dll 로드 실패 ({dll_path}): {e}")
+        print("[cffi_defs] 프린터 기능이 비활성화됩니다.")
+        return None
+
+# 하위 호환성을 위한 lib 변수 (property처럼 동작하는 클래스)
+class LibProxy:
+    """lib 접근 시 자동으로 DLL 로드"""
+    def __getattr__(self, name):
+        # Python 종료 시점에서 모듈이 정리되면 get_lib이 None이 될 수 있음
+        if get_lib is None:
+            return None
+        try:
+            real_lib = get_lib()
+            if real_lib is None:
+                # DLL 로드 실패 - 조용히 None 반환 (종료 시점 에러 방지)
+                return None
+            return getattr(real_lib, name)
+        except Exception:
+            # 종료 시점 에러 무시
+            return None
+
+lib = LibProxy()
 
 MAX_SMART_PRINTER = 32
 SMART_OPENDEVICE_BYID = 0
