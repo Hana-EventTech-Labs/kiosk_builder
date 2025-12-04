@@ -40,6 +40,7 @@ class TabManager(QObject):
         
         self.tabs['basic'] = BasicTab(config)
         self.tabs['basic'].config_changed.connect(self.on_config_changed_from_tab)
+        self.tabs['basic'].screen_order_changed.connect(self.update_tab_enabled_states)
         # BasicTab에 tab_manager 참조 설정
         if hasattr(self.tabs['basic'], 'set_tab_manager'):
             self.tabs['basic'].set_tab_manager(self)
@@ -74,7 +75,7 @@ class TabManager(QObject):
         
         self.tabs['complete'] = CompleteTab(config)
         self.tab_widget.addTab(self.tabs['complete'], "발급완료 화면(6)")
-        
+
         # 실시간 업데이트 시그널 연결
         self._connect_real_time_signals()
 
@@ -150,11 +151,11 @@ class TabManager(QObject):
         except Exception as e:
             print(f"기본 탭 동적 시그널 연결 중 오류 발생: {e}")
 
-    def _on_position_changed(self, x, y):
-        """위치 변경 시 호출되는 슬롯"""
+    def _on_position_changed(self, *args):
+        """위치 변경 시 호출되는 슬롯 (다양한 시그니처 지원)"""
         # 현재 탭의 config를 업데이트
         self._update_current_tab_config()
-        
+
         # 실시간 업데이트 요청
         self.real_time_update_requested.emit()
 
@@ -167,11 +168,10 @@ class TabManager(QObject):
             current_tab.update_config(self.main_window.config)
 
     def _update_processing_preview(self):
-        """processing_tab의 미리보기 업데이트"""
-        if 'processing' in self.tabs:
-            processing_tab = self.tabs['processing']
-            if hasattr(processing_tab, '_update_final_card_preview'):
-                processing_tab._update_final_card_preview()
+        """플로팅 카드 미리보기 다이얼로그 업데이트"""
+        # MainWindow의 플로팅 카드 미리보기 다이얼로그 업데이트
+        if hasattr(self.main_window, 'update_card_preview'):
+            self.main_window.update_card_preview()
 
     def on_config_changed_from_tab(self):
         """특정 탭에서 config가 변경되었을 때 호출되는 슬롯"""

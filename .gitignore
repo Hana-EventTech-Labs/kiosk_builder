@@ -30,7 +30,15 @@ MANIFEST
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+# *.spec  # spec 파일은 버전 관리 필요
+
+# Claude/MCP 로컬 설정
+.claude/
+.serena/
+claudedocs/
+
+# 빌드 결과물
+release/
 
 # Installer logs
 pip-log.txt

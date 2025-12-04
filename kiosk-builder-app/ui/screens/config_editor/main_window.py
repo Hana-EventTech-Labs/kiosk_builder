@@ -19,6 +19,7 @@ from .components.menu_manager import MenuManager
 from .components.tab_manager import TabManager
 from .components.button_manager import ButtonManager
 from .components.style_manager import StyleManager
+from .components.card_preview_dialog import FloatingCardPreviewDialog
 from .handlers.config_handler_ui import ConfigHandlerUI
 from .handlers.distribution_handler import DistributionHandler
 
@@ -60,6 +61,9 @@ class ConfigEditor(QMainWindow):
         self.config_manager = ConfigManager.get_instance()
         self.auth_manager = AuthManager()
         self.config = self.config_manager.get_config()
+
+        # 플로팅 카드 미리보기 다이얼로그
+        self.card_preview_dialog = None
 
         # GitHub 설정 (필요하면 나중에 제거)
         # self.github_release_base_url = "https://github.com/Hana-EventTech-Labs/kiosk_builder/releases/download/v1.0.0"
@@ -120,10 +124,10 @@ class ConfigEditor(QMainWindow):
 
     def add_header(self, layout):
         """헤더 추가"""
-        from PySide6.QtWidgets import QHBoxLayout, QLabel
-        
+        from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton
+
         header_layout = QHBoxLayout()
-        
+
         app_title = QLabel("프로그램 화면 설정")
         app_title.setStyleSheet(f"""
             color: {COLORS['primary']};
@@ -132,11 +136,37 @@ class ConfigEditor(QMainWindow):
             margin-bottom: 10px;
         """)
         header_layout.addWidget(app_title)
-        
+
         self.user_info_label = QLabel()
         header_layout.addWidget(self.user_info_label)
         header_layout.addStretch()
-        
+
+        # 최종 카드 미리보기 버튼
+        self.card_preview_btn = QPushButton("🖼️ 최종 카드 미리보기")
+        self.card_preview_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['primary']};
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 13px;
+            }}
+            QPushButton:hover {{
+                background-color: {COLORS['primary_dark']};
+            }}
+            QPushButton:pressed {{
+                background-color: {COLORS['primary_darker']};
+            }}
+            QPushButton:checked {{
+                background-color: #e74c3c;
+            }}
+        """)
+        self.card_preview_btn.setCheckable(True)
+        self.card_preview_btn.clicked.connect(self._toggle_card_preview_dialog)
+        header_layout.addWidget(self.card_preview_btn)
+
         layout.addLayout(header_layout)
         
         # 설명 추가
@@ -149,6 +179,49 @@ class ConfigEditor(QMainWindow):
         self.statusBar().showMessage("카드 방향 설정이 모든 탭에 실시간으로 반영되었습니다.", 3000)
         # 저장 버튼 상태 업데이트도 필요
         self.config_handler_ui.update_save_button_state()
+        # 카드 미리보기 다이얼로그 업데이트
+        self._update_card_preview_dialog()
+
+    def _toggle_card_preview_dialog(self, checked):
+        """최종 카드 미리보기 다이얼로그 토글"""
+        if checked:
+            self._show_card_preview_dialog()
+        else:
+            self._hide_card_preview_dialog()
+
+    def _show_card_preview_dialog(self):
+        """최종 카드 미리보기 다이얼로그 표시"""
+        if self.card_preview_dialog is None:
+            self.card_preview_dialog = FloatingCardPreviewDialog(self.config, self)
+            self.card_preview_dialog.closed.connect(self._on_card_preview_dialog_closed)
+
+            # 메인 창 우측에 위치시키기
+            main_geo = self.geometry()
+            dialog_x = main_geo.right() + 10
+            dialog_y = main_geo.top() + 50
+            self.card_preview_dialog.move(dialog_x, dialog_y)
+
+        self.card_preview_dialog.update_config(self.config)
+        self.card_preview_dialog.show()
+        self.card_preview_dialog.raise_()
+
+    def _hide_card_preview_dialog(self):
+        """최종 카드 미리보기 다이얼로그 숨기기"""
+        if self.card_preview_dialog:
+            self.card_preview_dialog.hide()
+
+    def _on_card_preview_dialog_closed(self):
+        """다이얼로그가 닫힐 때 버튼 상태 업데이트"""
+        self.card_preview_btn.setChecked(False)
+
+    def _update_card_preview_dialog(self):
+        """카드 미리보기 다이얼로그 업데이트"""
+        if self.card_preview_dialog and self.card_preview_dialog.isVisible():
+            self.card_preview_dialog.update_config(self.config)
+
+    def update_card_preview(self):
+        """외부에서 카드 미리보기 업데이트 호출용 (탭에서 호출)"""
+        self._update_card_preview_dialog()
 
     def _restore_window_geometry(self):
         """저장된 창 위치/크기 복원"""

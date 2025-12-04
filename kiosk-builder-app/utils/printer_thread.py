@@ -1,7 +1,9 @@
+import os
+import sys
 from PySide6.QtCore import QThread, Signal
 from .device_functions import get_device_list, get_device_id, open_device, draw_image, print_image, close_device
 from .cffi_defs import ffi, SMART_OPENDEVICE_BYID, PAGE_FRONT, PANELID_COLOR
-import os
+from .file_handler import get_resources_base_path
 
 class PrinterThread(QThread):
     finished = Signal()
@@ -39,7 +41,8 @@ class PrinterThread(QThread):
                 return
 
             # 이미지 그리기
-            image_path = os.path.join("resources", self.print_data['filename'])
+            base_path = get_resources_base_path()
+            image_path = os.path.join(base_path, "resources", self.print_data['filename'])
             if not os.path.exists(image_path):
                 self.error.emit(f"이미지 파일을 찾을 수 없습니다: {image_path}")
                 return

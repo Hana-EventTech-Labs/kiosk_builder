@@ -136,7 +136,7 @@ class ConfigManager:
                 "count": 0, "items": [], "background": ""
             },
             "keyboard": {
-                "x": 320, "y": 400, "width": 1280, "height": 400, "bg_color": "#1B2838",
+                "x": 0, "y": 400, "width": 1080, "height": 400, "bg_color": "#1B2838",
                 "border_color": "#00FFC2", "border_width": 2, "border_radius": 15, "padding": 10,
                 "font_size": 28, "button_bg_color": "#2D3748", "button_text_color": "white",
                 "button_pressed_color": "#4A5568", "button_radius": 10, "hangul_btn_color": "#4299E1",

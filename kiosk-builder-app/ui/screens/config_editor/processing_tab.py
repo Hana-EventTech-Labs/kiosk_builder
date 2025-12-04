@@ -1,13 +1,13 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QWidget, QTabWidget,
                               QDialog, QDialogButtonBox)
-from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QFont
-from PySide6.QtCore import Qt, QRect
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QColor
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
+from ui.components.live_preview import TextPreviewWidget
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
-from ui.components.preview_label import DraggablePreviewLabel
 
 # 발급중 화면 screen_key = "5" (또는 "process")
 PROCESSING_SCREEN_KEY = "5"
@@ -15,7 +15,8 @@ PROCESSING_SCREEN_KEY = "5"
 class ProcessingTab(BaseTab):
     def __init__(self, config):
         super().__init__(config)
-        self.final_card_preview_label = None
+        self.screen_preview_screen = None  # 화면 설정 탭용
+        self.screen_preview_text = None    # 텍스트 설정 탭용
         self.sub_tabs = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
@@ -26,14 +27,7 @@ class ProcessingTab(BaseTab):
         content_layout = self.create_tab_with_scroll()
 
         # ═══════════════════════════════════════════════════════════════
-        # 메인 레이아웃: 좌측(서브 탭) + 우측(미리보기 고정)
-        # ═══════════════════════════════════════════════════════════════
-        main_layout = QHBoxLayout()
-        main_layout.setSpacing(20)
-        content_layout.addLayout(main_layout)
-
-        # ═══════════════════════════════════════════════════════════════
-        # 좌측: 서브 탭 위젯 (2개 탭)
+        # 서브 탭 위젯 (각 탭 내부에 설정+미리보기)
         # ═══════════════════════════════════════════════════════════════
         self.sub_tabs = QTabWidget()
         self.sub_tabs.setStyleSheet("""
@@ -66,37 +60,61 @@ class ProcessingTab(BaseTab):
         # 탭 2: 텍스트 설정
         self._create_text_settings_tab()
 
-        main_layout.addWidget(self.sub_tabs, 1)
-
-        # ═══════════════════════════════════════════════════════════════
-        # 우측: 미리보기 영역 (고정 - 모든 탭에서 공유)
-        # ═══════════════════════════════════════════════════════════════
-        preview_widget = QWidget()
-        preview_layout = QVBoxLayout(preview_widget)
-        preview_layout.setContentsMargins(0, 0, 0, 0)
-
-        self._init_preview(preview_layout)
-        preview_layout.addStretch()
-
-        main_layout.addWidget(preview_widget, 1)
-
+        content_layout.addWidget(self.sub_tabs)
         content_layout.addStretch()
 
         # 초기 미리보기 업데이트
-        self._update_final_card_preview()
+        self._update_screen_preview()
 
     # ═══════════════════════════════════════════════════════════════
     # 탭 1: 화면 설정
     # ═══════════════════════════════════════════════════════════════
     def _create_screen_settings_tab(self):
-        """화면 설정 탭 생성 (배경화면)"""
+        """화면 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
         tab_widget = QWidget()
-        tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(10, 10, 10, 10)
-        tab_layout.setSpacing(12)
+        tab_main_layout = QHBoxLayout(tab_widget)
+        tab_main_layout.setContentsMargins(10, 10, 10, 10)
+        tab_main_layout.setSpacing(20)
 
-        self._init_background_settings(tab_layout)
-        tab_layout.addStretch()
+        # 좌측: 설정 영역
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
+
+        self._init_background_settings(left_layout)
+        left_layout.addStretch()
+
+        tab_main_layout.addWidget(left_widget, 1)
+
+        # 우측: 미리보기 영역
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
+
+        self.screen_preview_screen = TextPreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)  # 검은 테두리 추가
+        self.screen_preview_screen.position_changed.connect(self._on_text_position_changed)
+        preview_layout.addWidget(self.screen_preview_screen, 0, Qt.AlignCenter)
+
+        hint = QLabel("발급 중 화면에 표시되는 미리보기입니다")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
+
+        right_layout.addWidget(preview_group)
+
+        tab_main_layout.addWidget(right_widget, 1)
 
         self.sub_tabs.addTab(tab_widget, "화면 설정")
 
@@ -104,14 +122,21 @@ class ProcessingTab(BaseTab):
     # 탭 2: 텍스트 설정
     # ═══════════════════════════════════════════════════════════════
     def _create_text_settings_tab(self):
-        """텍스트 설정 탭 생성"""
+        """텍스트 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
         tab_widget = QWidget()
-        tab_layout = QVBoxLayout(tab_widget)
-        tab_layout.setContentsMargins(10, 10, 10, 10)
-        tab_layout.setSpacing(12)
+        tab_main_layout = QHBoxLayout(tab_widget)
+        tab_main_layout.setContentsMargins(10, 10, 10, 10)
+        tab_main_layout.setSpacing(20)
+
+        # 좌측: 설정 영역
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
 
         # 필드 저장을 위한 딕셔너리
-        self.process_fields = {}
+        if not hasattr(self, 'process_fields'):
+            self.process_fields = {}
 
         # 텍스트 설정 그룹
         text_group = QGroupBox("텍스트 설정")
@@ -133,25 +158,30 @@ class ProcessingTab(BaseTab):
         text_layout.addRow("폰트:", font_layout)
 
         phrase_edit = QLineEdit(self.config["process"]["phrase"])
+        phrase_edit.textChanged.connect(self._update_screen_preview)
         text_layout.addRow("문구:", phrase_edit)
         self.process_fields["phrase"] = phrase_edit
 
         font_size_edit = NumberLineEdit()
         font_size_edit.setValue(self.config["process"]["font_size"])
+        font_size_edit.textChanged.connect(self._update_screen_preview)
         text_layout.addRow("폰트 크기:", font_size_edit)
         self.process_fields["font_size"] = font_size_edit
 
         font_color_button = ColorPickerButton(self.config["process"]["font_color"])
+        font_color_button.color_changed.connect(self._update_screen_preview)
         text_layout.addRow("폰트 색상:", font_color_button)
         self.process_fields["font_color"] = font_color_button
 
         x_edit = NumberLineEdit()
         x_edit.setValue(self.config["process"]["x"])
+        x_edit.textChanged.connect(self._update_screen_preview)
         text_layout.addRow("X 위치:", x_edit)
         self.process_fields["x"] = x_edit
 
         y_edit = NumberLineEdit()
         y_edit.setValue(self.config["process"]["y"])
+        y_edit.textChanged.connect(self._update_screen_preview)
         text_layout.addRow("Y 위치:", y_edit)
         self.process_fields["y"] = y_edit
 
@@ -161,8 +191,39 @@ class ProcessingTab(BaseTab):
         text_layout.addRow("시간 (ms):", time_edit)
         self.process_fields["process_time"] = time_edit
 
-        tab_layout.addWidget(text_group)
-        tab_layout.addStretch()
+        left_layout.addWidget(text_group)
+        left_layout.addStretch()
+
+        tab_main_layout.addWidget(left_widget, 1)
+
+        # 우측: 미리보기 영역
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_layout = QVBoxLayout(preview_group)
+        preview_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_layout.addWidget(desc)
+
+        self.screen_preview_text = TextPreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_text.set_card_border(True, QColor("#333333"), 2)  # 검은 테두리 추가
+        self.screen_preview_text.position_changed.connect(self._on_text_position_changed)
+        preview_layout.addWidget(self.screen_preview_text, 0, Qt.AlignCenter)
+
+        hint = QLabel("발급 중 화면에 표시되는 미리보기입니다")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_layout.addWidget(hint)
+
+        right_layout.addWidget(preview_group)
+
+        tab_main_layout.addWidget(right_widget, 1)
 
         self.sub_tabs.addTab(tab_widget, "텍스트 설정")
 
@@ -267,35 +328,83 @@ class ProcessingTab(BaseTab):
         parent_layout.addWidget(bg_group)
 
     # ═══════════════════════════════════════════════════════════════
-    # 미리보기 영역
+    # 미리보기 업데이트
     # ═══════════════════════════════════════════════════════════════
-    def _init_preview(self, parent_layout):
-        """미리보기 영역 초기화"""
-        # 최종 카드 미리보기
-        final_preview_group = QGroupBox("최종 카드 미리보기")
-        self.apply_left_aligned_group_style(final_preview_group)
-        final_preview_layout = QVBoxLayout(final_preview_group)
+    def _update_screen_preview(self):
+        """화면 미리보기 업데이트"""
+        from PySide6.QtGui import QColor
 
-        self.final_card_preview_label = QLabel()
-        self.final_card_preview_label.setFixedSize(400, 400)
-        self.final_card_preview_label.setAlignment(Qt.AlignCenter)
-        self.final_card_preview_label.setStyleSheet("border: 1px solid #ccc; background-color: #ffffff;")
+        # 배경화면 로드
+        bg_path = FileHandler.resolve_background_path(PROCESSING_SCREEN_KEY)
 
-        final_preview_layout.addWidget(self.final_card_preview_label, 0, Qt.AlignHCenter)
+        # 두 미리보기 위젯 모두 업데이트
+        for preview_widget in [self.screen_preview_screen, self.screen_preview_text]:
+            if preview_widget is None:
+                continue
 
-        # 실시간 업데이트 안내 라벨 추가
-        info_label = QLabel("다른 탭에서 이미지를 이동하면 실시간으로 미리보기가 업데이트됩니다.")
-        info_label.setStyleSheet("color: #666; font-style: italic; text-align: center;")
-        info_label.setWordWrap(True)
-        final_preview_layout.addWidget(info_label, 0, Qt.AlignHCenter)
+            preview_widget.set_background(bg_path)
+            preview_widget.clear_texts()
 
-        parent_layout.addWidget(final_preview_group)
+            # 발급 중 텍스트 표시
+            phrase = self.process_fields.get("phrase")
+            x_field = self.process_fields.get("x")
+            y_field = self.process_fields.get("y")
+            font_size_field = self.process_fields.get("font_size")
+            font_color_field = self.process_fields.get("font_color")
+            font_field = self.process_fields.get("font")
+
+            if phrase and x_field and y_field:
+                text = phrase.text() if hasattr(phrase, 'text') else str(phrase)
+                x = x_field.value() if hasattr(x_field, 'value') else 0
+                y = y_field.value() if hasattr(y_field, 'value') else 0
+                font_size = font_size_field.value() if font_size_field and hasattr(font_size_field, 'value') else 24
+                font_color_str = font_color_field.color if font_color_field and hasattr(font_color_field, 'color') else "#000000"
+                font_path = font_field.text() if font_field and hasattr(font_field, 'text') else None
+
+                if text:
+                    preview_widget.add_text(
+                        element_id="process_text",
+                        text=text,
+                        x=x,
+                        y=y,
+                        font_path=font_path,
+                        font_size=font_size,
+                        color=QColor(font_color_str),
+                        draggable=True,
+                        resizable=False
+                    )
+
+            preview_widget.update()
+
+        # 실시간 업데이트 요청
+        self.request_real_time_update()
+
+    def _on_text_position_changed(self, text_id: str, x: int, y: int):
+        """텍스트 위치 변경 시 호출"""
+        if text_id == "process_text":
+            x_field = self.process_fields.get("x")
+            y_field = self.process_fields.get("y")
+
+            if x_field and hasattr(x_field, 'setValue'):
+                x_field.blockSignals(True)
+                x_field.setValue(x)
+                x_field.blockSignals(False)
+
+            if y_field and hasattr(y_field, 'setValue'):
+                y_field.blockSignals(True)
+                y_field.setValue(y)
+                y_field.blockSignals(False)
+
+            # 다른 미리보기 위젯도 동기화
+            self._update_screen_preview()
+            self.request_real_time_update()
 
     def _browse_and_update_background(self):
         """배경화면 파일 선택 및 업데이트"""
         FileHandler.browse_background_file(self, self.process_fields["background"], PROCESSING_SCREEN_KEY)
         saved_bg = FileHandler.get_background_display_name(PROCESSING_SCREEN_KEY)
         self.process_fields["background"].setText(saved_bg)
+        self._update_screen_preview()
 
     def _reset_background(self):
         """배경화면 초기화 (삭제)"""
@@ -309,6 +418,7 @@ class ProcessingTab(BaseTab):
         if reply == QMessageBox.Yes:
             FileHandler.delete_background(PROCESSING_SCREEN_KEY)
             self.process_fields["background"].setText("")
+            self._update_screen_preview()
 
     # ==================== 배경화면 도움말 및 언어별 배경화면 ====================
     def _show_bg_help_dialog(self):
@@ -342,6 +452,7 @@ class ProcessingTab(BaseTab):
             FileHandler.browse_background_file(self, bg_edit, PROCESSING_SCREEN_KEY, lang=lang_code)
             saved_bg = FileHandler.get_background_display_name(PROCESSING_SCREEN_KEY, lang=lang_code)
             bg_edit.setText(saved_bg)
+            self._update_screen_preview()
 
     def _reset_lang_bg(self, lang_code: str):
         """언어별 배경화면 초기화"""
@@ -357,173 +468,7 @@ class ProcessingTab(BaseTab):
             bg_edit = self.lang_bg_fields[lang_code].get("background")
             if bg_edit:
                 bg_edit.setText("")
-
-    def _update_final_card_preview(self):
-        """최종 카드 미리보기 업데이트"""
-        if not self.final_card_preview_label:
-            return
-
-        # 카드 크기 (전역 설정 기준)
-        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
-        card_width = 636 if is_portrait else 1012
-        card_height = 1012 if is_portrait else 636
-
-        # 카드 배경 생성
-        card_pixmap = QPixmap(card_width, card_height)
-        card_pixmap.fill(Qt.white)
-
-        painter = QPainter(card_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # 체크된 화면 순서 확인
-        screen_order = self.config.get("screen_order", [])
-
-        # 1. 촬영 화면이 체크되어 있으면 촬영 사진 영역 그리기
-        if 1 in screen_order:  # 촬영 화면
-            self._draw_photo_area(painter, card_width, card_height)
-
-        # 2. 키보드 화면이 체크되어 있으면 텍스트 입력 및 고정 텍스트 그리기
-        if 2 in screen_order:  # 키보드 화면
-            self._draw_text_areas(painter, card_width, card_height)
-
-        # 3. QR코드 화면이 체크되어 있으면 QR 업로드 이미지 영역 그리기
-        if 3 in screen_order:  # QR코드 화면
-            self._draw_qr_image_area(painter, card_width, card_height)
-
-        # 4. 기본 이미지들 그리기 (basic_tab에서 설정한 이미지들)
-        self._draw_basic_images(painter, card_width, card_height)
-
-        # 5. 카드 테두리 그리기 (인쇄 영역 경계)
-        border_pen = QPen(QColor("#333333"), 3, Qt.SolidLine)
-        painter.setPen(border_pen)
-        painter.setBrush(Qt.NoBrush)
-        painter.drawRect(0, 0, card_width - 1, card_height - 1)
-
-        painter.end()
-
-        # 미리보기 라벨에 표시
-        scaled_pixmap = card_pixmap.scaled(400, 400, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        self.final_card_preview_label.setPixmap(scaled_pixmap)
-
-    def _draw_photo_area(self, painter, card_width, card_height):
-        """촬영 사진 영역 그리기"""
-        try:
-            photo_config = self.config.get("photo", {})
-            x = photo_config.get("x", 0)
-            y = photo_config.get("y", 0)
-            width = photo_config.get("width", 300)
-            height = photo_config.get("height", 300)
-
-            # 촬영 사진 영역 (빨간색 테두리)
-            pen = QPen(QColor("red"), 3, Qt.SolidLine)
-            painter.setPen(pen)
-            painter.drawRect(x, y, width, height)
-
-            # 라벨 추가
-            painter.setPen(QPen(QColor("red"), 1))
-            painter.drawText(x + 5, y + 20, "촬영 사진")
-        except Exception as e:
-            pass
-
-    def _draw_text_areas(self, painter, card_width, card_height):
-        """텍스트 입력 및 고정 텍스트 영역 그리기"""
-        try:
-            # 텍스트 입력 필드들
-            text_input_items = self.config.get("text_input", {}).get("items", [])
-            colors = [QColor("blue"), QColor("green"), QColor("orange"), QColor("purple")]
-
-            for i, item in enumerate(text_input_items):
-                x = item.get("x", 0)
-                y = item.get("y", 0)
-                width = item.get("width", 200)
-                height = item.get("height", 50)
-
-                # 텍스트 입력 영역 그리기
-                color = colors[i % len(colors)]
-                pen = QPen(color, 2, Qt.SolidLine)
-                painter.setPen(pen)
-                painter.drawRect(x, y, width, height)
-
-                # 라벨 추가
-                painter.setPen(QPen(color, 1))
-                label = item.get("label", f"입력{i+1}")
-                painter.drawText(x + 5, y + 15, label)
-
-            # 고정 텍스트들
-            text_items = self.config.get("texts", {}).get("items", [])
-            fixed_colors = [QColor("cyan"), QColor("magenta"), QColor("yellow"), QColor("brown")]
-
-            for i, item in enumerate(text_items):
-                x = item.get("x", 0)
-                y = item.get("y", 0)
-                width = item.get("width", 200)
-                height = item.get("height", 50)
-
-                # 고정 텍스트 영역 그리기
-                color = fixed_colors[i % len(fixed_colors)]
-                pen = QPen(color, 2, Qt.SolidLine)
-                painter.setPen(pen)
-                painter.drawRect(x, y, width, height)
-
-                # 텍스트 내용 표시
-                painter.setPen(QPen(color, 1))
-                content = item.get("content", f"텍스트{i+1}")
-                painter.drawText(x + 5, y + 15, content)
-
-        except Exception as e:
-            pass
-
-    def _draw_qr_image_area(self, painter, card_width, card_height):
-        """QR 업로드 이미지 영역 그리기"""
-        try:
-            qr_image_config = self.config.get("qr_uploaded_image", {})
-            x = qr_image_config.get("x", 0)
-            y = qr_image_config.get("y", 0)
-            width = qr_image_config.get("width", 200)
-            height = qr_image_config.get("height", 200)
-
-            # QR 업로드 이미지 영역 (보라색 테두리)
-            pen = QPen(QColor("purple"), 3, Qt.SolidLine)
-            painter.setPen(pen)
-            painter.drawRect(x, y, width, height)
-
-            # 라벨 추가
-            painter.setPen(QPen(QColor("purple"), 1))
-            painter.drawText(x + 5, y + 20, "QR 이미지")
-        except Exception as e:
-            pass
-
-    def _draw_basic_images(self, painter, card_width, card_height):
-        """기본 이미지들 그리기"""
-        try:
-            # 이미지 개수 확인
-            image_count = self.config.get("images", {}).get("count", 0)
-            if image_count == 0:
-                return  # 이미지 개수가 0이면 그리지 않음
-
-            images = self.config.get("images", {}).get("items", [])
-
-            for i, image in enumerate(images):
-                x = image.get("x", 0)
-                y = image.get("y", 0)
-                width = image.get("width", 100)
-                height = image.get("height", 100)
-
-                # 기본 이미지 영역 (회색 테두리)
-                pen = QPen(QColor("gray"), 2, Qt.SolidLine)
-                painter.setPen(pen)
-                painter.drawRect(x, y, width, height)
-
-                # 라벨 추가
-                painter.setPen(QPen(QColor("gray"), 1))
-                filename = image.get("filename", f"이미지{i+1}")
-                # 파일명에서 확장자 제거
-                if "." in filename:
-                    filename = filename.split(".")[0]
-                painter.drawText(x + 5, y + 15, filename)
-
-        except Exception as e:
-            pass
+            self._update_screen_preview()
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -538,7 +483,7 @@ class ProcessingTab(BaseTab):
                     widget.setText(config["process"][key])
 
         # 미리보기 업데이트
-        self._update_final_card_preview()
+        self._update_screen_preview()
 
     def update_config(self, config):
         """UI 값을 config에 반영"""

@@ -1,8 +1,20 @@
 import os
+import sys
 import shutil
 import json
 from datetime import datetime
 from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+
+def get_resources_base_path():
+    """EXE/개발 모드에 따른 resources 폴더의 기본 경로를 반환합니다."""
+    if getattr(sys, 'frozen', False):
+        # EXE 모드: EXE가 있는 디렉토리
+        return os.path.dirname(sys.executable)
+    else:
+        # 개발 모드: 현재 파일 기준으로 상위 폴더
+        return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 class FileHandler:
     # 화면별 인덱스 매핑
@@ -29,12 +41,10 @@ class FileHandler:
         Args:
             lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
         """
-        # 현재 파일(file_handler.py)의 위치를 기준으로 경로 계산
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # utils 폴더에서 상위로 올라가서 resources/background로 이동
+        base_path = get_resources_base_path()
         if lang:
-            return os.path.join(current_dir, "..", "resources", f"background_{lang}")
-        return os.path.join(current_dir, "..", "resources", "background")
+            return os.path.join(base_path, "resources", f"background_{lang}")
+        return os.path.join(base_path, "resources", "background")
 
     @staticmethod
     def resolve_background_path(screen_key, lang=None):
@@ -120,7 +130,8 @@ class FileHandler:
         if not frame_filename:
             return None
 
-        resources_frames_path = os.path.abspath("resources/frames")
+        base_path = get_resources_base_path()
+        resources_frames_path = os.path.join(base_path, "resources", "frames")
         supported_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif', '']
 
         # 먼저 그대로 찾기
@@ -139,16 +150,18 @@ class FileHandler:
     @staticmethod
     def browse_image_file(parent, line_edit):
         """이미지 파일 선택 다이얼로그"""
+        base_path = get_resources_base_path()
+        resources_path = os.path.join(base_path, "resources")
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, 
-            "이미지 파일 선택", 
-            "resources", 
+            parent,
+            "이미지 파일 선택",
+            resources_path,
             "이미지 파일 (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
-        
+
         if file_path:
             # 리소스 폴더 경로 확인
-            resources_img_path = os.path.abspath("resources")
+            resources_img_path = resources_path
             
             # 파일 경로 정규화하여 비교
             normalized_file_path = os.path.normpath(file_path)
@@ -240,6 +253,7 @@ class FileHandler:
             screen_key: 화면 식별자
             lang: 언어 코드 (None: 기본, "ko": 한글, "en": 영어)
         """
+        base_path = get_resources_base_path()
         # 언어별 폴더 경로 설정
         if lang:
             folder_name = f"background_{lang}"
@@ -248,16 +262,16 @@ class FileHandler:
             folder_name = "background"
             dialog_title = "배경화면 파일 선택"
 
+        resources_background_path = os.path.join(base_path, "resources", folder_name)
         file_path, _ = QFileDialog.getOpenFileName(
             parent,
             dialog_title,
-            f"resources/{folder_name}",
+            resources_background_path,
             "배경화면 파일 (*.png *.jpg *.jpeg *.bmp *.gif *.mp4)"
         )
 
         if file_path:
             # resources/background 또는 resources/background_xx 폴더 경로 확인
-            resources_background_path = os.path.abspath(f"resources/{folder_name}")
             
             # 파일 경로 정규화하여 비교
             normalized_file_path = os.path.normpath(file_path)
@@ -360,16 +374,16 @@ class FileHandler:
     @staticmethod
     def browse_font_file(parent, line_edit):
         """폰트 파일 선택 다이얼로그"""
+        base_path = get_resources_base_path()
+        resources_font_path = os.path.join(base_path, "resources", "font")
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, 
-            "폰트 파일 선택", 
-            "resources/font", 
+            parent,
+            "폰트 파일 선택",
+            resources_font_path,
             "폰트 파일 (*.ttf *.otf *.woff *.woff2)"
         )
-        
+
         if file_path:
-            # 리소스 폰트 폴더 경로 확인
-            resources_font_path = os.path.abspath("resources/font")
             
             # 파일 경로 정규화하여 비교
             normalized_file_path = os.path.normpath(file_path)
@@ -436,16 +450,16 @@ class FileHandler:
     @staticmethod
     def browse_frame_file(parent, line_edit):
         """프레임 파일 선택 다이얼로그"""
+        base_path = get_resources_base_path()
+        resources_frames_path = os.path.join(base_path, "resources", "frames")
         file_path, _ = QFileDialog.getOpenFileName(
-            parent, 
-            "프레임 파일 선택", 
-            "resources/frames", 
+            parent,
+            "프레임 파일 선택",
+            resources_frames_path,
             "이미지 파일 (*.png *.jpg *.jpeg *.bmp *.gif)"
         )
-        
+
         if file_path:
-            # resources/frames 폴더 경로 확인
-            resources_frames_path = os.path.abspath("resources/frames")
             
             # 파일 경로 정규화하여 비교
             normalized_file_path = os.path.normpath(file_path)

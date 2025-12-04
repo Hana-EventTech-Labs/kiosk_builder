@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from cffi import FFI
 
@@ -137,8 +138,22 @@ int SmartComm_DrawBarcode(
 
 """)
 
-dll_path = Path(__file__).parent / ".." / "resources" / "SmartComm2.dll"
-lib = ffi.dlopen(str(dll_path.resolve()))
+# EXE/개발 모드에 따른 DLL 경로 설정
+if getattr(sys, 'frozen', False):
+    # EXE 모드: EXE가 있는 디렉토리의 resources 폴더에서 로드
+    base_dir = Path(sys.executable).parent
+    dll_path = base_dir / "resources" / "SmartComm2.dll"
+else:
+    # 개발 모드: 스크립트 기준 상대 경로
+    dll_path = Path(__file__).parent / ".." / "resources" / "SmartComm2.dll"
+
+# DLL 로드 시도
+lib = None
+try:
+    lib = ffi.dlopen(str(dll_path.resolve()))
+except OSError as e:
+    print(f"[cffi_defs] WARNING: SmartComm2.dll 로드 실패 ({dll_path}): {e}")
+    print("[cffi_defs] 프린터 기능이 비활성화됩니다.")
 
 MAX_SMART_PRINTER = 32
 SMART_OPENDEVICE_BYID = 0

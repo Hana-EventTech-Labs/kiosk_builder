@@ -400,6 +400,7 @@ class CaptureTab(BaseTab):
         """인쇄물 사진 설정 변경 시 호출"""
         self._update_card_preview()
         self._update_crop_ratio_info()
+        self.request_real_time_update()
 
     def _update_crop_ratio_info(self):
         """크롭 영역 비율 정보 업데이트"""

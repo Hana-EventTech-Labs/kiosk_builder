@@ -1,20 +1,59 @@
 #BaseTab을 상속받은 구체적인 탭 클래스
 import os
+import sys
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea, QDateTimeEdit, QProgressBar, QTextEdit)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QRect, Signal
+from PySide6.QtCore import Qt, QRect, Signal, QDateTime, QThread
 from ui.components.inputs import NumberLineEdit, ModernLineEdit
 from ui.components.collapsible_group import CollapsibleGroupBox
 from ui.components.position_size_input import PositionSizeInput
-from utils.file_handler import FileHandler
+from utils.file_handler import FileHandler, get_resources_base_path
 from .base_tab import BaseTab
 from ui.components.preview_label import DraggablePreviewLabel
 from utils.printer_thread import PrinterThread
 
+
+class UploadWorker(QThread):
+    """백그라운드 업로드 워커"""
+    progress = Signal(int, str)  # (퍼센트, 메시지)
+    finished = Signal(bool, dict)  # (성공여부, 결과)
+
+    def __init__(self, event_name, kiosk_count, expired_at, config, resources_dir):
+        super().__init__()
+        self.event_name = event_name
+        self.kiosk_count = kiosk_count
+        self.expired_at = expired_at
+        self.config = config
+        self.resources_dir = resources_dir
+
+    def run(self):
+        try:
+            from api_client import register_event_with_resources
+
+            self.progress.emit(10, "서버에 이벤트 등록 중...")
+
+            success, result = register_event_with_resources(
+                event_name=self.event_name,
+                kiosk_count=self.kiosk_count,
+                expired_at=self.expired_at,
+                config=self.config,
+                resources_dir=self.resources_dir,
+                progress_callback=self._on_progress
+            )
+
+            self.finished.emit(success, result)
+
+        except Exception as e:
+            self.finished.emit(False, {"error": str(e)})
+
+    def _on_progress(self, percent, message):
+        self.progress.emit(percent, message)
+
 class BasicTab(BaseTab):
     config_changed = Signal()
+    screen_order_changed = Signal()  # 화면 순서만 변경될 때 (탭 활성화 상태만 업데이트)
 
     def __init__(self, config):
         super().__init__(config)
@@ -26,6 +65,7 @@ class BasicTab(BaseTab):
         self.print_button = None
         self.printer_thread = None
         self.image_preview_label = None
+        self.upload_worker = None
         self.init_ui()
 
     def init_ui(self):
@@ -81,20 +121,117 @@ class BasicTab(BaseTab):
         main_layout.setSpacing(15)
         main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # 앱 이름 그룹
-        name_group = QGroupBox("앱 이름")
+        # 앱 이름 그룹 (행사명으로 사용)
+        name_group = QGroupBox("행사 정보")
         self.apply_left_aligned_group_style(name_group)
         name_layout = QVBoxLayout(name_group)
         name_layout.setSpacing(10)
 
         name_form = QFormLayout()
-        self.app_name_edit = ModernLineEdit(placeholder="앱 이름을 입력하세요")
+        self.app_name_edit = ModernLineEdit(placeholder="행사명을 입력하세요 (예: 삼성 신제품 런칭)")
         self.app_name_edit.setFixedHeight(35)
         self.app_name_edit.setText(self.config["app_name"])
-        name_form.addRow("앱 이름:", self.app_name_edit)
+        name_form.addRow("행사명:", self.app_name_edit)
         name_layout.addLayout(name_form)
 
         main_layout.addWidget(name_group)
+
+        # 서버 등록 그룹
+        server_group = QGroupBox("서버 등록")
+        self.apply_left_aligned_group_style(server_group)
+        server_layout = QVBoxLayout(server_group)
+        server_layout.setSpacing(10)
+
+        # 키오스크 대수 & 만료일
+        reg_form = QHBoxLayout()
+
+        reg_form.addWidget(QLabel("키오스크 대수:"))
+        self.kiosk_count_spin = QSpinBox()
+        self.kiosk_count_spin.setRange(1, 100)
+        self.kiosk_count_spin.setValue(1)
+        self.kiosk_count_spin.setFixedWidth(70)
+        reg_form.addWidget(self.kiosk_count_spin)
+
+        reg_form.addSpacing(20)
+
+        reg_form.addWidget(QLabel("만료일:"))
+        self.expire_date_edit = QDateTimeEdit()
+        self.expire_date_edit.setDateTime(QDateTime.currentDateTime().addDays(30))
+        self.expire_date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
+        self.expire_date_edit.setCalendarPopup(True)
+        self.expire_date_edit.setFixedWidth(160)
+        reg_form.addWidget(self.expire_date_edit)
+
+        reg_form.addStretch()
+        server_layout.addLayout(reg_form)
+
+        # 등록 버튼 & 진행바
+        btn_row = QHBoxLayout()
+        self.register_btn = QPushButton("🚀 서버 등록 && 활성화 코드 생성")
+        self.register_btn.setFixedHeight(36)
+        self.register_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+            }
+        """)
+        self.register_btn.clicked.connect(self._on_register_clicked)
+        btn_row.addWidget(self.register_btn)
+
+        self.register_progress = QProgressBar()
+        self.register_progress.setFixedHeight(20)
+        self.register_progress.setVisible(False)
+        self.register_progress.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #ccc;
+                border-radius: 4px;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
+        btn_row.addWidget(self.register_progress)
+        btn_row.addStretch()
+        server_layout.addLayout(btn_row)
+
+        # 활성화 코드 결과 (접혀있는 텍스트 영역)
+        self.activation_result = QTextEdit()
+        self.activation_result.setReadOnly(True)
+        self.activation_result.setPlaceholderText("등록 후 활성화 코드가 여기에 표시됩니다.")
+        self.activation_result.setFixedHeight(100)
+        self.activation_result.setStyleSheet("""
+            QTextEdit {
+                background-color: #F5F5F5;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                font-family: Consolas, monospace;
+                font-size: 12px;
+            }
+        """)
+        server_layout.addWidget(self.activation_result)
+
+        # 복사 버튼
+        copy_row = QHBoxLayout()
+        copy_btn = QPushButton("📋 복사")
+        copy_btn.setFixedWidth(80)
+        copy_btn.clicked.connect(self._copy_activation_codes)
+        copy_row.addWidget(copy_btn)
+        copy_row.addStretch()
+        server_layout.addLayout(copy_row)
+
+        main_layout.addWidget(server_group)
 
         # 화면 순서 그룹
         screen_group = QGroupBox("화면 순서")
@@ -488,7 +625,8 @@ class BasicTab(BaseTab):
     def on_browse_image(self, filename_edit):
         source_path, _ = QFileDialog.getOpenFileName(self, "이미지 파일 선택", "", "Image Files (*.png *.jpg *.jpeg *.gif)")
         if source_path:
-            destination_dir = "resources"
+            base_path = get_resources_base_path()
+            destination_dir = os.path.join(base_path, "resources")
             os.makedirs(destination_dir, exist_ok=True)
             filename = os.path.basename(source_path)
             destination_path = os.path.join(destination_dir, filename)
@@ -528,7 +666,8 @@ class BasicTab(BaseTab):
         card_pixmap.fill(Qt.white)
 
         overlay_pixmap = QPixmap()
-        image_path = os.path.join("resources", filename) if filename else ""
+        base_path = get_resources_base_path()
+        image_path = os.path.join(base_path, "resources", filename) if filename else ""
         if filename and os.path.exists(image_path):
             overlay_pixmap = QPixmap(image_path)
 
@@ -536,6 +675,73 @@ class BasicTab(BaseTab):
         self.image_preview_label.set_card_border(True)  # 카드 테두리 표시
         self.image_preview_label.update_preview(card_pixmap, image_rect, overlay_pixmap)
         self.request_real_time_update()
+
+    # ═══════════════════════════════════════════════════════════════
+    # 서버 등록 기능
+    # ═══════════════════════════════════════════════════════════════
+    def _on_register_clicked(self):
+        """서버 등록 버튼 클릭"""
+        event_name = self.app_name_edit.text().strip()
+        if not event_name:
+            QMessageBox.warning(self, "입력 오류", "행사명을 입력해주세요.")
+            return
+
+        kiosk_count = self.kiosk_count_spin.value()
+        expired_at = self.expire_date_edit.dateTime().toString("yyyy-MM-ddTHH:mm:ss")
+
+        # resources 폴더 경로 (EXE/개발 모드 모두 지원)
+        base_path = get_resources_base_path()
+        resources_dir = os.path.join(base_path, "resources")
+
+        # UI 비활성화
+        self.register_btn.setEnabled(False)
+        self.register_progress.setVisible(True)
+        self.register_progress.setValue(0)
+
+        # 백그라운드 워커 시작
+        self.upload_worker = UploadWorker(
+            event_name=event_name,
+            kiosk_count=kiosk_count,
+            expired_at=expired_at,
+            config=self.config,
+            resources_dir=resources_dir
+        )
+        self.upload_worker.progress.connect(self._on_upload_progress)
+        self.upload_worker.finished.connect(self._on_upload_finished)
+        self.upload_worker.start()
+
+    def _on_upload_progress(self, percent, message):
+        """업로드 진행 상태"""
+        self.register_progress.setValue(percent)
+        self.window().statusBar().showMessage(message)
+
+    def _on_upload_finished(self, success, result):
+        """업로드 완료"""
+        self.register_btn.setEnabled(True)
+        self.register_progress.setVisible(False)
+
+        if success:
+            codes_text = f"✅ 등록 완료! (이벤트: {result.get('event_number', '')})\n"
+            for code_info in result.get('activation_codes', []):
+                codes_text += f"키오스크 {code_info['kiosk_id']}: {code_info['code']}\n"
+            self.activation_result.setText(codes_text)
+            self.window().statusBar().showMessage("서버 등록 완료!", 5000)
+            QMessageBox.information(self, "등록 완료",
+                f"행사 '{result.get('event_name')}'이(가) 등록되었습니다.\n"
+                f"키오스크 {len(result.get('activation_codes', []))}대 라이선스 발급!")
+        else:
+            error_msg = result.get('error', '알 수 없는 오류')
+            self.activation_result.setText(f"❌ 등록 실패: {error_msg}")
+            self.window().statusBar().showMessage(f"등록 실패: {error_msg}", 5000)
+            QMessageBox.critical(self, "등록 실패", f"서버 등록에 실패했습니다.\n{error_msg}")
+
+    def _copy_activation_codes(self):
+        """활성화 코드 복사"""
+        from PySide6.QtWidgets import QApplication
+        text = self.activation_result.toPlainText()
+        if text:
+            QApplication.clipboard().setText(text)
+            self.window().statusBar().showMessage("클립보드에 복사되었습니다.", 3000)
 
     # ═══════════════════════════════════════════════════════════════
     # 이벤트 핸들러
@@ -546,7 +752,8 @@ class BasicTab(BaseTab):
             for cb in self.screen_order_checkboxes
             if cb.isChecked()
         ])
-        self.config_changed.emit()
+        # 화면 순서 변경 시에는 탭 활성화 상태만 업데이트 (행사명 등 초기화 방지)
+        self.screen_order_changed.emit()
 
     def _fill_image_frame(self):
         if not self.image_item_fields:

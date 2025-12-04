@@ -108,13 +108,25 @@ class LivePreviewWidget(QWidget):
         self._background_path = image_path
 
         if image_path and os.path.exists(image_path):
-            # 캐시 확인
-            if image_path in self._image_cache:
-                self._background_pixmap = self._image_cache[image_path]
+            # 파일 수정 시간을 캐시 키에 포함하여 파일 변경 감지
+            try:
+                mtime = os.path.getmtime(image_path)
+                cache_key = f"{image_path}_{mtime}"
+            except OSError:
+                cache_key = image_path
+
+            # 캐시 확인 (수정 시간 포함)
+            if cache_key in self._image_cache:
+                self._background_pixmap = self._image_cache[cache_key]
             else:
+                # 이전 캐시 정리 (같은 경로의 오래된 항목 제거)
+                old_keys = [k for k in self._image_cache if k.startswith(image_path + "_")]
+                for old_key in old_keys:
+                    del self._image_cache[old_key]
+
                 self._background_pixmap = QPixmap(image_path)
                 if not self._background_pixmap.isNull():
-                    self._image_cache[image_path] = self._background_pixmap
+                    self._image_cache[cache_key] = self._background_pixmap
 
             # use_image_size가 True일 때만 이미지 크기를 원본 크기로 사용
             if use_image_size and not self._background_pixmap.isNull():

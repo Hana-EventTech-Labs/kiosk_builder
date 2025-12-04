@@ -48,9 +48,9 @@ class QR_screen(QWidget):
         self.image_uploaded_signal.connect(self.display_uploaded_image)
         
         self.setupUI()
-        
-        # 화면 표시시 자동으로 이벤트 생성 및 QR 코드 표시
-        QTimer.singleShot(500, self.create_event)
+
+        # 주의: 화면 표시 시 자동 연결은 showEvent()에서 처리
+        # __init__에서 WebSocket을 시작하면 활성화 화면의 API 요청과 충돌할 수 있음
     
     def setupUI(self):
         self.setupBackground()
