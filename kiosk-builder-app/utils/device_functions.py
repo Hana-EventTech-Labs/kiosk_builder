@@ -74,9 +74,13 @@ def get_printer_status(device_handle):
 
     return is_flipper_installed
 
-def set_surface_properties(device_handle):
+def set_surface_properties(device_handle, orientation="portrait"):
     """
     SMART_SURFACE_PROPERTIES 값을 설정하고 출력하는 함수
+
+    Args:
+        device_handle: 프린터 디바이스 핸들
+        orientation: "portrait" (세로) 또는 "landscape" (가로)
     """
     surface_properties = ffi.new("SMART_SURFACE_PROPERTIES *")
 
@@ -84,15 +88,19 @@ def set_surface_properties(device_handle):
     surface_properties.side = 0  # 또는 PAGE_BACK
 
     # 인쇄 방향 설정 (세로/가로)
-    surface_properties.orientation =  1  # 또는 DMORIENT_LANDSCAPE
+    # DMORIENT_PORTRAIT = 1, DMORIENT_LANDSCAPE = 2
+    if orientation == "landscape":
+        surface_properties.orientation = 2  # 가로
+        surface_properties.width = 1012
+        surface_properties.height = 636
+    else:
+        surface_properties.orientation = 1  # 세로
+        surface_properties.width = 636
+        surface_properties.height = 1012
 
     # 리본 종류 설정 (테스트 값)
     surface_properties.ribbon = 0  # 예제 값
     surface_properties.ribbon_type = 1  # Standard 리본
-
-    # 인쇄 용지 크기 설정 (예제 값)
-    surface_properties.width = 1024
-    surface_properties.height = 640
 
     # 설정된 값 확인
     print("🔹 SMART_SURFACE_PROPERTIES 설정 완료:")

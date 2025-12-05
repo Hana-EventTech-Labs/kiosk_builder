@@ -1,7 +1,7 @@
 """
 배포용 생성 통합 진행률 다이얼로그
-- GitHub에서 실행 파일 다운로드
-- 온라인 모드 시 서버에 이벤트 등록 및 리소스 업로드
+- 실행 파일 다운로드
+- 온라인 모드 시 이벤트 등록 및 리소스 업로드
 """
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -18,7 +18,7 @@ BUILDER_EXE_NAMES = ["SuperKioskBuilder.exe", "super-kiosk-builder.exe"]  # 우�
 
 
 class DistributionWorker(QThread):
-    """다운로드 및 서버 업로드 작업을 처리하는 워커 스레드"""
+    """다운로드 및 업로드 작업을 처리하는 워커 스레드"""
     progress = Signal(str, int, int)  # phase, current, total
     log_message = Signal(str)
     phase_changed = Signal(str)  # 단계 변경 알림
@@ -44,11 +44,11 @@ class DistributionWorker(QThread):
     def run(self):
         """작업 실행"""
         try:
-            # Phase 1: GitHub에서 파일 다운로드
+            # Phase 1: 실행 파일 다운로드
             self.phase_changed.emit("download")
             self._download_files()
 
-            # Phase 2: 온라인 모드인 경우 서버에 업로드
+            # Phase 2: 온라인 모드인 경우 이벤트 등록
             if self.online_mode:
                 self.phase_changed.emit("upload")
                 self._upload_to_server()
@@ -62,13 +62,13 @@ class DistributionWorker(QThread):
             self.all_finished.emit(self.results)
 
     def _download_files(self):
-        """GitHub에서 파일 다운로드 (여러 파일명 시도)"""
+        """실행 파일 다운로드 (여러 파일명 시도)"""
         files_to_download = [
             {"names": KIOSK_EXE_NAMES, "target_name": "HanaKiosk.exe", "description": "키오스크 실행 파일"},
             {"names": BUILDER_EXE_NAMES, "target_name": "SuperKioskBuilder.exe", "description": "설정 프로그램"}
         ]
 
-        self.log_message.emit("📥 GitHub에서 파일 다운로드 시작...")
+        self.log_message.emit("📥 실행 파일 다운로드 시작...")
 
         for i, file_info in enumerate(files_to_download):
             possible_names = file_info["names"]
@@ -148,8 +148,8 @@ class DistributionWorker(QThread):
             return False, str(e), 0
 
     def _upload_to_server(self):
-        """서버에 이벤트 등록 및 리소스 업로드"""
-        self.log_message.emit("\n📤 서버에 이벤트 등록 중...")
+        """이벤트 등록 및 리소스 업로드"""
+        self.log_message.emit("\n📤 이벤트 등록 중...")
 
         try:
             from api_client import register_event_with_resources
@@ -180,7 +180,7 @@ class DistributionWorker(QThread):
                 }
 
                 codes = result.get('activation_codes', [])
-                self.log_message.emit(f"\n✅ 서버 등록 완료!")
+                self.log_message.emit(f"\n✅ 등록 완료!")
                 self.log_message.emit(f"   이벤트 번호: {result.get('event_number')}")
                 if codes:
                     self.log_message.emit(f"   활성화 코드: {codes[0].get('code')}")
@@ -189,14 +189,14 @@ class DistributionWorker(QThread):
                     'success': False,
                     'error': result.get('error', '알 수 없는 오류')
                 }
-                self.log_message.emit(f"\n❌ 서버 등록 실패: {result.get('error')}")
+                self.log_message.emit(f"\n❌ 등록 실패: {result.get('error')}")
 
         except Exception as e:
             self.results['server_result'] = {
                 'success': False,
                 'error': str(e)
             }
-            self.log_message.emit(f"\n❌ 서버 등록 오류: {str(e)}")
+            self.log_message.emit(f"\n❌ 등록 오류: {str(e)}")
 
 
 class DistributionProgressDialog(QDialog):
@@ -222,7 +222,7 @@ class DistributionProgressDialog(QDialog):
 
     def init_ui(self):
         """UI 초기화"""
-        title = "배포용 파일 생성 중" if not self.online_mode else "배포용 파일 생성 및 서버 등록 중"
+        title = "배포용 파일 생성 중" if not self.online_mode else "배포용 파일 생성 및 등록 중"
         self.setWindowTitle(title)
         self.setFixedSize(600, 500)
         self.setModal(True)
@@ -307,7 +307,7 @@ class DistributionProgressDialog(QDialog):
         # Phase 1: 다운로드
         download_layout = QHBoxLayout()
         self.download_icon = QLabel("⏳")
-        self.download_label = QLabel("GitHub에서 실행 파일 다운로드")
+        self.download_label = QLabel("실행 파일 다운로드")
         download_layout.addWidget(self.download_icon)
         download_layout.addWidget(self.download_label)
         download_layout.addStretch()
@@ -322,7 +322,7 @@ class DistributionProgressDialog(QDialog):
         if self.online_mode:
             upload_layout = QHBoxLayout()
             self.upload_icon = QLabel("⏳")
-            self.upload_label = QLabel("서버에 이벤트 등록 및 리소스 업로드")
+            self.upload_label = QLabel("이벤트 등록 및 리소스 업로드")
             upload_layout.addWidget(self.upload_icon)
             upload_layout.addWidget(self.upload_label)
             upload_layout.addStretch()

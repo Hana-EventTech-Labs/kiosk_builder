@@ -172,7 +172,7 @@ class ConfigManager:
                 "font": "", "phrase": "", "font_size": 0, "font_color": "black", "x": 0, "y": 0,
                 "complete_time": 2000, "background": ""
             },
-            "printer": {"print_mode": False, "panel_id": 1},
+            "printer": {"print_mode": True, "panel_id": 1},
             "photo_frame": {"font_size": 32, "font_color": "green", "width": 800, "height": 600, "font": "", "background": "", "frame_files": []},
             "card": {"orientation": "portrait"}
         }

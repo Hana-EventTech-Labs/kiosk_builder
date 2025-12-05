@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize, QTimer, Signal, QRect
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QFont, QFontMetrics, QFontDatabase, QBrush
 from ui.styles.colors import COLORS
+from utils.file_handler import get_resources_base_path
 
 
 class FloatingCardPreviewDialog(QDialog):
@@ -449,13 +450,17 @@ class FloatingCardPreviewDialog(QDialog):
             return
 
         images = self.config.get("images", {}).get("items", [])
+        base_path = get_resources_base_path()
 
         for i, image in enumerate(images):
             x = image.get("x", 0)
             y = image.get("y", 0)
             width = image.get("width", 100)
             height = image.get("height", 100)
-            image_path = image.get("path", "")
+
+            # filename으로 이미지 경로 구성
+            filename = image.get("filename", "")
+            image_path = os.path.join(base_path, "resources", filename) if filename else ""
 
             # 실제 이미지가 있으면 로드
             if image_path and os.path.exists(image_path):

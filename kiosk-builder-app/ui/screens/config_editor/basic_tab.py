@@ -336,7 +336,7 @@ class BasicTab(BaseTab):
         self.preview_mode_radio = QRadioButton("미리보기 모드")
         self.print_mode_radio = QRadioButton("인쇄 모드")
 
-        current_print_mode = self.config.get("printer", {}).get("print_mode", False)
+        current_print_mode = self.config.get("printer", {}).get("print_mode", True)
         if current_print_mode:
             self.print_mode_radio.setChecked(True)
         else:
@@ -504,18 +504,6 @@ class BasicTab(BaseTab):
         """)
         preview_group_layout.addWidget(self.image_preview_label, 0, Qt.AlignCenter)
 
-        # 버튼
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(8)
-        fill_btn = QPushButton("채우기")
-        fill_btn.setFixedHeight(30)
-        fill_btn.clicked.connect(self._fill_image_frame)
-        center_btn = QPushButton("가운데")
-        center_btn.setFixedHeight(30)
-        center_btn.clicked.connect(self._center_image_frame)
-        btn_layout.addWidget(fill_btn)
-        btn_layout.addWidget(center_btn)
-        preview_group_layout.addLayout(btn_layout)
 
         preview_layout.addWidget(preview_group)
         preview_layout.addStretch()
@@ -587,7 +575,10 @@ class BasicTab(BaseTab):
         file_layout.addWidget(browse_btn)
         layout.addLayout(file_layout)
 
-        # 위치 & 크기 (직관적 컴포넌트 사용)
+        # 위치 & 크기 + 버튼 (가로 배치)
+        pos_btn_layout = QHBoxLayout()
+        pos_btn_layout.setSpacing(10)
+
         position_size = PositionSizeInput()
         position_size.set_values(
             x=item_data.get("x", 0),
@@ -596,8 +587,42 @@ class BasicTab(BaseTab):
             height=item_data.get("height", 300)
         )
         position_size.value_changed.connect(self.update_card_preview)
-        layout.addWidget(position_size)
+        pos_btn_layout.addWidget(position_size)
         item_fields["position_size"] = position_size
+
+        # 배치 버튼 4개 (세로로 2x2 그리드)
+        btn_grid = QGridLayout()
+        btn_grid.setSpacing(4)
+
+        image_btns = [
+            ("채우기", self._fill_image_frame),
+            ("가운데", self._center_image_frame),
+            ("넓이맞춤", self._fit_image_width),
+            ("높이맞춤", self._fit_image_height),
+        ]
+
+        for idx, (label, handler) in enumerate(image_btns):
+            btn = QPushButton(label)
+            btn.setFixedSize(60, 28)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f5f5f5;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 11px;
+                }
+                QPushButton:hover {
+                    background-color: #e8e8e8;
+                }
+            """)
+            btn.clicked.connect(handler)
+            row = idx // 2
+            col = idx % 2
+            btn_grid.addWidget(btn, row, col)
+
+        pos_btn_layout.addLayout(btn_grid)
+        pos_btn_layout.addStretch()
+        layout.addLayout(pos_btn_layout)
 
         # 인쇄 버튼
         print_group = QGroupBox("테스트 인쇄")
@@ -788,6 +813,34 @@ class BasicTab(BaseTab):
         position_size.set_y(int(center_y))
         self.request_real_time_update()
 
+    def _fit_image_width(self):
+        """이미지 넓이만 카드 넓이에 맞춤 (높이 유지)"""
+        if not self.image_item_fields:
+            return
+
+        is_portrait = self.card_portrait_radio.isChecked() if self.card_portrait_radio else True
+        card_width = 636 if is_portrait else 1012
+
+        fields = self.image_item_fields[0]
+        position_size = fields["position_size"]
+        position_size.set_x(0)
+        position_size.set_width(card_width)
+        self.request_real_time_update()
+
+    def _fit_image_height(self):
+        """이미지 높이만 카드 높이에 맞춤 (넓이 유지)"""
+        if not self.image_item_fields:
+            return
+
+        is_portrait = self.card_portrait_radio.isChecked() if self.card_portrait_radio else True
+        card_height = 1012 if is_portrait else 636
+
+        fields = self.image_item_fields[0]
+        position_size = fields["position_size"]
+        position_size.set_y(0)
+        position_size.set_height(card_height)
+        self.request_real_time_update()
+
     def _on_image_position_changed(self, x, y):
         if not self.image_item_fields:
             return
@@ -947,7 +1000,7 @@ class BasicTab(BaseTab):
             else:
                 self.card_landscape_radio.setChecked(True)
 
-        current_print_mode = config.get("printer", {}).get("print_mode", False)
+        current_print_mode = config.get("printer", {}).get("print_mode", True)
         if current_print_mode:
             self.print_mode_radio.setChecked(True)
         else:
@@ -1002,7 +1055,7 @@ class BasicTab(BaseTab):
         ])
 
         if "printer" not in config:
-            config["printer"] = {"print_mode": False, "panel_id": 1}
+            config["printer"] = {"print_mode": True, "panel_id": 1}
 
         config["printer"]["print_mode"] = self.print_mode_radio.isChecked()
 
