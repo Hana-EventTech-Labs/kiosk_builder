@@ -18,10 +18,18 @@ class FrameScreen(QWidget):
         self.main_window = main_window
         self.background_widget = None
         self.media_player = None
+        self._background_initialized = False  # 배경 지연 초기화 플래그
         self.captured_photo_path = "resources/captured_image.jpg"  # 촬영된 사진 경로
         self.selected_frame = None
         self.loadCustomFont()
         self.setupUI()
+
+    def showEvent(self, event):
+        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        if not self._background_initialized:
+            self.setupBackground()
+            self._background_initialized = True
+        super().showEvent(event)
 
     def loadCustomFont(self):
         """커스텀 폰트 로드"""
@@ -37,8 +45,8 @@ class FrameScreen(QWidget):
             self.font_family = "맑은 고딕"  # 폰트 파일이 없을 때 기본 폰트
 
     def setupUI(self):
-        self.setupBackground()
-        
+        # 배경은 showEvent에서 초기화 (언어 선택 후)
+
         # 메인 레이아웃
         main_layout = QHBoxLayout(self)
         

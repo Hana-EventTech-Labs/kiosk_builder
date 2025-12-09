@@ -9,6 +9,7 @@ class ColorPickerButton(QPushButton):
 
     def __init__(self, color="#000000", parent=None):
         super().__init__(parent)
+        self.setObjectName("colorPickerBtn")
         self.color = color
         self.setMinimumSize(100, 30)
         self.setMaximumHeight(32)
@@ -17,26 +18,24 @@ class ColorPickerButton(QPushButton):
 
     def update_color(self, color):
         self.color = color
-        # 색상 스와치 + 텍스트 스타일
+        # 색상 스와치 + 텍스트 스타일 (objectName으로 이 버튼에만 적용)
         self.setStyleSheet(f"""
-            QPushButton {{
+            QPushButton#colorPickerBtn {{
                 background-color: #ffffff;
                 border: 1px solid #ccc;
                 border-radius: 4px;
                 padding: 4px 8px;
                 text-align: left;
+                color: {color};
             }}
-            QPushButton:hover {{
+            QPushButton#colorPickerBtn:hover {{
                 border-color: #999;
                 background-color: #f8f8f8;
+                color: {color};
             }}
         """)
         # 색상 코드와 스와치 아이콘 표시
         self.setText(f"■ {color}")
-        # 텍스트 색상을 선택된 색상으로 설정
-        palette = self.palette()
-        palette.setColor(palette.ColorRole.ButtonText, QColor(color))
-        self.setPalette(palette)
 
     def pick_color(self):
         color = QColorDialog.getColor(QColor(self.color), self)

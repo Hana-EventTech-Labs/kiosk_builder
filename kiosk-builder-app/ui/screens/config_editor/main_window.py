@@ -23,36 +23,19 @@ from .components.card_preview_dialog import FloatingCardPreviewDialog
 from .handlers.config_handler_ui import ConfigHandlerUI
 from .handlers.distribution_handler import DistributionHandler
 
-# 프로젝트 루트의 version.py를 import하기 위한 경로 추가
-project_root = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
-sys.path.insert(0, os.path.abspath(project_root))
+# 버전 정보 (version.py 대신 직접 정의)
+APP_VERSION = "1.0.0"
 
-try:
-    from version import get_version, get_full_version
-    VERSION_AVAILABLE = True
-except ImportError:
-    # 현재 디렉토리에서 찾을 수 없으면 상위 디렉토리에서 시도
-    try:
-        import sys
-        import os
-        # kiosk-builder-app 기준으로 프로젝트 루트의 version.py 찾기
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        # main_window.py에서 프로젝트 루트까지 4단계 상위
-        project_root = os.path.join(current_dir, '..', '..', '..', '..')
-        sys.path.insert(0, os.path.abspath(project_root))
-        from version import get_version, get_full_version
-        VERSION_AVAILABLE = True
-    except ImportError:
-        VERSION_AVAILABLE = False
-        def get_version():
-            return "1.0.0"
-        def get_full_version():
-            return "1.0.0 (Build 001, 2025-05-26)"
+def get_version():
+    return APP_VERSION
+
+def get_full_version():
+    return f"{APP_VERSION}"
     
 class ConfigEditor(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.current_version = get_version() if VERSION_AVAILABLE else "1.0.0"
+        self.current_version = get_version()
 
         # 창 위치/크기 설정 저장용
         self.settings = QSettings("HanaEventTech", "SKProgram")

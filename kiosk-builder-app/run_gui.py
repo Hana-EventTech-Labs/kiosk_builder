@@ -81,7 +81,7 @@ if __name__ == "__main__":
     app = SingleApplication(app_id, sys.argv)
     
     # 애플리케이션 전체에 아이콘 설정
-    icon_path = "Hana.png"
+    icon_path = "Hana.ico"
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
     

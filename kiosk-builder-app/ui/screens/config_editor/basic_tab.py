@@ -3,9 +3,9 @@ import os
 import sys
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea, QDateTimeEdit, QProgressBar, QTextEdit)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QRect, Signal, QDateTime, QThread
+from PySide6.QtCore import Qt, QRect, Signal
 from ui.components.inputs import NumberLineEdit, ModernLineEdit
 from ui.components.collapsible_group import CollapsibleGroupBox
 from ui.components.position_size_input import PositionSizeInput
@@ -14,42 +14,6 @@ from .base_tab import BaseTab
 from ui.components.preview_label import DraggablePreviewLabel
 from utils.printer_thread import PrinterThread
 
-
-class UploadWorker(QThread):
-    """백그라운드 업로드 워커"""
-    progress = Signal(int, str)  # (퍼센트, 메시지)
-    finished = Signal(bool, dict)  # (성공여부, 결과)
-
-    def __init__(self, event_name, kiosk_count, expired_at, config, resources_dir):
-        super().__init__()
-        self.event_name = event_name
-        self.kiosk_count = kiosk_count
-        self.expired_at = expired_at
-        self.config = config
-        self.resources_dir = resources_dir
-
-    def run(self):
-        try:
-            from api_client import register_event_with_resources
-
-            self.progress.emit(10, "서버에 이벤트 등록 중...")
-
-            success, result = register_event_with_resources(
-                event_name=self.event_name,
-                kiosk_count=self.kiosk_count,
-                expired_at=self.expired_at,
-                config=self.config,
-                resources_dir=self.resources_dir,
-                progress_callback=self._on_progress
-            )
-
-            self.finished.emit(success, result)
-
-        except Exception as e:
-            self.finished.emit(False, {"error": str(e)})
-
-    def _on_progress(self, percent, message):
-        self.progress.emit(percent, message)
 
 class BasicTab(BaseTab):
     config_changed = Signal()

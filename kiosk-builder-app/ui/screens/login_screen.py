@@ -307,7 +307,7 @@ class LoginScreen(QWidget):
         error_box.setStandardButtons(QMessageBox.Ok)
         
         # 오류 메시지 박스에도 아이콘 적용
-        icon_path = "Hana.png"
+        icon_path = "Hana.ico"
         if os.path.exists(icon_path):
             error_box.setWindowIcon(QIcon(icon_path))
         

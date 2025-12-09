@@ -189,7 +189,7 @@ class MenuManager:
         
         login_window = LoginScreen(on_login_success=show_settings_window)
         
-        icon_path = "Hana.png"
+        icon_path = "Hana.ico"
         if os.path.exists(icon_path):
             login_window.setWindowIcon(QIcon(icon_path))
         

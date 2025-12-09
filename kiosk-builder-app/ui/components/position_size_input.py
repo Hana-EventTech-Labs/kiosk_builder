@@ -39,8 +39,6 @@ class PositionSizeInput(QWidget):
             size_widget = self._create_size_section()
             main_layout.addWidget(size_widget)
 
-        main_layout.addStretch()
-
     def _create_position_section(self):
         """위치 입력 섹션 생성"""
         widget = QFrame()

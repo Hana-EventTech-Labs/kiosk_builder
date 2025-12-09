@@ -5,8 +5,61 @@
 """
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PySide6.QtCore import Signal, Qt, QPoint, QRect, QSize
-from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont, QFontMetrics
+from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont, QFontMetrics, QPainterPath
 import os
+
+
+def render_button_element(painter: QPainter, preview_rect: QRect, data: dict):
+    """
+    버튼 스타일로 요소 렌더링 (배경 + 테두리 + 중앙 정렬 텍스트)
+
+    Args:
+        painter: QPainter 인스턴스
+        preview_rect: 미리보기 좌표 기준 사각형
+        data: {
+            'text': 버튼 텍스트,
+            'bg_color': 배경색 (QColor),
+            'border_color': 테두리색 (QColor),
+            'border_width': 테두리 두께,
+            'border_radius': 테두리 둥글기,
+            'font_color': 폰트색 (QColor),
+            'font_size': 폰트 크기 (미리보기 스케일 적용된 값)
+        }
+    """
+    # 기본값 설정
+    text = data.get('text', '')
+    bg_color = data.get('bg_color', QColor('#2563eb'))
+    border_color = data.get('border_color', QColor('#1d4ed8'))
+    border_width = data.get('border_width', 2)
+    border_radius = data.get('border_radius', 8)
+    font_color = data.get('font_color', QColor('#ffffff'))
+    font_size = data.get('font_size', 14)
+
+    # 둥근 모서리 사각형 그리기
+    painter.setRenderHint(QPainter.Antialiasing, True)
+
+    # 배경 채우기
+    path = QPainterPath()
+    path.addRoundedRect(preview_rect.x(), preview_rect.y(),
+                        preview_rect.width(), preview_rect.height(),
+                        border_radius, border_radius)
+    painter.fillPath(path, QBrush(bg_color))
+
+    # 테두리 그리기
+    if border_width > 0:
+        painter.setPen(QPen(border_color, border_width))
+        painter.drawPath(path)
+
+    # 중앙 정렬 텍스트
+    if text:
+        font = QFont()
+        font.setPixelSize(max(8, font_size))
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QPen(font_color))
+
+        # 텍스트 중앙 정렬
+        painter.drawText(preview_rect, Qt.AlignCenter, text)
 
 
 class LivePreviewWidget(QWidget):

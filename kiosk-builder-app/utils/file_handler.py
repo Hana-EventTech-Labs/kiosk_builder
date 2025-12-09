@@ -561,6 +561,79 @@ class FileHandler:
         return False
     
     @staticmethod
+    def validate_language_backgrounds(screen_keys=None):
+        """
+        언어별 배경화면 파일 존재 여부를 검증합니다.
+
+        Args:
+            screen_keys: 검증할 화면 키 목록 (None이면 전체 검증)
+
+        Returns:
+            dict: {
+                "ko": {"missing": [화면목록], "exists": [화면목록]},
+                "en": {"missing": [화면목록], "exists": [화면목록]}
+            }
+        """
+        if screen_keys is None:
+            # 모든 화면 (스플래시 제외 - 스플래시는 언어 선택 화면이므로)
+            screen_keys = ["1", "2", "3", "4", "5", "6"]
+
+        screen_names = {
+            "1": "카메라 화면",
+            "2": "키보드 화면",
+            "3": "QR 화면",
+            "4": "프레임 선택 화면",
+            "5": "처리중 화면",
+            "6": "완료 화면"
+        }
+
+        result = {
+            "ko": {"missing": [], "exists": []},
+            "en": {"missing": [], "exists": []}
+        }
+
+        for lang in ["ko", "en"]:
+            for screen_key in screen_keys:
+                screen_index = FileHandler.SCREEN_INDEX_MAP.get(str(screen_key), str(screen_key))
+                file_path = FileHandler.resolve_background_path(screen_key, lang=lang)
+                screen_name = screen_names.get(screen_key, f"화면 {screen_key}")
+
+                if file_path:
+                    result[lang]["exists"].append(screen_name)
+                else:
+                    result[lang]["missing"].append(screen_name)
+
+        return result
+
+    @staticmethod
+    def get_missing_backgrounds_message(validation_result):
+        """
+        검증 결과를 사용자 친화적 메시지로 변환합니다.
+
+        Args:
+            validation_result: validate_language_backgrounds() 결과
+
+        Returns:
+            str: 경고 메시지 (문제 없으면 빈 문자열)
+        """
+        messages = []
+
+        for lang, data in validation_result.items():
+            if data["missing"]:
+                lang_name = "한국어" if lang == "ko" else "영어"
+                folder_name = f"background_{lang}"
+                missing_list = ", ".join(data["missing"])
+                messages.append(
+                    f"⚠️ {lang_name} ({folder_name}/) 폴더에 다음 화면의 배경화면이 없습니다:\n"
+                    f"   → {missing_list}"
+                )
+
+        if messages:
+            return "\n\n".join(messages) + "\n\n※ 누락된 배경화면은 기본 배경화면이 사용됩니다."
+
+        return ""
+
+    @staticmethod
     def import_config_from_json(parent):
         """JSON 파일에서 설정 가져오기"""
         file_path, _ = QFileDialog.getOpenFileName(

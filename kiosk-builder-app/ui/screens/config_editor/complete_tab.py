@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QWidget, QTabWidget,
-                              QDialog, QDialogButtonBox)
+                              QDialog, QDialogButtonBox, QRadioButton, QButtonGroup)
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import TextPreviewWidget
+from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -20,6 +21,8 @@ class CompleteTab(BaseTab):
         self.screen_preview_text = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
+        # 언어별 미리보기 선택
+        self._current_lang_preview = None  # None=기본, "ko"=한국어, "en"=영어
         self.complete_fields = {}
         self.init_ui()
 
@@ -60,6 +63,9 @@ class CompleteTab(BaseTab):
 
         scroll_content_layout.addWidget(self.sub_tabs)
         scroll_content_layout.addStretch()
+
+        # 라디오 버튼 초기 상태 설정
+        self._update_preview_radio_visibility()
 
         # 초기 미리보기 업데이트
         self._update_screen_preview()
@@ -166,6 +172,38 @@ class CompleteTab(BaseTab):
         en_bg_layout.addWidget(en_reset_btn)
         bg_layout.addRow(en_label, en_bg_layout)
 
+        # 구분선
+        from PySide6.QtWidgets import QFrame
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("margin: 8px 0;")
+        bg_layout.addRow(separator)
+
+        # 미리보기 언어 선택 라디오 버튼
+        preview_label = QLabel("미리보기:")
+        preview_label.setFixedWidth(LABEL_WIDTH)
+        preview_radio_layout = QHBoxLayout()
+        preview_radio_layout.setSpacing(15)
+
+        self.preview_button_group = QButtonGroup(self)
+        self.radio_default = QRadioButton("기본")
+        self.radio_ko = QRadioButton("한국어")
+        self.radio_en = QRadioButton("English")
+        self.radio_default.setChecked(True)
+
+        self.preview_button_group.addButton(self.radio_default, 0)
+        self.preview_button_group.addButton(self.radio_ko, 1)
+        self.preview_button_group.addButton(self.radio_en, 2)
+
+        self.preview_button_group.buttonClicked.connect(self._on_preview_lang_changed)
+
+        preview_radio_layout.addWidget(self.radio_default)
+        preview_radio_layout.addWidget(self.radio_ko)
+        preview_radio_layout.addWidget(self.radio_en)
+        preview_radio_layout.addStretch()
+        bg_layout.addRow(preview_label, preview_radio_layout)
+
         left_layout.addWidget(bg_group)
         left_layout.addStretch()
 
@@ -181,21 +219,25 @@ class CompleteTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc = QLabel("텍스트를 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_screen = TextPreviewWidget(preview_size=QSize(350, 350))
+        # 단일 미리보기 위젯 + 확대/축소
+        self.screen_preview_screen = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
         self.screen_preview_screen.position_changed.connect(self._on_text_position_changed)
-        preview_layout.addWidget(self.screen_preview_screen, 0, Qt.AlignCenter)
+        self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview_screen)
+        preview_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
-        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint = QLabel("좌측 라디오 버튼으로 언어별 배경 확인")
         hint.setAlignment(Qt.AlignCenter)
         hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
         preview_layout.addWidget(hint)
 
         right_layout.addWidget(preview_group)
+        right_layout.addStretch()
 
         tab_main_layout.addWidget(right_widget, 1)
 
@@ -286,14 +328,15 @@ class CompleteTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc = QLabel("텍스트를 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_text = TextPreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_text = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_text.position_changed.connect(self._on_text_position_changed)
-        preview_layout.addWidget(self.screen_preview_text, 0, Qt.AlignCenter)
+        self._zoomable_text_preview = ZoomablePreviewWidget(self.screen_preview_text)
+        preview_layout.addWidget(self._zoomable_text_preview, 0, Qt.AlignCenter)
 
         hint = QLabel("모서리를 드래그하여 크기 조절")
         hint.setAlignment(Qt.AlignCenter)
@@ -386,9 +429,6 @@ class CompleteTab(BaseTab):
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
 
-        # 배경 이미지 경로
-        bg_path = FileHandler.resolve_background_path(COMPLETE_SCREEN_KEY)
-
         # 텍스트 설정 가져오기
         try:
             text = self.complete_fields["phrase"].text()
@@ -400,19 +440,51 @@ class CompleteTab(BaseTab):
             has_text = True
         except (AttributeError, KeyError):
             has_text = False
+            text = ""
+            font_path = ""
+            font_size = 24
+            font_color = "#000000"
+            x = 0
+            y = 0
 
-        # 2개의 미리보기 위젯 업데이트
-        for preview in [self.screen_preview_screen, self.screen_preview_text]:
-            if not preview:
-                continue
+        # 화면 설정 탭 미리보기 (라디오 버튼으로 선택된 언어)
+        if self.screen_preview_screen:
+            lang_enabled = self.config.get("language", {}).get("enabled", False)
 
-            preview.set_original_size(monitor_width, monitor_height)
-            preview.set_background(bg_path, QColor("#ffffff"))
-            preview.set_card_border(True, QColor("#333333"), 2)
+            if lang_enabled:
+                lang = getattr(self, '_current_lang_preview', "ko")
+                if lang is None:
+                    lang = "ko"
+                bg_path = FileHandler.resolve_background_path(COMPLETE_SCREEN_KEY, lang=lang)
+            else:
+                bg_path = FileHandler.resolve_background_path(COMPLETE_SCREEN_KEY, lang=None)
+
+            self.screen_preview_screen.set_original_size(monitor_width, monitor_height)
+            self.screen_preview_screen.set_background(bg_path, QColor("#ffffff"))
+            self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
 
             # 텍스트 설정
-            if has_text:
-                preview.add_text(
+            if has_text and text:
+                self.screen_preview_screen.add_text(
+                    "complete_text",
+                    text,
+                    x, y,
+                    font_path=font_path,
+                    font_size=font_size,
+                    color=QColor(font_color),
+                    draggable=True
+                )
+
+        # 텍스트 설정 탭의 미리보기 위젯 업데이트
+        if self.screen_preview_text:
+            bg_path = FileHandler.resolve_background_path(COMPLETE_SCREEN_KEY)
+            self.screen_preview_text.set_original_size(monitor_width, monitor_height)
+            self.screen_preview_text.set_background(bg_path, QColor("#ffffff"))
+            self.screen_preview_text.set_card_border(True, QColor("#333333"), 2)
+
+            # 텍스트 설정
+            if has_text and text:
+                self.screen_preview_text.add_text(
                     "complete_text",
                     text,
                     x, y,
@@ -450,8 +522,51 @@ class CompleteTab(BaseTab):
                 else:
                     widget.setText(config["complete"][key])
 
+        # 라디오 버튼 활성화/비활성화 상태 업데이트
+        self._update_preview_radio_visibility()
+
         # 미리보기 업데이트
         self._update_screen_preview()
+
+    # ==================== 언어별 미리보기 라디오 버튼 ====================
+    def _on_preview_lang_changed(self, button):
+        """미리보기 언어 변경 시 호출"""
+        if button == self.radio_default:
+            self._current_lang_preview = None
+        elif button == self.radio_ko:
+            self._current_lang_preview = "ko"
+        else:
+            self._current_lang_preview = "en"
+        self._update_screen_preview()
+
+    def _update_preview_radio_visibility(self):
+        """언어 버튼 활성화 상태에 따라 라디오 버튼 활성화/비활성화"""
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+
+        if not hasattr(self, 'radio_default'):
+            return
+
+        if lang_enabled:
+            self.radio_default.setEnabled(False)
+            self.radio_ko.setEnabled(True)
+            self.radio_en.setEnabled(True)
+
+            if self.radio_default.isChecked():
+                self.radio_ko.setChecked(True)
+
+            if self.radio_ko.isChecked():
+                self._current_lang_preview = "ko"
+            elif self.radio_en.isChecked():
+                self._current_lang_preview = "en"
+        else:
+            self.radio_default.setEnabled(True)
+            self.radio_ko.setEnabled(False)
+            self.radio_en.setEnabled(False)
+
+            if not self.radio_default.isChecked():
+                self.radio_default.setChecked(True)
+
+            self._current_lang_preview = None
 
     def update_config(self, config):
         """UI 값을 config에 반영"""

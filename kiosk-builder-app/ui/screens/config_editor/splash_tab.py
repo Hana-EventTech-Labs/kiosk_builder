@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QWidget, QGridLayout, QFrame,
-                              QCheckBox, QTabWidget, QDialog, QDialogButtonBox, QScrollArea)
-from PySide6.QtCore import Qt, QSize, QRect
+                              QCheckBox, QTabWidget)
+from PySide6.QtCore import Qt, QSize, QRect, Signal
 from PySide6.QtGui import QColor
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
-from ui.components.live_preview import TextPreviewWidget, LivePreviewWidget
-from ui.components.collapsible_group import CollapsibleGroupBox
+from ui.components.live_preview import TextPreviewWidget, render_button_element
+from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
 from utils.file_handler import FileHandler
 from .base_tab import BaseTab
 
@@ -14,17 +14,17 @@ from .base_tab import BaseTab
 SPLASH_SCREEN_KEY = "splash"
 
 class SplashTab(BaseTab):
+    # 언어 활성화 상태 변경 시그널 (다른 탭들에 알림용)
+    language_enabled_changed = Signal(bool)
+
     def __init__(self, config):
         super().__init__(config)
         self.sub_tabs = None
         # 각 탭의 미리보기 위젯
-        self.screen_preview_bg = None
-        self.screen_preview_text = None
-        self.screen_preview_lang = None
+        self.screen_preview_main = None  # 화면 설정 탭용
+        self.screen_preview_lang = None  # 언어 선택 버튼 탭용
         # 언어 버튼 필드
         self.lang_fields = {"ko": {}, "en": {}}
-        # 언어별 배경화면 필드 (인라인)
-        self.lang_bg_fields = {"ko": {}, "en": {}}
         # 필드 저장을 위한 딕셔너리
         self.splash_fields = {}
         self.init_ui()
@@ -34,7 +34,7 @@ class SplashTab(BaseTab):
         scroll_content_layout = self.create_tab_with_scroll()
 
         # ═══════════════════════════════════════════════════════════════
-        # 서브 탭 위젯 (3개 탭) - 각 탭 내부에 설정+미리보기 포함
+        # 서브 탭 위젯 (2개 탭) - 각 탭 내부에 설정+미리보기 포함
         # ═══════════════════════════════════════════════════════════════
         self.sub_tabs = QTabWidget()
         self.sub_tabs.setStyleSheet("""
@@ -61,14 +61,14 @@ class SplashTab(BaseTab):
             }
         """)
 
-        # 탭 1: 배경 설정
-        self._create_background_tab()
+        # 탭 1: 화면 설정 (배경 + 텍스트 통합)
+        self._create_screen_settings_tab()
 
-        # 탭 2: 텍스트 설정
-        self._create_text_tab()
-
-        # 탭 3: 언어 선택 버튼 설정
+        # 탭 2: 언어 선택 버튼 설정
         self._create_language_button_tab()
+
+        # 서브 탭 변경 시 미리보기 업데이트
+        self.sub_tabs.currentChanged.connect(self._on_sub_tab_changed)
 
         scroll_content_layout.addWidget(self.sub_tabs)
         scroll_content_layout.addStretch()
@@ -76,11 +76,15 @@ class SplashTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_screen_preview()
 
+    def _on_sub_tab_changed(self, index):
+        """서브 탭 변경 시 해당 탭의 미리보기 업데이트"""
+        self._update_screen_preview()
+
     # ═══════════════════════════════════════════════════════════════
-    # 탭 1: 배경 설정
+    # 탭 1: 화면 설정 (배경 + 텍스트 통합)
     # ═══════════════════════════════════════════════════════════════
-    def _create_background_tab(self):
-        """배경 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
+    def _create_screen_settings_tab(self):
+        """화면 설정 탭 생성 - 좌측(배경+텍스트 설정) + 우측(미리보기)"""
         tab_widget = QWidget()
         tab_main_layout = QHBoxLayout(tab_widget)
         tab_main_layout.setContentsMargins(10, 10, 10, 10)
@@ -92,58 +96,9 @@ class SplashTab(BaseTab):
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(12)
 
+        # 배경 설정
         self._init_background_settings(left_layout)
-        left_layout.addStretch()
-
-        tab_main_layout.addWidget(left_widget, 1)
-
-        # 우측: 미리보기 영역
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-
-        preview_group = QGroupBox("화면 미리보기")
-        self.apply_left_aligned_group_style(preview_group)
-        preview_layout = QVBoxLayout(preview_group)
-        preview_layout.setAlignment(Qt.AlignCenter)
-
-        desc = QLabel("텍스트를 드래그하여 위치 조절")
-        desc.setAlignment(Qt.AlignCenter)
-        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
-        preview_layout.addWidget(desc)
-
-        self.screen_preview_bg = TextPreviewWidget(preview_size=QSize(350, 350))
-        self.screen_preview_bg.position_changed.connect(self._on_text_position_changed)
-        self.screen_preview_bg.text_size_changed.connect(self._on_text_size_changed)
-        preview_layout.addWidget(self.screen_preview_bg, 0, Qt.AlignCenter)
-
-        hint = QLabel("모서리를 드래그하여 크기 조절")
-        hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
-        preview_layout.addWidget(hint)
-
-        right_layout.addWidget(preview_group)
-
-        tab_main_layout.addWidget(right_widget, 1)
-
-        self.sub_tabs.addTab(tab_widget, "배경 설정")
-
-    # ═══════════════════════════════════════════════════════════════
-    # 탭 2: 텍스트 설정
-    # ═══════════════════════════════════════════════════════════════
-    def _create_text_tab(self):
-        """텍스트 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
-        tab_widget = QWidget()
-        tab_main_layout = QHBoxLayout(tab_widget)
-        tab_main_layout.setContentsMargins(10, 10, 10, 10)
-        tab_main_layout.setSpacing(20)
-
-        # 좌측: 설정 영역
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(12)
-
+        # 텍스트 설정
         self._init_text_settings(left_layout)
         left_layout.addStretch()
 
@@ -159,29 +114,25 @@ class SplashTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc = QLabel("텍스트를 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_text = TextPreviewWidget(preview_size=QSize(350, 350))
-        self.screen_preview_text.position_changed.connect(self._on_text_position_changed)
-        self.screen_preview_text.text_size_changed.connect(self._on_text_size_changed)
-        preview_layout.addWidget(self.screen_preview_text, 0, Qt.AlignCenter)
-
-        hint = QLabel("모서리를 드래그하여 크기 조절")
-        hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
-        preview_layout.addWidget(hint)
+        self.screen_preview_main = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.screen_preview_main.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview_main.text_size_changed.connect(self._on_text_size_changed)
+        self._zoomable_preview_main = ZoomablePreviewWidget(self.screen_preview_main)
+        preview_layout.addWidget(self._zoomable_preview_main, 0, Qt.AlignCenter)
 
         right_layout.addWidget(preview_group)
 
         tab_main_layout.addWidget(right_widget, 1)
 
-        self.sub_tabs.addTab(tab_widget, "텍스트 설정")
+        self.sub_tabs.addTab(tab_widget, "화면 설정")
 
     # ═══════════════════════════════════════════════════════════════
-    # 탭 3: 언어 선택 버튼 설정
+    # 탭 2: 언어 선택 버튼 설정
     # ═══════════════════════════════════════════════════════════════
     def _create_language_button_tab(self):
         """언어 선택 버튼 설정 탭 생성 - 좌측(설정) + 우측(미리보기)"""
@@ -211,20 +162,16 @@ class SplashTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("버튼을 드래그하여 위치 조절")
+        desc = QLabel("버튼을 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_lang = TextPreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_lang = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_lang.position_changed.connect(self._on_text_position_changed)
         self.screen_preview_lang.text_size_changed.connect(self._on_text_size_changed)
-        preview_layout.addWidget(self.screen_preview_lang, 0, Qt.AlignCenter)
-
-        hint = QLabel("모서리를 드래그하여 크기 조절")
-        hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
-        preview_layout.addWidget(hint)
+        self._zoomable_preview_lang = ZoomablePreviewWidget(self.screen_preview_lang)
+        preview_layout.addWidget(self._zoomable_preview_lang, 0, Qt.AlignCenter)
 
         right_layout.addWidget(preview_group)
 
@@ -236,36 +183,14 @@ class SplashTab(BaseTab):
     # 1. 배경 설정
     # ═══════════════════════════════════════════════════════════════
     def _init_background_settings(self, parent_layout):
-        """배경 설정 그룹"""
-        # 그룹박스 헤더 (타이틀 + ? 버튼)
-        header_widget = QWidget()
-        header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(0, 0, 0, 5)
-        header_layout.setSpacing(8)
-
-        title_label = QLabel("배경 설정")
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        header_layout.addWidget(title_label)
-
-        help_btn = self.create_help_button("배경화면 설정 안내")
-        help_btn.clicked.connect(self._show_bg_help_dialog)
-        header_layout.addWidget(help_btn)
-        header_layout.addStretch()
-
-        parent_layout.addWidget(header_widget)
-
+        """배경 설정 그룹 (스플래쉬는 언어 선택 전이므로 기본 배경만 설정)"""
         # 배경 설정 내용 그룹
-        bg_group = QGroupBox()
+        bg_group = QGroupBox("배경 설정")
         self.apply_left_aligned_group_style(bg_group)
         bg_form = QFormLayout(bg_group)
         bg_form.setSpacing(8)
 
-        # 라벨 너비 고정
-        LABEL_WIDTH = 80
-
-        # 기본 배경화면
-        basic_label = QLabel("기본:")
-        basic_label.setFixedWidth(LABEL_WIDTH)
+        # 배경화면
         bg_row = QHBoxLayout()
         saved_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY)
         background_edit = QLineEdit(saved_bg)
@@ -285,49 +210,7 @@ class SplashTab(BaseTab):
         reset_btn.setToolTip("배경화면을 삭제합니다")
         reset_btn.clicked.connect(self._reset_background)
         bg_row.addWidget(reset_btn)
-        bg_form.addRow(basic_label, bg_row)
-
-        # 한국어 배경화면
-        ko_label = QLabel("🇰🇷 한국어:")
-        ko_label.setFixedWidth(LABEL_WIDTH)
-        ko_bg_layout = QHBoxLayout()
-        saved_ko_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY, lang="ko")
-        ko_bg_edit = QLineEdit(saved_ko_bg)
-        ko_bg_edit.setReadOnly(True)
-        ko_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        ko_bg_edit.textChanged.connect(self._update_screen_preview)
-        ko_bg_layout.addWidget(ko_bg_edit, 1)
-        self.lang_bg_fields["ko"]["background"] = ko_bg_edit
-        ko_browse_btn = QPushButton("찾기...")
-        ko_browse_btn.setFixedWidth(60)
-        ko_browse_btn.clicked.connect(lambda: self._browse_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_browse_btn)
-        ko_reset_btn = QPushButton("초기화")
-        ko_reset_btn.setFixedWidth(60)
-        ko_reset_btn.clicked.connect(lambda: self._reset_lang_bg("ko"))
-        ko_bg_layout.addWidget(ko_reset_btn)
-        bg_form.addRow(ko_label, ko_bg_layout)
-
-        # 영어 배경화면
-        en_label = QLabel("🇺🇸 English:")
-        en_label.setFixedWidth(LABEL_WIDTH)
-        en_bg_layout = QHBoxLayout()
-        saved_en_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY, lang="en")
-        en_bg_edit = QLineEdit(saved_en_bg)
-        en_bg_edit.setReadOnly(True)
-        en_bg_edit.setPlaceholderText("미설정 (기본 사용)")
-        en_bg_edit.textChanged.connect(self._update_screen_preview)
-        en_bg_layout.addWidget(en_bg_edit, 1)
-        self.lang_bg_fields["en"]["background"] = en_bg_edit
-        en_browse_btn = QPushButton("찾기...")
-        en_browse_btn.setFixedWidth(60)
-        en_browse_btn.clicked.connect(lambda: self._browse_lang_bg("en"))
-        en_bg_layout.addWidget(en_browse_btn)
-        en_reset_btn = QPushButton("초기화")
-        en_reset_btn.setFixedWidth(60)
-        en_reset_btn.clicked.connect(lambda: self._reset_lang_bg("en"))
-        en_bg_layout.addWidget(en_reset_btn)
-        bg_form.addRow(en_label, en_bg_layout)
+        bg_form.addRow("배경화면:", bg_row)
 
         parent_layout.addWidget(bg_group)
 
@@ -469,7 +352,7 @@ class SplashTab(BaseTab):
         self.lang_tab_widget.setVisible(self.lang_enabled_checkbox.isChecked())
 
     # ═══════════════════════════════════════════════════════════════
-    # 4. 화면 미리보기 업데이트 (3개 탭 모두)
+    # 4. 화면 미리보기 업데이트 (2개 탭)
     # ═══════════════════════════════════════════════════════════════
     def _update_screen_preview(self):
         """화면 미리보기 업데이트 - 모든 탭의 미리보기 동기화"""
@@ -498,8 +381,8 @@ class SplashTab(BaseTab):
         # 언어 버튼 활성화 여부
         lang_enabled = hasattr(self, 'lang_enabled_checkbox') and self.lang_enabled_checkbox.isChecked()
 
-        # 3개의 미리보기 위젯 업데이트
-        for preview in [self.screen_preview_bg, self.screen_preview_text, self.screen_preview_lang]:
+        # 2개의 미리보기 위젯 업데이트
+        for preview in [self.screen_preview_main, self.screen_preview_lang]:
             if not preview:
                 continue
 
@@ -530,7 +413,7 @@ class SplashTab(BaseTab):
         self.request_real_time_update()
 
     def _add_lang_buttons_to_preview_widget(self, preview_widget):
-        """언어 선택 버튼을 특정 미리보기 위젯에 추가"""
+        """언어 선택 버튼을 특정 미리보기 위젯에 추가 (실제 버튼 스타일)"""
         # 시그널 연결 (한 번만)
         try:
             preview_widget.position_changed.disconnect(self._on_lang_button_position_changed)
@@ -540,6 +423,9 @@ class SplashTab(BaseTab):
 
         preview_widget.position_changed.connect(self._on_lang_button_position_changed)
         preview_widget.size_changed.connect(self._on_lang_button_size_changed)
+
+        # 미리보기 스케일 가져오기
+        scale = getattr(preview_widget, '_scale', 1.0)
 
         for lang_code in ["ko", "en"]:
             fields = self.lang_fields.get(lang_code, {})
@@ -551,22 +437,43 @@ class SplashTab(BaseTab):
                 y = fields["y"].value()
                 width = fields["width"].value()
                 height = fields["height"].value()
-                bg_color = QColor(fields["bg_color"].color)
 
-                # 버튼 영역을 사각형으로 표시
+                # 버튼 영역
                 btn_rect = QRect(x, y, width, height)
 
-                # 레이블에 버튼 텍스트 표시
+                # 버튼 스타일 데이터
                 btn_text = fields["text"].text()
+                bg_color = QColor(fields["bg_color"].color)
+                border_color = QColor(fields["border_color"].color)
+                font_color = QColor(fields["font_color"].color)
+                border_width = fields["border_width"].value()
+                border_radius = fields["border_radius"].value()
+                font_size = fields["font_size"].value()
+
+                # 미리보기 스케일 적용된 폰트 크기
+                scaled_font_size = int(font_size / scale) if scale > 0 else font_size
+                scaled_border_radius = int(border_radius / scale) if scale > 0 else border_radius
+
+                renderer_data = {
+                    'text': btn_text,
+                    'bg_color': bg_color,
+                    'border_color': border_color,
+                    'border_width': max(1, int(border_width / scale)) if scale > 0 else border_width,
+                    'border_radius': scaled_border_radius,
+                    'font_color': font_color,
+                    'font_size': scaled_font_size
+                }
 
                 preview_widget.add_element(
                     f"lang_btn_{lang_code}",
                     btn_rect,
-                    color=bg_color,
+                    color=bg_color,  # 선택 시 핸들 색상용
                     draggable=True,
                     resizable=True,
-                    label=btn_text,
-                    border_width=3
+                    label=None,  # 레이블 제거 (버튼 내부에 텍스트 표시)
+                    border_width=0,  # 기본 테두리 비활성화
+                    custom_renderer=render_button_element,
+                    renderer_data=renderer_data
                 )
             except (AttributeError, KeyError):
                 pass
@@ -615,68 +522,6 @@ class SplashTab(BaseTab):
             self.splash_fields["background"].setText("")
             self._update_screen_preview()
 
-    def _show_bg_help_dialog(self):
-        """배경화면 도움말 다이얼로그"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("언어별 배경화면 안내")
-        dialog.setMinimumWidth(400)
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(12)
-
-        info = QLabel(
-            "<b>언어별 배경화면 설정</b><br><br>"
-            "키오스크에서 <b>언어 선택 기능</b>을 사용할 경우,<br>"
-            "사용자가 선택한 언어에 따라 다른 배경화면을 표시할 수 있습니다.<br><br>"
-            "<b>• 배경화면</b>: 기본 배경화면 (언어 미지정 시 사용)<br>"
-            "<b>• 🇰🇷 한국어</b>: 한국어 선택 시 표시되는 배경<br>"
-            "<b>• 🇺🇸 English</b>: 영어 선택 시 표시되는 배경<br><br>"
-            "<i>언어별 배경화면 미설정 시 기본 배경화면이 사용됩니다.</i>"
-        )
-        info.setWordWrap(True)
-        info.setStyleSheet("font-size: 12px; line-height: 1.5;")
-        layout.addWidget(info)
-
-        folder_info = QLabel(
-            "📁 <b>저장 위치:</b><br>"
-            "  • 기본: resources/background/<br>"
-            "  • 한국어: resources/background_ko/<br>"
-            "  • 영어: resources/background_en/"
-        )
-        folder_info.setStyleSheet("background-color: #ffffff; border: 1px solid #e9ecef; padding: 10px; border-radius: 4px; font-size: 11px;")
-        layout.addWidget(folder_info)
-
-        btn_box = QDialogButtonBox(QDialogButtonBox.Ok)
-        btn_box.accepted.connect(dialog.accept)
-        layout.addWidget(btn_box)
-
-        dialog.exec()
-
-    def _browse_lang_bg(self, lang_code: str):
-        """언어별 배경화면 파일 선택 (인라인)"""
-        bg_edit = self.lang_bg_fields[lang_code].get("background")
-        if bg_edit:
-            FileHandler.browse_background_file(self, bg_edit, SPLASH_SCREEN_KEY, lang=lang_code)
-            saved_bg = FileHandler.get_background_display_name(SPLASH_SCREEN_KEY, lang=lang_code)
-            bg_edit.setText(saved_bg)
-            self._update_screen_preview()
-
-    def _reset_lang_bg(self, lang_code: str):
-        """언어별 배경화면 초기화 (인라인)"""
-        from PySide6.QtWidgets import QMessageBox
-        lang_name = "한국어" if lang_code == "ko" else "영어"
-        reply = QMessageBox.question(
-            self, f"{lang_name} 배경화면 초기화",
-            f"{lang_name} 시작화면의 배경화면을 삭제하시겠습니까?\n삭제 시 기본 배경화면이 사용됩니다.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        if reply == QMessageBox.Yes:
-            FileHandler.delete_background(SPLASH_SCREEN_KEY, lang=lang_code)
-            bg_edit = self.lang_bg_fields[lang_code].get("background")
-            if bg_edit:
-                bg_edit.setText("")
-            self._update_screen_preview()
-
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
         self.config = config
@@ -688,6 +533,30 @@ class SplashTab(BaseTab):
                     widget.setValue(config["splash"][key])
                 else:
                     widget.setText(config["splash"][key])
+
+        # 언어 설정 업데이트
+        lang_config = config.get("language", {})
+        if hasattr(self, 'lang_enabled_checkbox'):
+            self.lang_enabled_checkbox.setChecked(lang_config.get("enabled", False))
+
+        # 언어 버튼 필드 업데이트 (config에 저장된 값이 있으면)
+        for lang in ["ko", "en"]:
+            btn_key = f"{lang}_button"
+            btn_config = lang_config.get(btn_key, {})
+            fields = self.lang_fields.get(lang, {})
+
+            for key, widget in fields.items():
+                if key in btn_config:
+                    if isinstance(widget, ColorPickerButton):
+                        widget.update_color(btn_config[key])
+                    elif isinstance(widget, NumberLineEdit):
+                        widget.blockSignals(True)
+                        widget.setValue(btn_config[key])
+                        widget.blockSignals(False)
+                    elif isinstance(widget, QLineEdit):
+                        widget.blockSignals(True)
+                        widget.setText(btn_config[key])
+                        widget.blockSignals(False)
 
         # 미리보기 업데이트
         self._update_screen_preview()
@@ -892,10 +761,33 @@ class SplashTab(BaseTab):
 
     def _on_lang_enabled_changed(self, state):
         """언어 선택 활성화 상태 변경"""
+        from PySide6.QtWidgets import QMessageBox
         enabled = state == Qt.CheckState.Checked.value
         self.lang_tab_widget.setVisible(enabled)
+
+        # config에 즉시 반영 (다른 탭들이 참조할 수 있도록)
+        if "language" not in self.config:
+            self.config["language"] = {}
+        self.config["language"]["enabled"] = enabled
+
+        # 활성화될 때 배경화면 파일 검증
+        if enabled:
+            validation_result = FileHandler.validate_language_backgrounds()
+            warning_message = FileHandler.get_missing_backgrounds_message(validation_result)
+
+            if warning_message:
+                QMessageBox.warning(
+                    self,
+                    "언어별 배경화면 확인 필요",
+                    f"언어 선택 기능을 활성화했습니다.\n\n{warning_message}\n\n"
+                    "각 탭의 '배경 설정'에서 언어별 배경화면을 설정해주세요."
+                )
+
         self._update_screen_preview()
+        # 다른 탭들에 언어 활성화 상태 변경 알림
         self.request_real_time_update()
+        # 언어 활성화 상태 변경 시그널 emit (다른 탭들이 연결해서 사용)
+        self.language_enabled_changed.emit(enabled)
 
     def _on_lang_button_position_changed(self, element_id, x, y):
         """드래그로 언어 버튼 위치 변경 시 호출"""

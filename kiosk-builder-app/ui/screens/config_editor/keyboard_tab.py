@@ -1,12 +1,13 @@
 from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget,
                               QTabWidget, QScrollArea, QFrame, QSizePolicy, QDialog,
-                              QDialogButtonBox, QGridLayout)
+                              QDialogButtonBox, QGridLayout, QRadioButton, QButtonGroup)
 from PySide6.QtGui import QColor, QPen, QBrush, QFont
 from PySide6.QtCore import Qt, QRect, QSize, QRectF
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import LivePreviewWidget, TextPreviewWidget
+from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
 from ui.components.position_size_input import PositionSizeInput
 from ui.components.collapsible_group import CollapsibleGroupBox
 from ui.components.keyboard_preview import KeyboardStylePreview
@@ -36,6 +37,9 @@ class KeyboardTab(BaseTab):
 
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
+
+        # 미리보기 언어 선택 (라디오 버튼)
+        self._current_lang_preview = None
 
         self.init_ui()
 
@@ -68,15 +72,20 @@ class KeyboardTab(BaseTab):
             }
         """)
 
-        # 3개의 서브 탭 생성
-        self._create_screen_settings_tab()  # 화면 설정
-        self._create_print_settings_tab()   # 인쇄 설정
-        self._create_style_settings_tab()   # 키보드 스타일
+        # 4개의 서브 탭 생성 (순서: 화면 설정 → 키보드 위치 → 키보드 스타일 → 인쇄 설정)
+        self._create_screen_settings_tab()    # 1. 화면 설정
+        self._create_keyboard_position_tab()  # 2. 키보드 위치
+        self._create_style_settings_tab()     # 3. 키보드 스타일
+        self._create_print_settings_tab()     # 4. 인쇄 설정
 
         scroll_content_layout.addWidget(self.sub_tabs)
 
+        # 라디오박스 활성화 상태 먼저 설정 (미리보기 전에 호출해야 함)
+        self._update_preview_radio_visibility()
+
         # 초기 미리보기 업데이트
         self._update_screen_preview()
+        self._update_keyboard_pos_preview()
         self._update_card_preview()
 
     # ==================== 화면 설정 탭 ====================
@@ -189,42 +198,33 @@ class KeyboardTab(BaseTab):
         en_bg_layout.addWidget(en_reset_btn)
         bg_form.addRow(en_label, en_bg_layout)
 
+        # 미리보기 언어 선택 라디오 버튼
+        preview_label = QLabel("미리보기:")
+        preview_label.setFixedWidth(LABEL_WIDTH)
+        preview_radio_layout = QHBoxLayout()
+        preview_radio_layout.setSpacing(15)
+
+        self.preview_lang_group = QButtonGroup(self)
+        self.radio_default = QRadioButton("기본")
+        self.radio_ko = QRadioButton("한국어")
+        self.radio_en = QRadioButton("English")
+        self.radio_default.setChecked(True)
+
+        self.preview_lang_group.addButton(self.radio_default, 0)
+        self.preview_lang_group.addButton(self.radio_ko, 1)
+        self.preview_lang_group.addButton(self.radio_en, 2)
+
+        self.preview_lang_group.buttonClicked.connect(self._on_preview_lang_changed)
+
+        preview_radio_layout.addWidget(self.radio_default)
+        preview_radio_layout.addWidget(self.radio_ko)
+        preview_radio_layout.addWidget(self.radio_en)
+        preview_radio_layout.addStretch()
+        bg_form.addRow(preview_label, preview_radio_layout)
+
         settings_layout.addWidget(bg_group)
 
-        # 2. 키보드 위치 설정
-        keyboard_group = QGroupBox("키보드 위치")
-        self.apply_left_aligned_group_style(keyboard_group)
-        keyboard_layout = QVBoxLayout(keyboard_group)
-        keyboard_layout.setSpacing(4)
-        keyboard_layout.setContentsMargins(8, 12, 8, 8)
-
-        self.keyboard_position_input = PositionSizeInput()
-        self.keyboard_position_input.set_values(
-            x=self.config["keyboard"]["x"],
-            y=self.config["keyboard"]["y"],
-            width=self.config["keyboard"]["width"],
-            height=self.config["keyboard"]["height"]
-        )
-        self.keyboard_position_input.value_changed.connect(self._update_screen_preview)
-        keyboard_layout.addWidget(self.keyboard_position_input)
-
-        # 버튼들 (더 작게)
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(5)
-        fill_btn = QPushButton("채우기")
-        fill_btn.setFixedWidth(55)
-        fill_btn.clicked.connect(self._fill_keyboard_frame)
-        center_btn = QPushButton("가운데")
-        center_btn.setFixedWidth(55)
-        center_btn.clicked.connect(self._center_keyboard_frame)
-        btn_layout.addWidget(fill_btn)
-        btn_layout.addWidget(center_btn)
-        btn_layout.addStretch()
-        keyboard_layout.addLayout(btn_layout)
-
-        settings_layout.addWidget(keyboard_group)
-
-        # 3. 입력창 설정 (화면 표시만)
+        # 2. 입력창 설정 (화면 표시만)
         input_group = QGroupBox("입력창")
         self.apply_left_aligned_group_style(input_group)
         input_layout = QVBoxLayout(input_group)
@@ -273,15 +273,16 @@ class KeyboardTab(BaseTab):
         preview_group_layout = QVBoxLayout(preview_group)
         preview_group_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("키보드/입력창을 드래그하여 위치 조절")
+        desc = QLabel("키보드/입력창을 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_group_layout.addWidget(desc)
 
-        self.screen_preview = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview.position_changed.connect(self._on_screen_element_position_changed)
         self.screen_preview.size_changed.connect(self._on_screen_element_size_changed)
-        preview_group_layout.addWidget(self.screen_preview, 0, Qt.AlignCenter)
+        self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview)
+        preview_group_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
         hint = QLabel("모서리를 드래그하여 크기 조절")
         hint.setAlignment(Qt.AlignCenter)
@@ -297,6 +298,190 @@ class KeyboardTab(BaseTab):
 
         # 입력창 항목들 초기화
         self._rebuild_screen_input_items(count_value)
+
+    # ==================== 키보드 위치 탭 ====================
+    def _create_keyboard_position_tab(self):
+        """키보드 위치 탭 생성 (키보드 위치/크기 설정 전용)"""
+        tab = QWidget()
+        main_layout = QHBoxLayout(tab)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+
+        # 좌측: 설정 영역
+        settings_widget = QWidget()
+        settings_widget.setStyleSheet("background-color: white;")
+        settings_layout = QVBoxLayout(settings_widget)
+        settings_layout.setSpacing(15)
+        settings_layout.setContentsMargins(10, 10, 10, 10)
+
+        # 키보드 위치 설정 그룹
+        keyboard_group = QGroupBox("키보드 위치 및 크기")
+        self.apply_left_aligned_group_style(keyboard_group)
+        keyboard_layout = QVBoxLayout(keyboard_group)
+        keyboard_layout.setSpacing(10)
+        keyboard_layout.setContentsMargins(15, 20, 15, 15)
+
+        # 안내 문구
+        info_label = QLabel("화면에 표시될 키보드의 위치와 크기를 설정합니다.\n미리보기에서 직접 드래그하여 조절할 수도 있습니다.")
+        info_label.setStyleSheet("color: #666; font-style: italic; margin-bottom: 10px;")
+        info_label.setWordWrap(True)
+        keyboard_layout.addWidget(info_label)
+
+        # 위치/크기 입력
+        self.keyboard_position_input = PositionSizeInput()
+        self.keyboard_position_input.set_values(
+            x=self.config["keyboard"]["x"],
+            y=self.config["keyboard"]["y"],
+            width=self.config["keyboard"]["width"],
+            height=self.config["keyboard"]["height"]
+        )
+        self.keyboard_position_input.value_changed.connect(self._update_screen_preview)
+        keyboard_layout.addWidget(self.keyboard_position_input)
+
+        # 버튼들
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+
+        fill_btn = QPushButton("화면 채우기")
+        fill_btn.setFixedWidth(90)
+        fill_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #1976D2; }
+            QPushButton:pressed { background-color: #0D47A1; }
+        """)
+        fill_btn.clicked.connect(self._fill_keyboard_frame)
+        btn_layout.addWidget(fill_btn)
+
+        center_btn = QPushButton("가운데 정렬")
+        center_btn.setFixedWidth(90)
+        center_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background-color: #388E3C; }
+            QPushButton:pressed { background-color: #1B5E20; }
+        """)
+        center_btn.clicked.connect(self._center_keyboard_frame)
+        btn_layout.addWidget(center_btn)
+
+        btn_layout.addStretch()
+        keyboard_layout.addLayout(btn_layout)
+
+        settings_layout.addWidget(keyboard_group)
+        settings_layout.addStretch()
+
+        main_layout.addWidget(settings_widget, 1)
+
+        # 우측: 미리보기 (화면 설정과 동일한 미리보기 공유)
+        preview_widget = QWidget()
+        preview_layout = QVBoxLayout(preview_widget)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        preview_group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(preview_group)
+        preview_group_layout = QVBoxLayout(preview_group)
+        preview_group_layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("키보드를 드래그하여 위치 조절 | 모서리 드래그로 크기 조절 | Ctrl+휠로 확대/축소")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        preview_group_layout.addWidget(desc)
+
+        # 키보드 위치 전용 미리보기
+        self.keyboard_pos_preview = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.keyboard_pos_preview.position_changed.connect(self._on_keyboard_pos_element_position_changed)
+        self.keyboard_pos_preview.size_changed.connect(self._on_keyboard_pos_element_size_changed)
+        self._zoomable_keyboard_pos_preview = ZoomablePreviewWidget(self.keyboard_pos_preview)
+        preview_group_layout.addWidget(self._zoomable_keyboard_pos_preview, 0, Qt.AlignCenter)
+
+        hint = QLabel("모서리를 드래그하여 크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        preview_group_layout.addWidget(hint)
+
+        preview_layout.addWidget(preview_group)
+        preview_layout.addStretch()
+
+        main_layout.addWidget(preview_widget, 1)
+
+        self.sub_tabs.addTab(tab, "키보드 위치")
+
+    def _on_keyboard_pos_element_position_changed(self, element_id, x, y):
+        """키보드 위치 탭 미리보기에서 요소 드래그"""
+        if element_id == "keyboard" and self.keyboard_position_input:
+            self.keyboard_position_input.block_all_signals(True)
+            self.keyboard_position_input.set_x(x)
+            self.keyboard_position_input.set_y(y)
+            self.keyboard_position_input.block_all_signals(False)
+            self._update_screen_preview()  # 화면 설정 탭 미리보기도 업데이트
+
+    def _on_keyboard_pos_element_size_changed(self, element_id, x, y, width, height):
+        """키보드 위치 탭 미리보기에서 요소 크기 변경"""
+        if element_id == "keyboard" and self.keyboard_position_input:
+            self.keyboard_position_input.block_all_signals(True)
+            self.keyboard_position_input.set_values(x=x, y=y, width=width, height=height)
+            self.keyboard_position_input.block_all_signals(False)
+            self._update_screen_preview()  # 화면 설정 탭 미리보기도 업데이트
+
+    def _update_keyboard_pos_preview(self):
+        """키보드 위치 탭 미리보기 업데이트"""
+        if not hasattr(self, 'keyboard_pos_preview') or not self.keyboard_pos_preview:
+            return
+
+        self.keyboard_pos_preview.clear_elements()
+
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
+        self.keyboard_pos_preview.set_original_size(monitor_width, monitor_height)
+
+        # 배경 이미지 (언어 활성화 상태에 따라 처리)
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+        if lang_enabled:
+            lang = getattr(self, '_current_lang_preview', "ko")
+            if lang is None:
+                lang = "ko"
+            bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY, lang=lang)
+        else:
+            bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY, lang=None)
+        self.keyboard_pos_preview.set_background(bg_path, QColor("#ffffff"))
+        self.keyboard_pos_preview.set_card_border(True, QColor("#333333"), 2)
+
+        # 키보드 영역만 표시 (입력창 없이)
+        if self.keyboard_position_input:
+            kb_rect = QRect(
+                self.keyboard_position_input.get_x(),
+                self.keyboard_position_input.get_y(),
+                self.keyboard_position_input.get_width(),
+                self.keyboard_position_input.get_height()
+            )
+            keyboard_style = self._get_current_keyboard_style()
+            self.keyboard_pos_preview.add_element(
+                "keyboard", kb_rect,
+                color=QColor("red"),
+                label="키보드",
+                draggable=True,
+                custom_renderer=self._render_keyboard_preview,
+                renderer_data=keyboard_style
+            )
+
+        self.keyboard_pos_preview.update()
 
     # ==================== 인쇄 설정 탭 ====================
     def _create_print_settings_tab(self):
@@ -375,17 +560,18 @@ class KeyboardTab(BaseTab):
         preview_group_layout = QVBoxLayout(preview_group)
         preview_group_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("텍스트를 드래그하여 위치 조절")
+        desc = QLabel("텍스트를 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_group_layout.addWidget(desc)
 
         # TextPreviewWidget 사용하여 실제 텍스트 렌더링
-        self.card_preview = TextPreviewWidget()
+        self.card_preview = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.card_preview.position_changed.connect(self._on_card_element_position_changed)
         self.card_preview.size_changed.connect(self._on_card_element_size_changed)
         self.card_preview.text_size_changed.connect(self._on_text_size_changed)
-        preview_group_layout.addWidget(self.card_preview, 0, Qt.AlignCenter)
+        self._zoomable_card_preview = ZoomablePreviewWidget(self.card_preview)
+        preview_group_layout.addWidget(self._zoomable_card_preview, 0, Qt.AlignCenter)
 
         hint = QLabel("모서리를 드래그하여 크기 조절")
         hint.setAlignment(Qt.AlignCenter)
@@ -974,6 +1160,25 @@ class KeyboardTab(BaseTab):
             item_layout.addRow("인쇄 위치:", print_pos)
             fields["print_pos"] = print_pos
 
+            # 빠른 정렬 버튼 (1행 4열)
+            quick_btn_layout = QHBoxLayout()
+            quick_btn_layout.setContentsMargins(0, 0, 0, 0)
+            quick_btn_layout.setSpacing(4)
+            quick_btn_layout.addStretch(1)
+
+            for label, method in [("전체", self._fill_text_position),
+                                   ("가운데", self._center_text_position),
+                                   ("넓이맞춤", self._fit_text_width),
+                                   ("높이맞춤", self._fit_text_height)]:
+                btn = QPushButton(label)
+                btn.setFixedSize(80, 24)
+                btn.clicked.connect(lambda checked, ps=print_pos, m=method: m(ps))
+                quick_btn_layout.addWidget(btn)
+
+            quick_btn_layout.addStretch(1)
+            quick_btn_layout.setContentsMargins(0, 0, 0, 8)
+            item_layout.addRow("", quick_btn_layout)
+
             # 폰트
             font_layout = QHBoxLayout()
             output_font_edit = QLineEdit(item_data.get("output_font", ""))
@@ -1071,6 +1276,25 @@ class KeyboardTab(BaseTab):
             item_layout.addRow("인쇄 위치:", pos_input)
             fields["pos"] = pos_input
 
+            # 빠른 정렬 버튼 (1행 4열)
+            fixed_btn_layout = QHBoxLayout()
+            fixed_btn_layout.setContentsMargins(0, 0, 0, 0)
+            fixed_btn_layout.setSpacing(4)
+            fixed_btn_layout.addStretch(1)
+
+            for label, method in [("전체", self._fill_text_position),
+                                   ("가운데", self._center_text_position),
+                                   ("넓이맞춤", self._fit_text_width),
+                                   ("높이맞춤", self._fit_text_height)]:
+                btn = QPushButton(label)
+                btn.setFixedSize(80, 24)
+                btn.clicked.connect(lambda checked, ps=pos_input, m=method: m(ps))
+                fixed_btn_layout.addWidget(btn)
+
+            fixed_btn_layout.addStretch(1)
+            fixed_btn_layout.setContentsMargins(0, 0, 0, 8)
+            item_layout.addRow("", fixed_btn_layout)
+
             # 폰트
             font_layout = QHBoxLayout()
             font_edit = QLineEdit(item_data.get("font", ""))
@@ -1095,6 +1319,49 @@ class KeyboardTab(BaseTab):
             self.fixed_text_layout.addWidget(item_group)
             self.text_item_fields.append(fields)
 
+    # ==================== 언어별 미리보기 라디오 버튼 ====================
+    def _on_preview_lang_changed(self, button):
+        """미리보기 언어 변경 시 호출"""
+        if button == self.radio_default:
+            self._current_lang_preview = None
+        elif button == self.radio_ko:
+            self._current_lang_preview = "ko"
+        else:
+            self._current_lang_preview = "en"
+        self._update_screen_preview()
+
+    def _update_preview_radio_visibility(self):
+        """언어 버튼 활성화 상태에 따라 라디오 버튼 활성화/비활성화 (전체 표시 유지)"""
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+
+        # 모든 라디오 버튼 항상 표시
+        self.radio_default.show()
+        self.radio_ko.show()
+        self.radio_en.show()
+
+        if lang_enabled:
+            # 언어 활성화: 기본 비활성화, 한국어/영어 활성화
+            self.radio_default.setEnabled(False)
+            self.radio_ko.setEnabled(True)
+            self.radio_en.setEnabled(True)
+            # 기본이 선택되어 있으면 한국어로 변경
+            if self.radio_default.isChecked():
+                self.radio_ko.setChecked(True)
+            # 현재 선택된 라디오박스에 맞게 _current_lang_preview 동기화
+            if self.radio_ko.isChecked():
+                self._current_lang_preview = "ko"
+            elif self.radio_en.isChecked():
+                self._current_lang_preview = "en"
+        else:
+            # 언어 비활성화: 기본 활성화, 한국어/영어 비활성화
+            self.radio_default.setEnabled(True)
+            self.radio_ko.setEnabled(False)
+            self.radio_en.setEnabled(False)
+            # 한국어/영어가 선택되어 있으면 기본으로 변경
+            if not self.radio_default.isChecked():
+                self.radio_default.setChecked(True)
+            self._current_lang_preview = None
+
     # ==================== 미리보기 업데이트 ====================
     def _update_all_previews(self):
         """모든 미리보기 업데이트"""
@@ -1117,8 +1384,15 @@ class KeyboardTab(BaseTab):
 
         self.screen_preview.set_original_size(monitor_width, monitor_height)
 
-        # 배경 이미지
-        bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY)
+        # 배경 이미지 (언어 활성화 상태에 따라 처리)
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+        if lang_enabled:
+            lang = getattr(self, '_current_lang_preview', "ko")
+            if lang is None:
+                lang = "ko"
+            bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY, lang=lang)
+        else:
+            bg_path = FileHandler.resolve_background_path(KEYBOARD_SCREEN_KEY, lang=None)
         self.screen_preview.set_background(bg_path, QColor("#ffffff"))
         self.screen_preview.set_card_border(True, QColor("#333333"), 2)
 
@@ -1165,6 +1439,9 @@ class KeyboardTab(BaseTab):
                 )
 
         self.request_real_time_update()
+
+        # 키보드 위치 탭 미리보기도 함께 업데이트
+        self._update_keyboard_pos_preview()
 
     def _update_card_preview(self):
         """카드 미리보기 업데이트 (사용자 입력 텍스트 + 고정 텍스트)"""
@@ -1374,6 +1651,42 @@ class KeyboardTab(BaseTab):
         self.keyboard_position_input.set_x((mw - kw) // 2)
         self.keyboard_position_input.set_y((mh - kh) // 2)
         self._update_screen_preview()
+
+    # ==================== 텍스트 인쇄 위치 빠른 정렬 ====================
+    def _fill_text_position(self, pos_input):
+        """텍스트를 카드 크기에 맞춤"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw = 636 if is_portrait else 1012
+        ch = 1012 if is_portrait else 636
+        pos_input.set_values(x=0, y=0, width=cw, height=ch)
+        self._update_card_preview()
+
+    def _center_text_position(self, pos_input):
+        """텍스트를 카드 중앙에 정렬"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw = 636 if is_portrait else 1012
+        ch = 1012 if is_portrait else 636
+        tw = pos_input.get_width()
+        th = pos_input.get_height()
+        pos_input.set_x((cw - tw) // 2)
+        pos_input.set_y((ch - th) // 2)
+        self._update_card_preview()
+
+    def _fit_text_width(self, pos_input):
+        """텍스트 넓이를 카드 넓이에 맞춤"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw = 636 if is_portrait else 1012
+        pos_input.set_x(0)
+        pos_input.set_width(cw)
+        self._update_card_preview()
+
+    def _fit_text_height(self, pos_input):
+        """텍스트 높이를 카드 높이에 맞춤"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        ch = 1012 if is_portrait else 636
+        pos_input.set_y(0)
+        pos_input.set_height(ch)
+        self._update_card_preview()
 
     # ==================== 배경화면 관리 ====================
     def _browse_and_update_background(self):

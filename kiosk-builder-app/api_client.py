@@ -33,35 +33,6 @@ def login(login_id: str, password: str) -> tuple[bool, str, int]:
     except Exception as e:
         return False, f"서버 통신 실패: {e}", 0
 
-def log_distribution_creation(user_id: int, app_name: str) -> tuple[bool, str]:
-    """
-    배포용 생성 액션을 로그에 기록하는 함수
-
-    Args:
-        user_id: 사용자 ID
-        app_name: 앱 이름
-
-    Returns:
-        tuple: (성공 여부, 메시지)
-    """
-    url = f"{BASE_URL}/api/logs/create"
-    payload = {
-        "user_id": user_id,
-        "app_name": app_name,
-        "action": "button_click"
-    }
-
-    try:
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            return True, "로그 기록 성공"
-        else:
-            detail = response.json().get("detail", "로그 기록 실패")
-            return False, detail
-    except Exception as e:
-        return False, f"서버 통신 실패: {e}"
-
-
 def register_event_with_resources(
     event_name: str,
     kiosk_count: int,

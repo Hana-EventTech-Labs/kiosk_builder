@@ -8,7 +8,15 @@ import sys
 import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
-from version import get_version, get_full_version
+
+# 버전 정보 (version.py 대신 직접 정의)
+APP_VERSION = "1.0.0"
+
+def get_version():
+    return APP_VERSION
+
+def get_full_version():
+    return f"{APP_VERSION}"
 
 # 기존 main.py의 모든 import들
 from main import KioskApp, SingleApplication

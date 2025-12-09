@@ -43,17 +43,25 @@ class QR_screen(QWidget):
         # 배경 위젯 관련 변수
         self.background_widget = None
         self.media_player = None
-        
+        self._background_initialized = False  # 배경 지연 초기화 플래그
+
         # 이미지 업로드 시그널 연결
         self.image_uploaded_signal.connect(self.display_uploaded_image)
-        
+
         self.setupUI()
 
         # 주의: 화면 표시 시 자동 연결은 showEvent()에서 처리
         # __init__에서 WebSocket을 시작하면 활성화 화면의 API 요청과 충돌할 수 있음
-    
+
+    def showEvent(self, event):
+        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        if not self._background_initialized:
+            self.setupBackground()
+            self._background_initialized = True
+        super().showEvent(event)
+
     def setupUI(self):
-        self.setupBackground()
+        # 배경은 showEvent에서 초기화 (언어 선택 후)
         self.setupQRCode()
         self.setupPreviewArea()
         self.addPrintButton()

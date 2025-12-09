@@ -15,10 +15,18 @@ class CameraScreen(QWidget):
         self.main_window = main_window
         self.background_widget = None  # 배경 위젯 추적을 위한 변수
         self.media_player = None  # 미디어 플레이어 추적을 위한 변수
+        self._background_initialized = False  # 배경 지연 초기화 플래그
         self.setupUI()
-    
+
+    def showEvent(self, event):
+        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        if not self._background_initialized:
+            self.setupBackground()
+            self._background_initialized = True
+        super().showEvent(event)
+
     def setupUI(self):
-        self.setupBackground()
+        # 배경은 showEvent에서 초기화 (언어 선택 후)
         # preview_width는 widget의 너비이고 camera_width는 카메라 화질의 너비입니다
         # 프리뷰 크기가 카메라 전체 크기가 아니니 참고 바랍니다 (카메라 크기는 config.json에 있습니다)
         self.preview_width = config["frame"]["width"]

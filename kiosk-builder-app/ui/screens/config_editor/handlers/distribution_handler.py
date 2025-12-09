@@ -536,27 +536,9 @@ Screens without files will use default backgrounds (from background folder).
         # 결과 표시
         if downloaded_files or copied_folders:
             QMessageBox.information(self.main_window, "배포용 파일 생성 완료", result_message)
-            self._log_distribution_creation()
         else:
             QMessageBox.warning(
                 self.main_window,
                 "배포용 파일 생성 실패",
                 result_message + "\n\n필요한 파일을 다운로드하지 못했습니다."
             )
-
-    def _log_distribution_creation(self):
-        """배포 생성 로그 기록"""
-        try:
-            import builtins
-            user_id = getattr(builtins, 'CURRENT_USER_ID', 0)
-
-            if user_id > 0:
-                from api_client import log_distribution_creation
-                success, message = log_distribution_creation(user_id, self.app_name)
-
-                if not success:
-                    print(f"로그 기록 실패: {message}")
-            else:
-                print("사용자 ID가 없어 로그를 기록할 수 없습니다.")
-        except Exception as e:
-            print(f"로그 기록 중 오류 발생: {e}")

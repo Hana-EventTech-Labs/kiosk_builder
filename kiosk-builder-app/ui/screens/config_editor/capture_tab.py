@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
+from PySide6.QtWidgets import (QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout, QGridLayout,
                               QLabel, QLineEdit, QPushButton, QSpinBox, QWidget, QComboBox, QFrame,
                               QDialog, QDialogButtonBox, QTabWidget, QScrollArea)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
@@ -6,6 +6,8 @@ from PySide6.QtCore import Qt, QRect, QSize
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import LivePreviewWidget
+from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
+from ui.components.language_preview_tabs import LanguagePreviewTabs
 from ui.components.collapsible_group import CollapsibleGroupBox
 from ui.components.position_size_input import PositionSizeInput
 from utils.file_handler import FileHandler
@@ -25,6 +27,8 @@ class CaptureTab(BaseTab):
         self.sub_tabs = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
+        # 미리보기 언어 선택 (라디오 버튼)
+        self._current_lang_preview = None
         self.init_ui()
 
     def init_ui(self):
@@ -73,6 +77,8 @@ class CaptureTab(BaseTab):
 
         scroll_content_layout.addStretch()
 
+        # 라디오박스 활성화 상태 먼저 설정 (미리보기 전에 호출해야 함)
+        self._update_preview_radio_visibility()
         self._update_screen_preview()
         self._update_card_preview()
 
@@ -105,12 +111,12 @@ class CaptureTab(BaseTab):
         settings_scroll.setWidget(settings_widget)
         tab_layout.addWidget(settings_scroll, 1)
 
-        # 우측: 화면 미리보기
+        # 우측: 화면 미리보기 (언어별 탭 - 좌측 배치)
         preview_widget = QWidget()
         preview_layout = QVBoxLayout(preview_widget)
         preview_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._init_screen_preview(preview_layout)
+        self._init_language_preview_tabs(preview_layout)
         preview_layout.addStretch()
 
         tab_layout.addWidget(preview_widget, 1)
@@ -288,7 +294,84 @@ class CaptureTab(BaseTab):
         en_bg_layout.addWidget(en_reset_btn)
         bg_form.addRow(en_label, en_bg_layout)
 
+        # 구분선
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("margin: 8px 0;")
+        bg_form.addRow(separator)
+
+        # 미리보기 언어 선택 라디오 버튼
+        from PySide6.QtWidgets import QRadioButton, QButtonGroup
+        preview_label = QLabel("미리보기:")
+        preview_label.setFixedWidth(LABEL_WIDTH)
+        preview_radio_layout = QHBoxLayout()
+        preview_radio_layout.setSpacing(15)
+
+        self.preview_lang_group = QButtonGroup(self)
+        self.radio_default = QRadioButton("기본")
+        self.radio_ko = QRadioButton("한국어")
+        self.radio_en = QRadioButton("English")
+        self.radio_default.setChecked(True)
+
+        self.preview_lang_group.addButton(self.radio_default, 0)
+        self.preview_lang_group.addButton(self.radio_ko, 1)
+        self.preview_lang_group.addButton(self.radio_en, 2)
+
+        self.preview_lang_group.buttonClicked.connect(self._on_preview_lang_changed)
+
+        preview_radio_layout.addWidget(self.radio_default)
+        preview_radio_layout.addWidget(self.radio_ko)
+        preview_radio_layout.addWidget(self.radio_en)
+        preview_radio_layout.addStretch()
+        bg_form.addRow(preview_label, preview_radio_layout)
+
         parent_layout.addWidget(camera_group)
+
+        # 언어 활성화 상태에 따라 라디오 버튼 초기 표시 설정
+        self._update_preview_radio_visibility()
+
+    def _on_preview_lang_changed(self, button):
+        """미리보기 언어 변경 시 호출"""
+        if button == self.radio_default:
+            self._current_lang_preview = None
+        elif button == self.radio_ko:
+            self._current_lang_preview = "ko"
+        else:
+            self._current_lang_preview = "en"
+        self._update_screen_preview()
+
+    def _update_preview_radio_visibility(self):
+        """언어 버튼 활성화 상태에 따라 라디오 버튼 활성화/비활성화 (전체 표시 유지)"""
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+
+        # 모든 라디오 버튼 항상 표시
+        self.radio_default.show()
+        self.radio_ko.show()
+        self.radio_en.show()
+
+        if lang_enabled:
+            # 언어 활성화: 기본 비활성화, 한국어/영어 활성화
+            self.radio_default.setEnabled(False)
+            self.radio_ko.setEnabled(True)
+            self.radio_en.setEnabled(True)
+            # 기본이 선택되어 있으면 한국어로 변경
+            if self.radio_default.isChecked():
+                self.radio_ko.setChecked(True)
+            # 현재 선택된 라디오박스에 맞게 _current_lang_preview 동기화
+            if self.radio_ko.isChecked():
+                self._current_lang_preview = "ko"
+            elif self.radio_en.isChecked():
+                self._current_lang_preview = "en"
+        else:
+            # 언어 비활성화: 기본 활성화, 한국어/영어 비활성화
+            self.radio_default.setEnabled(True)
+            self.radio_ko.setEnabled(False)
+            self.radio_en.setEnabled(False)
+            # 한국어/영어가 선택되어 있으면 기본으로 변경
+            if not self.radio_default.isChecked():
+                self.radio_default.setChecked(True)
+            self._current_lang_preview = None
 
     def _show_bg_help_dialog(self):
         """배경화면 도움말 다이얼로그"""
@@ -479,17 +562,32 @@ class CaptureTab(BaseTab):
         parent_layout.addLayout(res_layout)
 
         # ───────────────────────────────────────────────────────────
-        # 카메라 영역 (화면 표시 위치) - 콤팩트 그룹
+        # 카메라 영역 (화면 표시 위치)
         # ───────────────────────────────────────────────────────────
-        frame_group = QGroupBox("카메라 영역 (화면 표시 위치)")
+        frame_group = QGroupBox("📹 카메라 영역 (화면 표시 위치)")
         frame_group.setStyleSheet("""
-            QGroupBox { font-weight: bold; color: #27ae60; border: 1px solid #27ae60; border-radius: 6px; margin-top: 8px; padding-top: 4px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 6px; background-color: white; }
+            QGroupBox {
+                font-weight: bold;
+                color: #27ae60;
+                border: 2px solid #27ae60;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding: 8px;
+                background-color: #f8fff8;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 2px 8px;
+                background-color: white;
+                border-radius: 4px;
+            }
         """)
         frame_inner = QHBoxLayout(frame_group)
-        frame_inner.setContentsMargins(8, 4, 8, 6)
-        frame_inner.setSpacing(8)
+        frame_inner.setContentsMargins(12, 16, 12, 12)
+        frame_inner.setSpacing(16)
 
+        # 위치/크기 입력
         self.frame_input = PositionSizeInput()
         self.frame_input.set_values(
             self.config["frame"]["x"], self.config["frame"]["y"],
@@ -498,45 +596,73 @@ class CaptureTab(BaseTab):
         self.frame_input.value_changed.connect(self._update_screen_preview)
         frame_inner.addWidget(self.frame_input)
 
+        # 빠른 정렬 버튼 (2x2 그리드)
         from PySide6.QtWidgets import QGridLayout
         frame_btn_widget = QWidget()
+        frame_btn_widget.setStyleSheet("background-color: transparent;")
         frame_btn_grid = QGridLayout(frame_btn_widget)
         frame_btn_grid.setContentsMargins(0, 0, 0, 0)
-        frame_btn_grid.setSpacing(3)
+        frame_btn_grid.setSpacing(4)
 
         frame_btns = [
-            ("채우기", self._fill_camera_frame),
-            ("가운데", self._center_camera_frame),
-            ("넓이맞춤", self._fit_frame_width),
-            ("높이맞춤", self._fit_frame_height),
+            ("전체", self._fill_camera_frame, "화면 전체에 맞춤"),
+            ("가운데", self._center_camera_frame, "화면 중앙에 배치"),
+            ("넓이맞춤", self._fit_frame_width, "화면 넓이에 맞춤"),
+            ("높이맞춤", self._fit_frame_height, "화면 높이에 맞춤"),
         ]
-        btn_style = """
-            QPushButton { background-color: #27ae60; color: white; border: none; border-radius: 3px; font-size: 11px; font-weight: bold; }
+        frame_btn_style = """
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 8px 12px;
+                min-width: 60px;
+            }
             QPushButton:hover { background-color: #2ecc71; }
             QPushButton:pressed { background-color: #1e8449; }
         """
-        for i, (text, callback) in enumerate(frame_btns):
+        for i, (text, callback, tooltip) in enumerate(frame_btns):
             btn = QPushButton(text)
-            btn.setFixedSize(58, 24)
-            btn.setStyleSheet(btn_style)
+            btn.setStyleSheet(frame_btn_style)
+            btn.setToolTip(tooltip)
             btn.clicked.connect(callback)
             frame_btn_grid.addWidget(btn, i // 2, i % 2)
+        frame_inner.addStretch(1)
         frame_inner.addWidget(frame_btn_widget)
+        frame_inner.addStretch(1)
 
         parent_layout.addWidget(frame_group)
 
         # ───────────────────────────────────────────────────────────
-        # 선택 영역 (인쇄할 부분) - 콤팩트 그룹
+        # 선택 영역 (인쇄할 부분)
         # ───────────────────────────────────────────────────────────
-        crop_group = QGroupBox("선택 영역 (인쇄할 부분)")
+        crop_group = QGroupBox("✂️ 선택 영역 (인쇄할 부분)")
         crop_group.setStyleSheet("""
-            QGroupBox { font-weight: bold; color: #FF6B00; border: 1px solid #FF6B00; border-radius: 6px; margin-top: 8px; padding-top: 4px; }
-            QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 6px; background-color: white; }
+            QGroupBox {
+                font-weight: bold;
+                color: #e67e22;
+                border: 2px solid #e67e22;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding: 8px;
+                background-color: #fffaf5;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 2px 8px;
+                background-color: white;
+                border-radius: 4px;
+            }
         """)
         crop_inner = QHBoxLayout(crop_group)
-        crop_inner.setContentsMargins(8, 4, 8, 6)
-        crop_inner.setSpacing(8)
+        crop_inner.setContentsMargins(12, 16, 12, 12)
+        crop_inner.setSpacing(16)
 
+        # 위치/크기 입력
         self.crop_input = PositionSizeInput()
         self.crop_input.set_values(
             self.config["crop_area"]["x"], self.config["crop_area"]["y"],
@@ -545,10 +671,12 @@ class CaptureTab(BaseTab):
         self.crop_input.value_changed.connect(self._on_crop_changed)
         crop_inner.addWidget(self.crop_input)
 
+        # 빠른 정렬 버튼 (2x2 그리드)
         crop_btn_widget = QWidget()
+        crop_btn_widget.setStyleSheet("background-color: transparent;")
         crop_btn_grid = QGridLayout(crop_btn_widget)
         crop_btn_grid.setContentsMargins(0, 0, 0, 0)
-        crop_btn_grid.setSpacing(3)
+        crop_btn_grid.setSpacing(4)
 
         crop_btns = [
             ("전체", self._fill_crop_area, "카메라 전체 영역 선택"),
@@ -557,18 +685,28 @@ class CaptureTab(BaseTab):
             ("높이맞춤", self._fit_crop_height, "카메라 높이에 맞춤"),
         ]
         crop_btn_style = """
-            QPushButton { background-color: #e67e22; color: white; border: none; border-radius: 3px; font-size: 11px; font-weight: bold; }
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 8px 12px;
+                min-width: 60px;
+            }
             QPushButton:hover { background-color: #f39c12; }
             QPushButton:pressed { background-color: #d35400; }
         """
         for i, (text, callback, tooltip) in enumerate(crop_btns):
             btn = QPushButton(text)
-            btn.setFixedSize(58, 24)
             btn.setStyleSheet(crop_btn_style)
             btn.setToolTip(tooltip)
             btn.clicked.connect(callback)
             crop_btn_grid.addWidget(btn, i // 2, i % 2)
+        crop_inner.addStretch(1)
         crop_inner.addWidget(crop_btn_widget)
+        crop_inner.addStretch(1)
 
         parent_layout.addWidget(crop_group)
 
@@ -646,18 +784,23 @@ class CaptureTab(BaseTab):
         self.photo_input.value_changed.connect(self._on_photo_settings_changed)
         photo_layout.addWidget(self.photo_input, 0, Qt.AlignCenter)
 
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
-        fill_btn = QPushButton("채우기")
-        fill_btn.setFixedWidth(80)
-        fill_btn.clicked.connect(self._fill_photo_frame)
-        center_btn = QPushButton("가운데")
-        center_btn.setFixedWidth(80)
-        center_btn.clicked.connect(self._center_photo_frame)
-        btn_layout.addWidget(fill_btn)
-        btn_layout.addWidget(center_btn)
-        btn_layout.addStretch()
-        photo_layout.addLayout(btn_layout)
+        # 빠른 정렬 버튼 (1행 4열)
+        photo_btn_layout = QHBoxLayout()
+        photo_btn_layout.setContentsMargins(0, 4, 0, 0)
+        photo_btn_layout.setSpacing(4)
+        photo_btn_layout.addStretch(1)
+
+        for label, callback in [("전체", self._fill_photo_frame),
+                                 ("가운데", self._center_photo_frame),
+                                 ("넓이맞춤", self._fit_photo_width),
+                                 ("높이맞춤", self._fit_photo_height)]:
+            btn = QPushButton(label)
+            btn.setFixedSize(80, 26)
+            btn.clicked.connect(callback)
+            photo_btn_layout.addWidget(btn)
+
+        photo_btn_layout.addStretch(1)
+        photo_layout.addLayout(photo_btn_layout)
 
         parent_layout.addWidget(photo_group)
 
@@ -728,21 +871,48 @@ class CaptureTab(BaseTab):
     # ═══════════════════════════════════════════════════════════════
     # 미리보기 영역
     # ═══════════════════════════════════════════════════════════════
+    def _init_language_preview_tabs(self, parent_layout):
+        """화면 미리보기 초기화 (확대된 크기)"""
+        group = QGroupBox("화면 미리보기")
+        self.apply_left_aligned_group_style(group)
+        layout = QVBoxLayout(group)
+        layout.setAlignment(Qt.AlignCenter)
+
+        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역 | Ctrl+휠로 확대/축소")
+        desc.setAlignment(Qt.AlignCenter)
+        desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
+        layout.addWidget(desc)
+
+        # 확대된 미리보기 위젯 + 줌 기능
+        self.screen_preview = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.screen_preview.position_changed.connect(self._on_frame_position_changed)
+        self.screen_preview.size_changed.connect(self._on_frame_size_changed)
+        self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview)
+        layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
+
+        hint = QLabel("녹색 영역을 드래그하여 위치/크기 조절")
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
+        layout.addWidget(hint)
+
+        parent_layout.addWidget(group)
+
     def _init_screen_preview(self, parent_layout):
         group = QGroupBox("화면 미리보기")
         self.apply_left_aligned_group_style(group)
         layout = QVBoxLayout(group)
         layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역")
+        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         layout.addWidget(desc)
 
-        self.screen_preview = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview.position_changed.connect(self._on_frame_position_changed)
         self.screen_preview.size_changed.connect(self._on_frame_size_changed)
-        layout.addWidget(self.screen_preview, 0, Qt.AlignCenter)
+        self._zoomable_screen_preview2 = ZoomablePreviewWidget(self.screen_preview)
+        layout.addWidget(self._zoomable_screen_preview2, 0, Qt.AlignCenter)
 
         hint = QLabel("녹색 영역을 드래그하여 위치/크기 조절")
         hint.setAlignment(Qt.AlignCenter)
@@ -757,15 +927,16 @@ class CaptureTab(BaseTab):
         layout = QVBoxLayout(group)
         layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("빨간색 영역 = 촬영된 사진이 인쇄될 위치")
+        desc = QLabel("빨간색 영역 = 촬영된 사진이 인쇄될 위치 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #e74c3c; font-size: 12px; font-weight: bold; padding: 4px;")
         layout.addWidget(desc)
 
-        self.card_preview = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.card_preview = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.card_preview.position_changed.connect(self._on_photo_position_changed)
         self.card_preview.size_changed.connect(self._on_photo_size_changed)
-        layout.addWidget(self.card_preview, 0, Qt.AlignCenter)
+        self._zoomable_card_preview = ZoomablePreviewWidget(self.card_preview)
+        layout.addWidget(self._zoomable_card_preview, 0, Qt.AlignCenter)
 
         # 안내 문구
         card_info = QLabel("※ 검정 테두리가 실제 인쇄되는 카드 영역입니다.")
@@ -786,15 +957,16 @@ class CaptureTab(BaseTab):
         layout = QVBoxLayout(group)
         layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역")
+        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         layout.addWidget(desc)
 
-        self.screen_preview_camera_area = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_camera_area = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_camera_area.position_changed.connect(self._on_frame_position_changed)
         self.screen_preview_camera_area.size_changed.connect(self._on_frame_size_changed)
-        layout.addWidget(self.screen_preview_camera_area, 0, Qt.AlignCenter)
+        self._zoomable_camera_area_preview = ZoomablePreviewWidget(self.screen_preview_camera_area)
+        layout.addWidget(self._zoomable_camera_area_preview, 0, Qt.AlignCenter)
 
         hint = QLabel("녹색 영역을 드래그하여 위치/크기 조절")
         hint.setAlignment(Qt.AlignCenter)
@@ -810,14 +982,15 @@ class CaptureTab(BaseTab):
         layout = QVBoxLayout(group)
         layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역")
+        desc = QLabel("녹색 = 카메라 영역  |  주황색 = 인쇄될 선택 영역 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         layout.addWidget(desc)
 
-        self.screen_preview_count = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_count = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         # 카운트 탭은 조절 기능 불필요하므로 드래그 비활성화
-        layout.addWidget(self.screen_preview_count, 0, Qt.AlignCenter)
+        self._zoomable_count_preview = ZoomablePreviewWidget(self.screen_preview_count)
+        layout.addWidget(self._zoomable_count_preview, 0, Qt.AlignCenter)
 
         hint = QLabel("화면에 표시되는 미리보기입니다")
         hint.setAlignment(Qt.AlignCenter)
@@ -995,6 +1168,24 @@ class CaptureTab(BaseTab):
         self._update_card_preview()
         self.request_real_time_update()
 
+    def _fit_photo_width(self):
+        """사진 넓이를 카드 넓이에 맞춤"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw, ch = (636, 1012) if is_portrait else (1012, 636)
+        self.photo_input.set_x(0)
+        self.photo_input.set_width(cw)
+        self._update_card_preview()
+        self.request_real_time_update()
+
+    def _fit_photo_height(self):
+        """사진 높이를 카드 높이에 맞춤"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw, ch = (636, 1012) if is_portrait else (1012, 636)
+        self.photo_input.set_y(0)
+        self.photo_input.set_height(ch)
+        self._update_card_preview()
+        self.request_real_time_update()
+
     def _on_frame_position_changed(self, element_id, x, y):
         if element_id == "camera_frame":
             self.frame_input.block_all_signals(True)
@@ -1084,8 +1275,6 @@ class CaptureTab(BaseTab):
         except KeyError:
             mw, mh = 1080, 1920
 
-        bg_path = FileHandler.resolve_background_path(CAPTURE_SCREEN_KEY)
-
         # 프레임 값 가져오기
         x, y, w, h = 0, 0, mw, mh
         if hasattr(self, 'frame_input'):
@@ -1105,12 +1294,26 @@ class CaptureTab(BaseTab):
                 display_crop_h = int(crop_h * scale_y)
                 display_crop_rect = QRect(display_crop_x, display_crop_y, display_crop_w, display_crop_h)
 
-        # 각 화면 미리보기에 적용
-        previews = [self.screen_preview, self.screen_preview_camera_area, self.screen_preview_count]
+        # 화면 설정 탭의 미리보기 (언어 활성화 상태에 따라 처리)
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+
+        if lang_enabled:
+            # 언어 활성화: 선택된 언어(ko/en)의 배경만 사용, 없으면 빈 배경
+            lang = getattr(self, '_current_lang_preview', "ko")  # 기본값 한국어
+            if lang is None:
+                lang = "ko"  # 언어 활성화 시 기본 선택은 한국어
+            lang_bg_path = FileHandler.resolve_background_path(CAPTURE_SCREEN_KEY, lang=lang)
+            # 언어 활성화 시에는 기본 배경으로 fallback 하지 않음
+        else:
+            # 언어 비활성화: 기본 배경만 사용
+            lang_bg_path = FileHandler.resolve_background_path(CAPTURE_SCREEN_KEY, lang=None)
+
+        # 기존 미리보기들도 업데이트 (카메라 영역 탭, 카운트 탭) - 언어 설정에 맞게 배경 적용
+        previews = [self.screen_preview_camera_area, self.screen_preview_count]
         for preview in previews:
             if preview:
                 preview.set_original_size(mw, mh)
-                preview.set_background(bg_path, QColor("#ffffff"))
+                preview.set_background(lang_bg_path, QColor("#ffffff"))
                 preview.set_card_border(True, QColor("#333333"), 2)
 
                 preview.add_element(
@@ -1123,6 +1326,26 @@ class CaptureTab(BaseTab):
                         "crop_area", display_crop_rect,
                         color=QColor("#FF6B00"), label="선택영역", draggable=True
                     )
+
+        # 화면 설정 탭의 미리보기 (언어 버튼으로 선택된 배경 적용)
+        if self.screen_preview:
+            # 언어 활성화 시 해당 언어 배경이 없으면 빈 화면 (fallback 없음)
+            # 언어 비활성화 시에만 기본 배경 사용
+            use_bg = lang_bg_path  # 배경이 없으면 None, 빈 화면으로 표시됨
+            self.screen_preview.set_original_size(mw, mh)
+            self.screen_preview.set_background(use_bg, QColor("#ffffff"))
+            self.screen_preview.set_card_border(True, QColor("#333333"), 2)
+
+            self.screen_preview.add_element(
+                "camera_frame", QRect(x, y, w, h),
+                color=QColor("lime"), label="카메라", draggable=True
+            )
+
+            if display_crop_rect:
+                self.screen_preview.add_element(
+                    "crop_area", display_crop_rect,
+                    color=QColor("#FF6B00"), label="선택영역", draggable=True
+                )
 
         self.request_real_time_update()
 
@@ -1194,6 +1417,8 @@ class CaptureTab(BaseTab):
         if hasattr(self, 'base_card_edit'):
             self.base_card_edit.setText(config.get("card", {}).get("background", ""))
 
+        # 언어 활성화 상태에 따라 라디오 버튼 표시 업데이트
+        self._update_preview_radio_visibility()
         self._update_screen_preview()
         self._update_card_preview()
 

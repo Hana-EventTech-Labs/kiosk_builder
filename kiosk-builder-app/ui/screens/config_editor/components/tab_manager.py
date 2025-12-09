@@ -79,11 +79,53 @@ class TabManager(QObject):
         # 실시간 업데이트 시그널 연결
         self._connect_real_time_signals()
 
+        # 언어 활성화 시그널 연결 (splash_tab → 다른 탭들)
+        self._connect_language_enabled_signal()
+
+        # 탭 변경 시 미리보기 업데이트 연결
+        self.tab_widget.currentChanged.connect(self._on_tab_changed)
+
+    def _connect_language_enabled_signal(self):
+        """splash_tab의 언어 활성화 시그널을 다른 탭들에 연결"""
+        try:
+            splash_tab = self.tabs['splash']
+            if hasattr(splash_tab, 'language_enabled_changed'):
+                # 언어 활성화 변경 시 다른 탭들의 미리보기 업데이트
+                splash_tab.language_enabled_changed.connect(self._on_language_enabled_changed)
+        except Exception as e:
+            print(f"언어 활성화 시그널 연결 중 오류 발생: {e}")
+
+    def _on_language_enabled_changed(self, enabled: bool):
+        """언어 활성화 상태 변경 시 다른 탭들에 알림"""
+        # 영향 받는 탭들 업데이트 (keyboard 포함)
+        tabs_to_update = ['capture', 'keyboard', 'qr', 'frame', 'processing', 'complete']
+        for tab_name in tabs_to_update:
+            if tab_name in self.tabs:
+                tab = self.tabs[tab_name]
+                # 라디오 버튼 활성화/비활성화 업데이트
+                if hasattr(tab, '_update_preview_radio_visibility'):
+                    tab._update_preview_radio_visibility()
+                # 미리보기 업데이트
+                if hasattr(tab, '_update_screen_preview'):
+                    tab._update_screen_preview()
+
+    def _on_tab_changed(self, index: int):
+        """탭 변경 시 해당 탭의 미리보기를 업데이트"""
+        # 탭 인덱스로 탭 위젯 가져오기
+        current_tab = self.tab_widget.widget(index)
+        if current_tab:
+            # 라디오 버튼 활성화/비활성화 상태 업데이트 (capture_tab)
+            if hasattr(current_tab, '_update_preview_radio_visibility'):
+                current_tab._update_preview_radio_visibility()
+            # 미리보기 업데이트
+            if hasattr(current_tab, '_update_screen_preview'):
+                current_tab._update_screen_preview()
+
     def _connect_real_time_signals(self):
         """실시간 업데이트를 위한 시그널 연결"""
         # 각 탭에서 DraggablePreviewLabel의 position_changed 시그널을 연결
         self._connect_draggable_signals()
-        
+
         # 실시간 업데이트 시그널을 processing_tab의 미리보기 업데이트에 연결
         self.real_time_update_requested.connect(self._update_processing_preview)
 

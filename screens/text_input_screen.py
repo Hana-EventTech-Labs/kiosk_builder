@@ -30,10 +30,18 @@ class TextInputScreen(QWidget):
         self.keyboard = None
         self.background_widget = None  # 배경 위젯 추적을 위한 변수
         self.media_player = None  # 미디어 플레이어 추적을 위한 변수
+        self._background_initialized = False  # 배경 지연 초기화 플래그
         self.setupUI()
-    
+
+    def showEvent(self, event):
+        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        if not self._background_initialized:
+            self.setupBackground()
+            self._background_initialized = True
+        super().showEvent(event)
+
     def setupUI(self):
-        self.setupBackground()
+        # 배경은 showEvent에서 초기화 (언어 선택 후)
         self.addCloseButton()
 
         # 커서 변경 이벤트를 연결할 입력 필드 리스트 초기화

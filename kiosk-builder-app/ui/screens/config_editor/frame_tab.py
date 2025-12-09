@@ -1,12 +1,14 @@
 from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout,
                               QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget, QLabel, QTabWidget,
-                              QDialog, QDialogButtonBox, QFrame)
+                              QDialog, QDialogButtonBox, QFrame, QRadioButton, QButtonGroup)
 from PySide6.QtCore import Qt, QRect, QSize
 from PySide6.QtGui import QColor
 from .base_tab import BaseTab
 from ui.components.inputs import NumberLineEdit
 from ui.components.color_picker import ColorPickerButton
 from ui.components.live_preview import LivePreviewWidget
+from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
+from ui.components.language_preview_tabs import LanguagePreviewTabs
 from ui.components.position_size_input import PositionSizeInput
 from utils.file_handler import FileHandler
 
@@ -22,6 +24,10 @@ class FrameTab(BaseTab):
         self.screen_preview_frame = None
         # 언어별 배경화면 필드
         self.lang_bg_fields = {"ko": {}, "en": {}}
+        # 언어별 미리보기 탭 위젯
+        self.lang_preview_tabs = None
+        # 언어별 미리보기 선택 (라디오 버튼용)
+        self._current_lang_preview = None
         self.init_ui()
 
     def init_ui(self):
@@ -67,6 +73,9 @@ class FrameTab(BaseTab):
         # 기존 프레임 목록 로드
         self.load_frame_list()
 
+        # 라디오 버튼 초기 상태 설정
+        self._update_preview_radio_visibility()
+
         # 초기 미리보기 업데이트
         self._update_screen_preview()
 
@@ -101,22 +110,20 @@ class FrameTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("프레임 영역을 드래그하여 위치 조절")
+        desc = QLabel("프레임 영역을 드래그하여 위치/크기 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_screen = LivePreviewWidget(preview_size=QSize(350, 350))
+        # 단일 미리보기 위젯 + 확대/축소
+        self.screen_preview_screen = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_screen.position_changed.connect(self._on_frame_position_changed)
         self.screen_preview_screen.size_changed.connect(self._on_frame_size_changed)
-        preview_layout.addWidget(self.screen_preview_screen, 0, Qt.AlignCenter)
-
-        hint = QLabel("모서리를 드래그하여 크기 조절")
-        hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
-        preview_layout.addWidget(hint)
+        self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview_screen)
+        preview_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
         right_layout.addWidget(preview_group)
+        right_layout.addStretch()
 
         tab_main_layout.addWidget(right_widget, 1)
 
@@ -256,20 +263,16 @@ class FrameTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("프레임 영역을 드래그하여 위치 조절")
+        desc = QLabel("프레임 영역을 드래그하여 위치 조절 | Ctrl+휠로 확대/축소")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        self.screen_preview_frame = LivePreviewWidget(preview_size=QSize(350, 350))
+        self.screen_preview_frame = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_frame.position_changed.connect(self._on_frame_position_changed)
         self.screen_preview_frame.size_changed.connect(self._on_frame_size_changed)
-        preview_layout.addWidget(self.screen_preview_frame, 0, Qt.AlignCenter)
-
-        hint = QLabel("모서리를 드래그하여 크기 조절")
-        hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color: #7f8c8d; font-size: 10px; font-style: italic;")
-        preview_layout.addWidget(hint)
+        self._zoomable_frame_preview = ZoomablePreviewWidget(self.screen_preview_frame)
+        preview_layout.addWidget(self._zoomable_frame_preview, 0, Qt.AlignCenter)
 
         right_layout.addWidget(preview_group)
 
@@ -371,6 +374,38 @@ class FrameTab(BaseTab):
         en_bg_layout.addWidget(en_reset_btn)
         bg_form.addRow(en_label, en_bg_layout)
 
+        # 구분선
+        from PySide6.QtWidgets import QFrame
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("margin: 8px 0;")
+        bg_form.addRow(separator)
+
+        # 미리보기 언어 선택 라디오 버튼
+        preview_label = QLabel("미리보기:")
+        preview_label.setFixedWidth(LABEL_WIDTH)
+        preview_radio_layout = QHBoxLayout()
+        preview_radio_layout.setSpacing(15)
+
+        self.preview_lang_group = QButtonGroup(self)
+        self.radio_default = QRadioButton("기본")
+        self.radio_ko = QRadioButton("한국어")
+        self.radio_en = QRadioButton("English")
+        self.radio_default.setChecked(True)
+
+        self.preview_lang_group.addButton(self.radio_default, 0)
+        self.preview_lang_group.addButton(self.radio_ko, 1)
+        self.preview_lang_group.addButton(self.radio_en, 2)
+
+        self.preview_lang_group.buttonClicked.connect(self._on_preview_lang_changed)
+
+        preview_radio_layout.addWidget(self.radio_default)
+        preview_radio_layout.addWidget(self.radio_ko)
+        preview_radio_layout.addWidget(self.radio_en)
+        preview_radio_layout.addStretch()
+        bg_form.addRow(preview_label, preview_radio_layout)
+
         parent_layout.addWidget(bg_group)
 
     def _on_browse_background(self):
@@ -445,7 +480,12 @@ class FrameTab(BaseTab):
             self._update_screen_preview()
 
     def _update_screen_preview(self):
-        """화면 미리보기 업데이트 - 모든 탭의 미리보기 동기화"""
+        """화면 미리보기 업데이트 - 단일 미리보기 위젯 사용"""
+        if not self.screen_preview_screen:
+            return
+
+        self.screen_preview_screen.clear_elements()
+
         # 모니터 크기
         try:
             monitor_width = self.config["screen_size"]["width"]
@@ -453,8 +493,20 @@ class FrameTab(BaseTab):
         except KeyError:
             monitor_width, monitor_height = 1080, 1920
 
-        # 배경 이미지 경로
-        bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY)
+        self.screen_preview_screen.set_original_size(monitor_width, monitor_height)
+
+        # 배경 이미지 (언어 활성화 상태에 따라 처리)
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+        if lang_enabled:
+            lang = getattr(self, '_current_lang_preview', "ko")
+            if lang is None:
+                lang = "ko"
+            bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY, lang=lang)
+        else:
+            bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY, lang=None)
+
+        self.screen_preview_screen.set_background(bg_path, QColor("#ffffff"))
+        self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
 
         # 프레임 영역 크기
         try:
@@ -473,16 +525,23 @@ class FrameTab(BaseTab):
         frame_image_name = selected_item.text() if selected_item else None
         frame_image_path = FileHandler.resolve_frame_path(frame_image_name) if frame_image_name else None
 
-        # 2개의 미리보기 위젯 업데이트
-        for preview in [self.screen_preview_screen, self.screen_preview_frame]:
-            if not preview:
-                continue
+        self.screen_preview_screen.add_element(
+            "frame_area",
+            frame_rect,
+            color=QColor("cyan"),
+            image_path=frame_image_path,
+            label="프레임",
+            draggable=True
+        )
 
-            preview.set_original_size(monitor_width, monitor_height)
-            preview.set_background(bg_path, QColor("#ffffff"))
-            preview.set_card_border(True, QColor("#333333"), 2)
+        # 프레임 설정 탭의 미리보기 위젯 업데이트
+        if self.screen_preview_frame:
+            bg_path = FileHandler.resolve_background_path(FRAME_SCREEN_KEY)
+            self.screen_preview_frame.set_original_size(monitor_width, monitor_height)
+            self.screen_preview_frame.set_background(bg_path, QColor("#ffffff"))
+            self.screen_preview_frame.set_card_border(True, QColor("#333333"), 2)
 
-            preview.add_element(
+            self.screen_preview_frame.add_element(
                 "frame_area",
                 frame_rect,
                 color=QColor("cyan"),
@@ -497,6 +556,49 @@ class FrameTab(BaseTab):
         """드래그로 프레임 위치 변경 시 호출"""
         # 프레임 위치는 중앙 정렬 기준이므로 별도 처리 필요 없음
         self.request_real_time_update()
+
+    # ==================== 언어별 미리보기 라디오 버튼 ====================
+    def _on_preview_lang_changed(self, button):
+        """미리보기 언어 변경 시 호출"""
+        if button == self.radio_default:
+            self._current_lang_preview = None
+        elif button == self.radio_ko:
+            self._current_lang_preview = "ko"
+        else:
+            self._current_lang_preview = "en"
+        self._update_screen_preview()
+
+    def _update_preview_radio_visibility(self):
+        """언어 버튼 활성화 상태에 따라 라디오 버튼 활성화/비활성화 (전체 표시 유지)"""
+        lang_enabled = self.config.get("language", {}).get("enabled", False)
+
+        # 모든 라디오 버튼 항상 표시
+        self.radio_default.show()
+        self.radio_ko.show()
+        self.radio_en.show()
+
+        if lang_enabled:
+            # 언어 활성화: 기본 비활성화, 한국어/영어 활성화
+            self.radio_default.setEnabled(False)
+            self.radio_ko.setEnabled(True)
+            self.radio_en.setEnabled(True)
+            # 기본이 선택되어 있으면 한국어로 변경
+            if self.radio_default.isChecked():
+                self.radio_ko.setChecked(True)
+            # 현재 선택된 라디오박스에 맞게 _current_lang_preview 동기화
+            if self.radio_ko.isChecked():
+                self._current_lang_preview = "ko"
+            elif self.radio_en.isChecked():
+                self._current_lang_preview = "en"
+        else:
+            # 언어 비활성화: 기본 활성화, 한국어/영어 비활성화
+            self.radio_default.setEnabled(True)
+            self.radio_ko.setEnabled(False)
+            self.radio_en.setEnabled(False)
+            # 한국어/영어가 선택되어 있으면 기본으로 변경
+            if not self.radio_default.isChecked():
+                self.radio_default.setChecked(True)
+            self._current_lang_preview = None
 
     def _on_frame_size_changed(self, element_id, x, y, width, height):
         """드래그로 프레임 크기 변경 시 호출"""
@@ -620,6 +722,9 @@ class FrameTab(BaseTab):
                     widget.setValue(config["photo_frame"].get(key, 32))
                 else:  # QLineEdit (font)
                     widget.setText(config["photo_frame"].get(key, ""))
+
+        # 언어 활성화 상태에 따라 라디오 버튼 업데이트
+        self._update_preview_radio_visibility()
 
         # 미리보기 업데이트
         self._update_screen_preview()

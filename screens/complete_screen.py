@@ -15,8 +15,16 @@ class CompleteScreen(QWidget):
         self.main_window = main_window
         self.background_widget = None  # 배경 위젯 추적을 위한 변수
         self.media_player = None  # 미디어 플레이어 추적을 위한 변수
+        self._background_initialized = False  # 배경 지연 초기화 플래그
         self.loadCustomFont()
         self.setupUI()
+
+    def showEvent(self, event):
+        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        if not self._background_initialized:
+            self.setupBackground()
+            self._background_initialized = True
+        super().showEvent(event)
 
     def loadCustomFont(self):
         """커스텀 폰트 로드"""
@@ -32,7 +40,7 @@ class CompleteScreen(QWidget):
             self.font_family = "맑은 고딕"  # 폰트 파일이 없을 때 기본 폰트
 
     def setupUI(self):
-        self.setupBackground()
+        # 배경은 showEvent에서 초기화 (언어 선택 후)
         self.addCloseButton()
         layout = QVBoxLayout()
         self.setLayout(layout)
