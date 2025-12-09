@@ -3,7 +3,7 @@ import os
 import sys
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea, QDateTimeEdit)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
 from PySide6.QtCore import Qt, QRect, Signal
 from ui.components.inputs import NumberLineEdit, ModernLineEdit
