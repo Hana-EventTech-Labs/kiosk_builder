@@ -15,7 +15,7 @@ class LoginScreen(QWidget):
         self.auth_manager = AuthManager()
         
         # 창 설정
-        self.setWindowTitle("슈퍼 키오스크 로그인")
+        self.setWindowTitle("슈퍼 키오스크 빌더 - 로그인")
         self.resize(450, 600)
         
         # 아이콘 설정

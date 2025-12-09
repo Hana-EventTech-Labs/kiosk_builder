@@ -38,7 +38,7 @@ class ConfigEditor(QMainWindow):
         self.current_version = get_version()
 
         # 창 위치/크기 설정 저장용
-        self.settings = QSettings("HanaEventTech", "SKProgram")
+        self.settings = QSettings("HanaEventTech", "SuperKioskBuilder")
 
         # 핵심 매니저들 초기화
         self.config_manager = ConfigManager.get_instance()
@@ -71,7 +71,7 @@ class ConfigEditor(QMainWindow):
 
     def init_ui(self):
         """UI 초기화"""
-        self.setWindowTitle(f"S.K Program - 설정 편집기 v{self.current_version}")
+        self.setWindowTitle(f"슈퍼 키오스크 빌더 v{self.current_version}")
         self.setMinimumSize(1300, 950)
         
         # 스타일 적용

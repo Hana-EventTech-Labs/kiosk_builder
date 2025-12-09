@@ -23,7 +23,7 @@ class SingleApplication(QApplication):
         is_running = socket.waitForConnected(500)
 
         if is_running:
-            QMessageBox.warning(None, "이미 실행 중", "슈퍼 키오스크 프로그램이 이미 실행 중입니다.")
+            QMessageBox.warning(None, "이미 실행 중", "슈퍼 키오스크 빌더가 이미 실행 중입니다.")
             sys.exit(0)
         else:
             self.server = QLocalServer()
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         app.setWindowIcon(QIcon(icon_path))
     
     # 애플리케이션 이름 설정 (작업 표시줄에 표시됨)
-    app.setApplicationName("슈퍼 키오스크")
+    app.setApplicationName("슈퍼 키오스크 빌더")
 
     login_window = LoginScreen(on_login_success=show_settings_window)
     

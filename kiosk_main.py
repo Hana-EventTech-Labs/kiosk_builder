@@ -42,7 +42,7 @@ def main():
     window = KioskApp()
     
     # 윈도우 제목에 버전 정보 추가
-    window.setWindowTitle(f"Super Kiosk v{get_version()}")
+    window.setWindowTitle(f"슈퍼 키오스크 v{get_version()}")
     
     window.show()
     

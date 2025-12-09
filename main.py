@@ -29,7 +29,7 @@ class SingleApplication(QApplication):
         
         if is_running:
             # 이미 실행 중인 경우
-            QMessageBox.warning(None, "이미 실행 중", "키오스크 프로그램이 이미 실행 중입니다.")
+            QMessageBox.warning(None, "이미 실행 중", "슈퍼 키오스크가 이미 실행 중입니다.")
             sys.exit(0)
         else:
             # 새로운 인스턴스인 경우, 서버 생성
