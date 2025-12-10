@@ -99,24 +99,7 @@ class QRTab(BaseTab):
 
         # QR 코드 화면 위치 설정
         qr_group = QGroupBox("📊 QR 코드 화면 위치")
-        qr_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                color: #00bcd4;
-                border: 2px solid #00bcd4;
-                border-radius: 8px;
-                margin-top: 12px;
-                padding: 8px;
-                background-color: #f0fcff;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 2px 8px;
-                background-color: white;
-                border-radius: 4px;
-            }
-        """)
+        self.apply_left_aligned_group_style(qr_group)
         qr_inner = QHBoxLayout(qr_group)
         qr_inner.setContentsMargins(12, 16, 12, 12)
         qr_inner.setSpacing(16)
@@ -147,7 +130,7 @@ class QRTab(BaseTab):
         ]
         qr_btn_style = """
             QPushButton {
-                background-color: #00bcd4;
+                background-color: #2196F3;
                 color: white;
                 border: none;
                 border-radius: 4px;
@@ -156,8 +139,8 @@ class QRTab(BaseTab):
                 padding: 8px 12px;
                 min-width: 60px;
             }
-            QPushButton:hover { background-color: #26c6da; }
-            QPushButton:pressed { background-color: #0097a7; }
+            QPushButton:hover { background-color: #1e88e5; }
+            QPushButton:pressed { background-color: #1565c0; }
         """
         for i, (text, callback, tooltip) in enumerate(qr_btns):
             btn = QPushButton(text)

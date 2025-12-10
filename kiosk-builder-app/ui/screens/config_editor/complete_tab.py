@@ -49,6 +49,7 @@ class CompleteTab(BaseTab):
             QTabBar::tab:selected {
                 background: #2196F3;
                 color: white;
+                border-bottom-color: white;
             }
             QTabBar::tab:hover:!selected {
                 background: #f8f8f8;

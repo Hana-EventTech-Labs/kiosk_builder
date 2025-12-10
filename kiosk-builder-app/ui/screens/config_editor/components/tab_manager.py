@@ -40,7 +40,7 @@ class TabManager(QObject):
         
         self.tabs['basic'] = BasicTab(config)
         self.tabs['basic'].config_changed.connect(self.on_config_changed_from_tab)
-        self.tabs['basic'].screen_order_changed.connect(self.update_tab_enabled_states)
+        self.tabs['basic'].screen_order_changed.connect(self._on_screen_order_changed)
         # BasicTab에 tab_manager 참조 설정
         if hasattr(self.tabs['basic'], 'set_tab_manager'):
             self.tabs['basic'].set_tab_manager(self)
@@ -219,6 +219,13 @@ class TabManager(QObject):
         """특정 탭에서 config가 변경되었을 때 호출되는 슬롯"""
         self.update_ui_from_config(self.main_window.config)
 
+    def _on_screen_order_changed(self):
+        """screen_order 변경 시 탭 활성화 상태와 카드 미리보기 업데이트"""
+        self.update_tab_enabled_states()
+        # 카드 미리보기 업데이트
+        if hasattr(self.main_window, 'update_card_preview'):
+            self.main_window.update_card_preview()
+
     def update_tab_enabled_states(self):
         """화면 순서에 따라 탭 활성화/비활성화"""
         try:
@@ -229,7 +236,7 @@ class TabManager(QObject):
                 for cb in basic_tab.screen_order_checkboxes
                 if cb.isChecked()
             ])
-            
+
             # 탭 인덱스 매핑 (기존 유지)
             # 0: 스플래쉬, 1: 촬영, 2: 키보드, 3: QR, 4: 프레임, 5: 발급중, 6: 완료
             tab_mapping = {
@@ -245,7 +252,7 @@ class TabManager(QObject):
             # 모든 화면 탭 비활성화
             for tab in tab_mapping.values():
                 self.tab_widget.setTabEnabled(self.tab_widget.indexOf(tab), False)
-            
+
             # screen_order에 있는 탭만 활성화
             for screen_index in screen_order:
                 if screen_index in tab_mapping:
@@ -254,15 +261,15 @@ class TabManager(QObject):
 
             # 기본 탭은 항상 활성화
             self.tab_widget.setTabEnabled(self.tab_widget.indexOf(self.tabs['basic']), True)
-            
+
             # 스타일 업데이트
             self.tab_widget.setStyleSheet(self.tab_widget.styleSheet())
-            
+
             # 상태 바 업데이트
             self.main_window.statusBar().showMessage(
                 f"화면 순서가 업데이트되었습니다: {', '.join(map(str, screen_order))}"
             )
-            
+
         except Exception as e:
             print(f"탭 활성화 상태 업데이트 중 오류 발생: {e}")
             # 오류 발생 시 모든 탭 활성화 (안전 조치)

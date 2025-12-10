@@ -7,16 +7,29 @@
 - 사용자 입력 텍스트 (키보드 화면) - 실제 폰트/색상/크기 렌더링
 - 고정 텍스트 (키보드 화면) - 실제 폰트/색상/크기 렌더링
 - 기본 이미지들 (기본 설정) - 실제 이미지 렌더링
+
+v2.0 개선사항:
+- 카드 그림자 효과 및 둥근 모서리
+- mm/DPI 정보 표시
+- 줌 슬라이더 (25%~200%)
+- 레이어별 표시/숨기기 토글
+- PNG 이미지 내보내기
 """
 import os
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QCheckBox, QWidget, QSizeGrip, QFrame
+    QCheckBox, QWidget, QSizeGrip, QFrame, QSlider, QScrollArea,
+    QFileDialog, QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt, QSize, QTimer, Signal, QRect
-from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QFont, QFontMetrics, QFontDatabase, QBrush
+from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QFont, QFontMetrics, QFontDatabase, QBrush, QPainterPath
 from ui.styles.colors import COLORS
 from utils.file_handler import get_resources_base_path
+
+# 인쇄 관련 상수
+PRINT_DPI = 300  # 표준 인쇄 DPI
+MM_PER_INCH = 25.4
+CARD_CORNER_RADIUS = 12  # 카드 모서리 둥글기 (px)
 
 
 class FloatingCardPreviewDialog(QDialog):
@@ -28,6 +41,9 @@ class FloatingCardPreviewDialog(QDialog):
     - 실시간 업데이트
     - 리사이즈 가능
     - 드래그로 이동 가능
+    - 줌 슬라이더 (25%~200%)
+    - 레이어별 표시/숨기기
+    - PNG 내보내기
     """
 
     # 다이얼로그가 닫힐 때 시그널
@@ -38,9 +54,21 @@ class FloatingCardPreviewDialog(QDialog):
         self.config = config
         self._drag_pos = None
 
+        # 줌 레벨 (100% = 1.0)
+        self._zoom_level = 100
+
+        # 레이어 표시 상태
+        self._show_photo = True
+        self._show_text = True
+        self._show_qr = True
+        self._show_images = True
+
+        # 현재 카드 픽스맵 (내보내기용)
+        self._current_card_pixmap = None
+
         self.setWindowTitle("최종 카드 미리보기")
-        self.setMinimumSize(350, 450)
-        self.resize(400, 550)
+        self.setMinimumSize(420, 600)
+        self.resize(480, 700)
 
         # 프레임리스 윈도우 + 항상 위 옵션
         self.setWindowFlags(
@@ -67,6 +95,12 @@ class FloatingCardPreviewDialog(QDialog):
         # 미리보기 영역
         self._create_preview_area(layout)
 
+        # 줌 컨트롤
+        self._create_zoom_control(layout)
+
+        # 레이어 토글
+        self._create_layer_controls(layout)
+
         # 푸터 (옵션 + 리사이즈 그립)
         self._create_footer(layout)
 
@@ -79,8 +113,8 @@ class FloatingCardPreviewDialog(QDialog):
         header_layout.setContentsMargins(12, 0, 8, 0)
         header_layout.setSpacing(8)
 
-        # 아이콘 + 타이틀
-        title_label = QLabel("🖼️ 최종 카드 미리보기")
+        # 타이틀
+        title_label = QLabel("최종 카드 미리보기")
         title_label.setStyleSheet("""
             font-size: 13px;
             font-weight: bold;
@@ -121,33 +155,224 @@ class FloatingCardPreviewDialog(QDialog):
         preview_container = QWidget()
         preview_container.setObjectName("previewContainer")
         preview_layout = QVBoxLayout(preview_container)
-        preview_layout.setContentsMargins(12, 12, 12, 8)
+        preview_layout.setContentsMargins(16, 16, 16, 8)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        # 미리보기 라벨
+        # 스크롤 영역 (줌 시 스크롤 가능)
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setAlignment(Qt.AlignCenter)
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                background-color: #e9ecef;
+                border: none;
+                border-radius: 8px;
+            }
+            QScrollBar:vertical, QScrollBar:horizontal {
+                background: #f0f0f0;
+                width: 8px;
+                height: 8px;
+            }
+            QScrollBar::handle {
+                background: #ccc;
+                border-radius: 4px;
+            }
+        """)
+
+        # 미리보기 라벨 (카드 이미지)
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setMinimumSize(300, 350)
-        self.preview_label.setStyleSheet("""
-            background-color: #f8f9fa;
-            border: 2px solid #dee2e6;
-            border-radius: 4px;
-        """)
-        preview_layout.addWidget(self.preview_label, 1)
+
+        # 그림자 효과 추가
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(25)
+        shadow.setXOffset(0)
+        shadow.setYOffset(8)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        self.preview_label.setGraphicsEffect(shadow)
+
+        self.scroll_area.setWidget(self.preview_label)
+        preview_layout.addWidget(self.scroll_area, 1)
 
         parent_layout.addWidget(preview_container, 1)
+
+    def _create_zoom_control(self, parent_layout):
+        """줌 컨트롤 생성"""
+        zoom_container = QWidget()
+        zoom_container.setObjectName("zoomContainer")
+        zoom_container.setFixedHeight(36)
+        zoom_layout = QHBoxLayout(zoom_container)
+        zoom_layout.setContentsMargins(12, 4, 12, 4)
+        zoom_layout.setSpacing(8)
+
+        # 줌 라벨
+        zoom_icon = QLabel("확대:")
+        zoom_icon.setStyleSheet("font-size: 11px; color: #666;")
+        zoom_layout.addWidget(zoom_icon)
+
+        # 축소 버튼
+        zoom_out_btn = QPushButton("−")
+        zoom_out_btn.setFixedSize(24, 24)
+        zoom_out_btn.setStyleSheet("""
+            QPushButton {
+                background: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background: #e0e0e0; }
+        """)
+        zoom_out_btn.clicked.connect(lambda: self._change_zoom(-25))
+        zoom_layout.addWidget(zoom_out_btn)
+
+        # 줌 슬라이더
+        self.zoom_slider = QSlider(Qt.Horizontal)
+        self.zoom_slider.setMinimum(25)
+        self.zoom_slider.setMaximum(200)
+        self.zoom_slider.setValue(100)
+        self.zoom_slider.setTickInterval(25)
+        self.zoom_slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 4px;
+                background: #ddd;
+                border-radius: 2px;
+            }
+            QSlider::handle:horizontal {
+                width: 14px;
+                height: 14px;
+                margin: -5px 0;
+                background: #2196F3;
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #1976D2;
+            }
+        """)
+        self.zoom_slider.valueChanged.connect(self._on_zoom_changed)
+        zoom_layout.addWidget(self.zoom_slider, 1)
+
+        # 확대 버튼
+        zoom_in_btn = QPushButton("+")
+        zoom_in_btn.setFixedSize(24, 24)
+        zoom_in_btn.setStyleSheet("""
+            QPushButton {
+                background: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background: #e0e0e0; }
+        """)
+        zoom_in_btn.clicked.connect(lambda: self._change_zoom(25))
+        zoom_layout.addWidget(zoom_in_btn)
+
+        # 줌 퍼센트 표시
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setFixedWidth(45)
+        self.zoom_label.setAlignment(Qt.AlignCenter)
+        self.zoom_label.setStyleSheet("color: #666; font-size: 11px; font-weight: bold;")
+        zoom_layout.addWidget(self.zoom_label)
+
+        # 100% 리셋 버튼
+        reset_btn = QPushButton("1:1")
+        reset_btn.setFixedSize(32, 24)
+        reset_btn.setStyleSheet("""
+            QPushButton {
+                background: #f8f9fa;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 10px;
+            }
+            QPushButton:hover { background: #e9ecef; }
+        """)
+        reset_btn.clicked.connect(lambda: self.zoom_slider.setValue(100))
+        zoom_layout.addWidget(reset_btn)
+
+        parent_layout.addWidget(zoom_container)
+
+    def _create_layer_controls(self, parent_layout):
+        """레이어 토글 컨트롤 생성"""
+        layer_container = QWidget()
+        layer_container.setObjectName("layerContainer")
+        layer_container.setFixedHeight(32)
+        layer_layout = QHBoxLayout(layer_container)
+        layer_layout.setContentsMargins(12, 2, 12, 2)
+        layer_layout.setSpacing(12)
+
+        # 레이어 라벨
+        layer_label = QLabel("레이어:")
+        layer_label.setStyleSheet("color: #666; font-size: 11px;")
+        layer_layout.addWidget(layer_label)
+
+        # 체크박스 스타일
+        cb_style = """
+            QCheckBox {
+                color: #555;
+                font-size: 11px;
+                spacing: 4px;
+            }
+            QCheckBox::indicator {
+                width: 14px;
+                height: 14px;
+                border-radius: 3px;
+                border: 1px solid #ccc;
+            }
+            QCheckBox::indicator:checked {
+                background: #2196F3;
+                border-color: #2196F3;
+            }
+        """
+
+        # 사진 레이어
+        self.cb_photo = QCheckBox("사진")
+        self.cb_photo.setChecked(True)
+        self.cb_photo.setStyleSheet(cb_style)
+        self.cb_photo.toggled.connect(lambda c: self._toggle_layer('photo', c))
+        layer_layout.addWidget(self.cb_photo)
+
+        # 텍스트 레이어
+        self.cb_text = QCheckBox("텍스트")
+        self.cb_text.setChecked(True)
+        self.cb_text.setStyleSheet(cb_style)
+        self.cb_text.toggled.connect(lambda c: self._toggle_layer('text', c))
+        layer_layout.addWidget(self.cb_text)
+
+        # QR/이미지 레이어
+        self.cb_qr = QCheckBox("QR")
+        self.cb_qr.setChecked(True)
+        self.cb_qr.setStyleSheet(cb_style)
+        self.cb_qr.toggled.connect(lambda c: self._toggle_layer('qr', c))
+        layer_layout.addWidget(self.cb_qr)
+
+        # 기본 이미지 레이어
+        self.cb_images = QCheckBox("이미지")
+        self.cb_images.setChecked(True)
+        self.cb_images.setStyleSheet(cb_style)
+        self.cb_images.toggled.connect(lambda c: self._toggle_layer('images', c))
+        layer_layout.addWidget(self.cb_images)
+
+        layer_layout.addStretch()
+
+        parent_layout.addWidget(layer_container)
 
     def _create_footer(self, parent_layout):
         """푸터 영역 생성 (옵션 + 정보)"""
         footer = QWidget()
         footer.setObjectName("dialogFooter")
-        footer.setFixedHeight(36)
-        footer_layout = QHBoxLayout(footer)
-        footer_layout.setContentsMargins(12, 0, 4, 4)
-        footer_layout.setSpacing(8)
+        footer.setFixedHeight(56)  # 높이 증가
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(12, 4, 8, 4)
+        footer_layout.setSpacing(4)
+
+        # 상단 행: 옵션들
+        top_row = QHBoxLayout()
+        top_row.setSpacing(12)
 
         # 항상 위에 표시 체크박스
-        self.always_on_top_check = QCheckBox("항상 위에 표시")
+        self.always_on_top_check = QCheckBox("항상 위에")
         self.always_on_top_check.setChecked(True)
         self.always_on_top_check.setStyleSheet("""
             QCheckBox {
@@ -160,19 +385,52 @@ class FloatingCardPreviewDialog(QDialog):
             }
         """)
         self.always_on_top_check.toggled.connect(self._toggle_always_on_top)
-        footer_layout.addWidget(self.always_on_top_check)
+        top_row.addWidget(self.always_on_top_check)
 
-        footer_layout.addStretch()
+        top_row.addStretch()
 
-        # 카드 크기 정보
-        self.size_info_label = QLabel("636 × 1012 px")
-        self.size_info_label.setStyleSheet("color: #999; font-size: 10px;")
-        footer_layout.addWidget(self.size_info_label)
+        # 이미지 저장 버튼
+        self.export_btn = QPushButton("이미지 저장")
+        self.export_btn.setFixedHeight(26)
+        self.export_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {COLORS['success']};
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 4px 12px;
+                font-size: 11px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #27ae60;
+            }}
+            QPushButton:pressed {{
+                background-color: #219a52;
+            }}
+        """)
+        self.export_btn.clicked.connect(self._export_image)
+        top_row.addWidget(self.export_btn)
+
+        footer_layout.addLayout(top_row)
+
+        # 하단 행: 크기 정보
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(8)
+
+        # 카드 크기 정보 (mm + px + DPI)
+        self.size_info_label = QLabel("63.6 × 101.2 mm | 636 × 1012 px | 254 DPI")
+        self.size_info_label.setStyleSheet("color: #888; font-size: 10px;")
+        bottom_row.addWidget(self.size_info_label)
+
+        bottom_row.addStretch()
 
         # 리사이즈 그립
         size_grip = QSizeGrip(self)
         size_grip.setFixedSize(16, 16)
-        footer_layout.addWidget(size_grip)
+        bottom_row.addWidget(size_grip)
+
+        footer_layout.addLayout(bottom_row)
 
         parent_layout.addWidget(footer)
 
@@ -190,7 +448,15 @@ class FloatingCardPreviewDialog(QDialog):
                 border-top-right-radius: 7px;
             }}
             #previewContainer {{
-                background-color: white;
+                background-color: #f0f0f0;
+            }}
+            #zoomContainer {{
+                background-color: #f8f9fa;
+                border-top: 1px solid #e9ecef;
+            }}
+            #layerContainer {{
+                background-color: #f8f9fa;
+                border-top: 1px solid #e9ecef;
             }}
             #dialogFooter {{
                 background-color: #f8f9fa;
@@ -224,6 +490,49 @@ class FloatingCardPreviewDialog(QDialog):
         self.setWindowFlags(flags)
         self.show()  # 플래그 변경 후 다시 표시
 
+    def _toggle_layer(self, layer_name, checked):
+        """레이어 표시 토글"""
+        if layer_name == 'photo':
+            self._show_photo = checked
+        elif layer_name == 'text':
+            self._show_text = checked
+        elif layer_name == 'qr':
+            self._show_qr = checked
+        elif layer_name == 'images':
+            self._show_images = checked
+        self.update_preview()
+
+    def _on_zoom_changed(self, value):
+        """줌 슬라이더 값 변경"""
+        self._zoom_level = value
+        self.zoom_label.setText(f"{value}%")
+        self.update_preview()
+
+    def _change_zoom(self, delta):
+        """줌 레벨 변경 (+/- 버튼용)"""
+        new_value = max(25, min(200, self._zoom_level + delta))
+        self.zoom_slider.setValue(new_value)
+
+    def _export_image(self):
+        """현재 미리보기를 PNG 이미지로 저장"""
+        if self._current_card_pixmap is None:
+            return
+
+        # 파일 저장 다이얼로그
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "카드 미리보기 이미지 저장",
+            "card_preview.png",
+            "PNG 이미지 (*.png);;JPEG 이미지 (*.jpg);;모든 파일 (*.*)"
+        )
+
+        if file_path:
+            # 확장자에 따라 포맷 결정
+            if file_path.lower().endswith('.jpg') or file_path.lower().endswith('.jpeg'):
+                self._current_card_pixmap.save(file_path, "JPEG", 95)
+            else:
+                self._current_card_pixmap.save(file_path, "PNG")
+
     def update_config(self, config):
         """설정 업데이트 및 미리보기 갱신"""
         self.config = config
@@ -239,67 +548,89 @@ class FloatingCardPreviewDialog(QDialog):
         card_width = 636 if is_portrait else 1012
         card_height = 1012 if is_portrait else 636
 
-        # 크기 정보 업데이트
-        self.size_info_label.setText(f"{card_width} × {card_height} px")
+        # mm 크기 계산 (254 DPI 기준)
+        mm_width = round(card_width / PRINT_DPI * MM_PER_INCH, 1)
+        mm_height = round(card_height / PRINT_DPI * MM_PER_INCH, 1)
 
-        # 카드 배경 생성
+        # 크기 정보 업데이트 (mm + px + DPI)
+        self.size_info_label.setText(f"{mm_width} × {mm_height} mm | {card_width} × {card_height} px | {PRINT_DPI} DPI")
+
+        # 카드 배경 생성 (둥근 모서리를 위해 투명 배경으로 시작)
         card_pixmap = QPixmap(card_width, card_height)
+        card_pixmap.fill(Qt.transparent)
+
+        painter = QPainter(card_pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+        # 둥근 모서리 클리핑 경로 생성
+        card_path = QPainterPath()
+        card_path.addRoundedRect(0, 0, card_width, card_height, CARD_CORNER_RADIUS, CARD_CORNER_RADIUS)
+        painter.setClipPath(card_path)
 
         # 베이스 카드 이미지가 있으면 로드
         base_card_path = self.config.get("card", {}).get("background", "")
-        if base_card_path:
-            import os
-            if os.path.exists(base_card_path):
-                base_pixmap = QPixmap(base_card_path)
-                if not base_pixmap.isNull():
-                    card_pixmap = base_pixmap.scaled(
-                        card_width, card_height,
-                        Qt.KeepAspectRatio, Qt.SmoothTransformation
-                    )
-                else:
-                    card_pixmap.fill(Qt.white)
+        if base_card_path and os.path.exists(base_card_path):
+            base_pixmap = QPixmap(base_card_path)
+            if not base_pixmap.isNull():
+                scaled_base = base_pixmap.scaled(
+                    card_width, card_height,
+                    Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+                )
+                # 중앙 정렬
+                x_offset = (scaled_base.width() - card_width) // 2
+                y_offset = (scaled_base.height() - card_height) // 2
+                painter.drawPixmap(-x_offset, -y_offset, scaled_base)
             else:
-                card_pixmap.fill(Qt.white)
+                painter.fillRect(0, 0, card_width, card_height, Qt.white)
         else:
-            card_pixmap.fill(Qt.white)
-
-        painter = QPainter(card_pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
+            painter.fillRect(0, 0, card_width, card_height, Qt.white)
 
         # 화면 순서 확인
         screen_order = self.config.get("screen_order", [])
 
         # 1. 촬영 사진 영역
-        if 1 in screen_order:
+        if 1 in screen_order and self._show_photo:
             self._draw_photo_area(painter)
 
         # 2. 텍스트 영역 (키보드 화면)
-        if 2 in screen_order:
+        if 2 in screen_order and self._show_text:
             self._draw_text_areas(painter)
 
         # 3. QR 이미지 영역
-        if 3 in screen_order:
+        if 3 in screen_order and self._show_qr:
             self._draw_qr_area(painter)
 
         # 4. 기본 이미지들
-        self._draw_basic_images(painter)
+        if self._show_images:
+            self._draw_basic_images(painter)
 
-        # 5. 카드 테두리
-        border_pen = QPen(QColor("#333333"), 3, Qt.SolidLine)
+        # 5. 카드 테두리 (둥근 모서리)
+        painter.setClipping(False)
+        border_pen = QPen(QColor("#aaaaaa"), 2, Qt.SolidLine)
         painter.setPen(border_pen)
         painter.setBrush(Qt.NoBrush)
-        painter.drawRect(1, 1, card_width - 3, card_height - 3)
+        painter.drawRoundedRect(1, 1, card_width - 2, card_height - 2, CARD_CORNER_RADIUS, CARD_CORNER_RADIUS)
 
         painter.end()
 
-        # 미리보기 라벨 크기에 맞게 스케일
-        label_size = self.preview_label.size()
+        # 내보내기용 원본 저장
+        self._current_card_pixmap = card_pixmap
+
+        # 줌 레벨 적용
+        zoom_factor = self._zoom_level / 100.0
+        display_width = int(card_width * zoom_factor * 0.4)  # 기본 40% 크기에서 줌
+        display_height = int(card_height * zoom_factor * 0.4)
+
         scaled_pixmap = card_pixmap.scaled(
-            label_size.width() - 4,
-            label_size.height() - 4,
+            display_width,
+            display_height,
             Qt.KeepAspectRatio,
             Qt.SmoothTransformation
         )
+
+        # 라벨 크기 조정 및 픽스맵 설정
+        self.preview_label.setFixedSize(scaled_pixmap.size())
         self.preview_label.setPixmap(scaled_pixmap)
 
     def _draw_photo_area(self, painter):

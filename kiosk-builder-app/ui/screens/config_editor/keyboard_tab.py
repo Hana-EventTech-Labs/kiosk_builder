@@ -56,8 +56,8 @@ class KeyboardTab(BaseTab):
             }
             QTabBar::tab {
                 background: #ffffff;
-                color: #666;
-                padding: 8px 20px;
+                border: 1px solid #ccc;
+                padding: 8px 16px;
                 margin-right: 2px;
                 border-top-left-radius: 4px;
                 border-top-right-radius: 4px;
@@ -65,7 +65,7 @@ class KeyboardTab(BaseTab):
             QTabBar::tab:selected {
                 background: #2196F3;
                 color: white;
-                font-weight: bold;
+                border-bottom-color: white;
             }
             QTabBar::tab:hover:!selected {
                 background: #f8f8f8;
@@ -501,14 +501,37 @@ class KeyboardTab(BaseTab):
         settings_layout = QVBoxLayout(settings_widget)
         settings_layout.setSpacing(15)
 
-        # 1. 사용자 입력 텍스트 인쇄 설정
-        user_input_group = QGroupBox("사용자 입력 텍스트 (입력창에서 입력받은 내용)")
-        self.apply_left_aligned_group_style(user_input_group)
+        # 1. 키보드 입력 텍스트 인쇄 (사용자가 키오스크에서 직접 타이핑)
+        user_input_group = QGroupBox("키보드 입력 텍스트 인쇄")
+        user_input_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 2px solid #2196F3;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 8px;
+                background-color: #f8fbff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 8px;
+                color: #1976D2;
+                background-color: white;
+            }
+        """)
         user_input_layout = QVBoxLayout(user_input_group)
 
+        # 설명 문구
+        desc_label = QLabel("키오스크에서 사용자가 직접 입력한 텍스트가 카드에 인쇄됩니다.\n(예: 이름, 메시지 등)")
+        desc_label.setStyleSheet("color: #1565C0; font-size: 11px; background: transparent; padding: 4px 8px; border-radius: 4px;")
+        desc_label.setWordWrap(True)
+        user_input_layout.addWidget(desc_label)
+
         # 안내 문구
-        info_label = QLabel("※ 입력창 개수는 [화면 설정] 탭에서 설정합니다. 여기서는 카드에 인쇄될 위치를 설정합니다.")
-        info_label.setStyleSheet("color: #666; font-style: italic;")
+        info_label = QLabel("※ 입력창 개수는 [화면 설정] 탭에서 설정합니다.")
+        info_label.setStyleSheet("color: #666; font-style: italic; background: transparent;")
         info_label.setWordWrap(True)
         user_input_layout.addWidget(info_label)
 
@@ -521,14 +544,43 @@ class KeyboardTab(BaseTab):
 
         settings_layout.addWidget(user_input_group)
 
-        # 2. 고정 텍스트 설정
-        fixed_text_group = QGroupBox("고정 텍스트 (항상 인쇄되는 텍스트)")
-        self.apply_left_aligned_group_style(fixed_text_group)
+        # 2. 고정 텍스트 인쇄 설정
+        fixed_text_group = QGroupBox("고정 텍스트 인쇄")
+        fixed_text_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 2px solid #4CAF50;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 8px;
+                background-color: #f8fff8;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px;
+                color: #2E7D32;
+                background-color: #f8fff8;
+            }
+        """)
         fixed_text_layout = QVBoxLayout(fixed_text_group)
+
+        # 설명 라벨 추가
+        fixed_desc_label = QLabel("모든 카드에 동일하게 인쇄되는 고정 문구입니다.\n(예: 행사명, 날짜, 회사 로고 텍스트 등)")
+        fixed_desc_label.setStyleSheet("""
+            color: #2E7D32;
+            font-size: 11px;
+            padding: 4px 8px;
+            background-color: #E8F5E9;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        """)
+        fixed_text_layout.addWidget(fixed_desc_label)
 
         # 고정 텍스트 개수
         count_layout = QHBoxLayout()
-        count_layout.addWidget(QLabel("고정 텍스트 개수:"))
+        count_layout.addWidget(QLabel("인쇄할 고정 텍스트 개수:"))
         self.text_count_spinbox = QSpinBox()
         self.text_count_spinbox.setRange(0, 10)
         self.text_count_spinbox.setValue(self.config["texts"]["count"])

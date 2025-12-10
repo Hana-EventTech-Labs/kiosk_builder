@@ -3,9 +3,9 @@ import os
 import sys
 import shutil
 from PySide6.QtWidgets import (QWidget, QGroupBox, QVBoxLayout, QHBoxLayout, QFormLayout,
-                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea, QDateTimeEdit)
+                             QLabel, QLineEdit, QComboBox, QPushButton, QSpinBox, QRadioButton, QCheckBox, QGridLayout, QFileDialog, QFrame, QMessageBox, QSplitter, QTabWidget, QScrollArea, QDateTimeEdit, QProgressBar, QTextEdit)
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen
-from PySide6.QtCore import Qt, QRect, Signal
+from PySide6.QtCore import Qt, QRect, Signal, QDateTime, QThread
 from ui.components.inputs import NumberLineEdit, ModernLineEdit
 from ui.components.collapsible_group import CollapsibleGroupBox
 from ui.components.position_size_input import PositionSizeInput
@@ -13,6 +13,35 @@ from utils.file_handler import FileHandler, get_resources_base_path
 from .base_tab import BaseTab
 from ui.components.preview_label import DraggablePreviewLabel
 from utils.printer_thread import PrinterThread
+from api_client import register_event_with_resources
+
+
+class UploadWorker(QThread):
+    """서버 등록 및 리소스 업로드를 백그라운드에서 처리하는 워커"""
+    progress = Signal(int, str)  # percent, message
+    finished = Signal(bool, dict)  # success, result
+
+    def __init__(self, event_name, kiosk_count, expired_at, config, resources_dir):
+        super().__init__()
+        self.event_name = event_name
+        self.kiosk_count = kiosk_count
+        self.expired_at = expired_at
+        self.config = config
+        self.resources_dir = resources_dir
+
+    def run(self):
+        success, result = register_event_with_resources(
+            event_name=self.event_name,
+            kiosk_count=self.kiosk_count,
+            expired_at=self.expired_at,
+            config=self.config,
+            resources_dir=self.resources_dir,
+            progress_callback=self._on_progress
+        )
+        self.finished.emit(success, result)
+
+    def _on_progress(self, percent, message):
+        self.progress.emit(percent, message)
 
 
 class BasicTab(BaseTab):
