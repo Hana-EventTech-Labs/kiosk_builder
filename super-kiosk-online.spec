@@ -14,6 +14,9 @@ a = Analysis(
         # 온라인 모드: resources 폴더 제외 (런타임에 다운로드)
         # ('resources', 'resources'),  # 제외!
 
+        # 프린터 DLL은 필수 포함
+        ('resources/SmartComm2.dll', 'resources'),
+
         # 코드 모듈만 포함
         ('screens', 'screens'),
         ('components', 'components'),
