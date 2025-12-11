@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QGroupBox, QFormLayout, QHBoxLayout, QVBoxLayout,
                               QLineEdit, QPushButton, QListWidget, QListWidgetItem, QWidget, QLabel, QTabWidget,
-                              QDialog, QDialogButtonBox, QFrame, QRadioButton, QButtonGroup, QScrollArea, QGridLayout)
+                              QDialog, QDialogButtonBox, QFrame, QRadioButton, QButtonGroup, QScrollArea, QGridLayout,
+                              QComboBox)
 from PySide6.QtCore import Qt, QRect, QSize
 from PySide6.QtGui import QColor, QPixmap
 from .base_tab import BaseTab
@@ -15,6 +16,14 @@ import os
 
 # 프레임 선택 화면 screen_key = "4"
 FRAME_SCREEN_KEY = "4"
+
+# 레이아웃 스타일 옵션
+LAYOUT_STYLES = {
+    "classic": "클래식 (좌우 분할)",
+    "carousel": "캐러셀 (하단 슬라이더)",
+    "fullscreen": "풀스크린 갤러리",
+    "grid_overlay": "그리드 오버레이"
+}
 
 
 class FrameTab(BaseTab):
@@ -103,6 +112,9 @@ class FrameTab(BaseTab):
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(12)
+
+        # 레이아웃 스타일 선택
+        self._init_layout_style_settings(left_layout)
 
         self._init_background_settings(left_layout)
         left_layout.addStretch()
@@ -419,6 +431,118 @@ class FrameTab(BaseTab):
         self.sub_tabs.addTab(tab_widget, "인쇄 설정")
 
     # ═══════════════════════════════════════════════════════════════
+    # 레이아웃 스타일 설정
+    # ═══════════════════════════════════════════════════════════════
+    def _init_layout_style_settings(self, parent_layout):
+        """레이아웃 스타일 선택 그룹"""
+        layout_group = QGroupBox("화면 레이아웃 스타일")
+        layout_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 2px solid #3498db;
+                border-radius: 8px;
+                margin-top: 12px;
+                padding-top: 8px;
+                background-color: #f8fbff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 8px;
+                color: #2980b9;
+                background-color: #f8fbff;
+            }
+        """)
+        layout_form = QVBoxLayout(layout_group)
+        layout_form.setSpacing(10)
+
+        # 설명
+        desc_label = QLabel("키오스크에서 테두리 선택 화면의 레이아웃 스타일을 선택합니다.")
+        desc_label.setStyleSheet("""
+            color: #2980b9;
+            font-size: 11px;
+            padding: 4px 8px;
+            background-color: #EBF5FB;
+            border-radius: 4px;
+            font-weight: normal;
+        """)
+        desc_label.setWordWrap(True)
+        layout_form.addWidget(desc_label)
+
+        # 드롭다운
+        style_row = QHBoxLayout()
+        style_label = QLabel("스타일:")
+        style_label.setStyleSheet("font-weight: bold; color: #555;")
+        style_label.setFixedWidth(60)
+        style_row.addWidget(style_label)
+
+        self.layout_style_combo = QComboBox()
+        self.layout_style_combo.setStyleSheet("""
+            QComboBox {
+                padding: 6px 10px;
+                border: 1px solid #3498db;
+                border-radius: 4px;
+                background-color: white;
+                min-width: 200px;
+            }
+            QComboBox:hover {
+                border-color: #2980b9;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+        """)
+
+        # 옵션 추가
+        for key, display_name in LAYOUT_STYLES.items():
+            self.layout_style_combo.addItem(display_name, key)
+
+        # 현재 설정값 로드
+        current_style = self.config.get("photo_frame", {}).get("layout_style", "classic")
+        index = self.layout_style_combo.findData(current_style)
+        if index >= 0:
+            self.layout_style_combo.setCurrentIndex(index)
+
+        self.layout_style_combo.currentIndexChanged.connect(self._on_layout_style_changed)
+        style_row.addWidget(self.layout_style_combo, 1)
+        layout_form.addLayout(style_row)
+
+        # 스타일별 설명
+        self.style_description_label = QLabel()
+        self.style_description_label.setStyleSheet("""
+            color: #666;
+            font-size: 11px;
+            padding: 8px;
+            background-color: #fafafa;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            font-weight: normal;
+        """)
+        self.style_description_label.setWordWrap(True)
+        self._update_style_description()
+        layout_form.addWidget(self.style_description_label)
+
+        parent_layout.addWidget(layout_group)
+
+    def _on_layout_style_changed(self):
+        """레이아웃 스타일 변경 시"""
+        self._update_style_description()
+        self._update_screen_preview()
+
+    def _update_style_description(self):
+        """선택된 스타일에 대한 설명 업데이트"""
+        style_key = self.layout_style_combo.currentData()
+        descriptions = {
+            "classic": "📐 기본 레이아웃입니다. 좌측에 테두리 썸네일 그리드, 우측에 합성 미리보기가 표시됩니다.",
+            "carousel": "🎠 중앙에 큰 미리보기, 하단에 테두리 썸네일 슬라이더가 표시됩니다. 좌우 버튼 또는 스와이프로 선택합니다.",
+            "fullscreen": "🖼️ 화면 전체에 합성 미리보기가 표시됩니다. 스와이프로 테두리를 전환하며, 하단에 페이지 인디케이터가 표시됩니다.",
+            "grid_overlay": "📱 상단에 큰 미리보기, 하단에 반투명 그리드로 테두리 썸네일이 표시됩니다."
+        }
+        self.style_description_label.setText(descriptions.get(style_key, ""))
+
+    # ═══════════════════════════════════════════════════════════════
     # 배경 설정
     # ═══════════════════════════════════════════════════════════════
     def _init_background_settings(self, parent_layout):
@@ -618,7 +742,7 @@ class FrameTab(BaseTab):
 
     # ==================== 미리보기 업데이트 ====================
     def _update_screen_preview(self):
-        """화면 미리보기 업데이트 - 배경 + 테두리 썸네일 배치"""
+        """화면 미리보기 업데이트 - 레이아웃 스타일에 따라 다르게 표시"""
         if not self.screen_preview_widget:
             return
 
@@ -646,37 +770,13 @@ class FrameTab(BaseTab):
         self.screen_preview_widget.set_background(bg_path, QColor("#ffffff"))
         self.screen_preview_widget.set_card_border(True, QColor("#333333"), 2)
 
-        # 테두리 썸네일 배치 영역 표시 (좌측)
+        # 레이아웃 스타일에 따라 미리보기 구성
+        layout_style = self.layout_style_combo.currentData() if hasattr(self, 'layout_style_combo') else "classic"
         frame_files = self.config.get("photo_frame", {}).get("frame_files", [])
-        if frame_files:
-            # 테두리 선택 영역 (좌측 1/3)
-            selection_width = monitor_width // 3
-            selection_x = 50
-            selection_y = 200
-            selection_height = monitor_height - 400
+        preview_width = self.config.get("photo_frame", {}).get("width", 800)
+        preview_height = self.config.get("photo_frame", {}).get("height", 600)
 
-            self.screen_preview_widget.add_element(
-                "frame_selection_area",
-                QRect(selection_x, selection_y, selection_width, selection_height),
-                color=QColor(156, 39, 176, 40),  # 보라색 반투명
-                label=f"테두리 선택\n({len(frame_files)}개)",
-                draggable=False
-            )
-
-            # 미리보기 영역 (우측)
-            preview_width = self.config.get("photo_frame", {}).get("width", 800)
-            preview_height = self.config.get("photo_frame", {}).get("height", 600)
-            preview_x = selection_x + selection_width + 100
-            preview_y = (monitor_height - preview_height) // 2
-
-            self.screen_preview_widget.add_element(
-                "preview_area",
-                QRect(preview_x, preview_y, preview_width, preview_height),
-                color=QColor(255, 152, 0, 60),  # 주황색 반투명
-                label="사진 미리보기",
-                draggable=False
-            )
-        else:
+        if not frame_files:
             # 테두리가 없을 때 안내 메시지
             self.screen_preview_widget.add_element(
                 "no_frames",
@@ -685,8 +785,231 @@ class FrameTab(BaseTab):
                 label="테두리 이미지를\n추가하세요",
                 draggable=False
             )
+        elif layout_style == "carousel":
+            self._draw_carousel_preview(monitor_width, monitor_height, frame_files, preview_width, preview_height)
+        elif layout_style == "fullscreen":
+            self._draw_fullscreen_preview(monitor_width, monitor_height, frame_files, preview_width, preview_height)
+        elif layout_style == "grid_overlay":
+            self._draw_grid_overlay_preview(monitor_width, monitor_height, frame_files, preview_width, preview_height)
+        else:  # classic
+            self._draw_classic_preview(monitor_width, monitor_height, frame_files, preview_width, preview_height)
 
         self.request_real_time_update()
+
+    def _draw_classic_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
+        """클래식 레이아웃 미리보기 - 좌측 그리드 + 우측 미리보기"""
+        selection_x = 50
+        selection_y = 200
+        thumb_size = 150
+        thumb_spacing = 20
+        cols = 2
+
+        # 각 테두리 이미지를 썸네일로 표시 (최대 6개)
+        for idx, frame_file in enumerate(frame_files[:6]):
+            row = idx // cols
+            col = idx % cols
+            thumb_x = selection_x + col * (thumb_size + thumb_spacing)
+            thumb_y = selection_y + row * (thumb_size + thumb_spacing)
+            frame_path = FileHandler.resolve_frame_path(frame_file)
+
+            self.screen_preview_widget.add_element(
+                f"frame_thumb_{idx}",
+                QRect(thumb_x, thumb_y, thumb_size, thumb_size),
+                color=QColor(255, 255, 255, 200),
+                image_path=frame_path if frame_path and os.path.exists(frame_path) else None,
+                label=f"{idx+1}" if not (frame_path and os.path.exists(frame_path)) else "",
+                draggable=False
+            )
+
+        if len(frame_files) > 6:
+            self.screen_preview_widget.add_element(
+                "more_frames",
+                QRect(selection_x, selection_y + 3 * (thumb_size + thumb_spacing), thumb_size * 2 + thumb_spacing, 40),
+                color=QColor(100, 100, 100, 150),
+                label=f"+{len(frame_files) - 6}개 더",
+                draggable=False
+            )
+
+        # 미리보기 영역 (우측)
+        preview_x = selection_x + cols * (thumb_size + thumb_spacing) + 100
+        preview_y = (monitor_height - preview_height) // 2
+        self.screen_preview_widget.add_element(
+            "preview_area",
+            QRect(preview_x, preview_y, preview_width, preview_height),
+            color=QColor(255, 152, 0, 60),
+            label=f"합성 미리보기\n({preview_width}x{preview_height})",
+            draggable=False
+        )
+
+    def _draw_carousel_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
+        """캐러셀 레이아웃 미리보기 - 중앙 큰 미리보기 + 하단 슬라이더"""
+        # 중앙 큰 미리보기
+        center_x = (monitor_width - preview_width) // 2
+        center_y = monitor_height // 4
+        self.screen_preview_widget.add_element(
+            "main_preview",
+            QRect(center_x, center_y, preview_width, preview_height),
+            color=QColor(255, 152, 0, 60),
+            label=f"합성 미리보기\n({preview_width}x{preview_height})",
+            draggable=False
+        )
+
+        # 좌우 화살표
+        arrow_size = 80
+        self.screen_preview_widget.add_element(
+            "left_arrow",
+            QRect(center_x - arrow_size - 30, center_y + preview_height // 2 - arrow_size // 2, arrow_size, arrow_size),
+            color=QColor(100, 100, 100, 150),
+            label="◀",
+            draggable=False
+        )
+        self.screen_preview_widget.add_element(
+            "right_arrow",
+            QRect(center_x + preview_width + 30, center_y + preview_height // 2 - arrow_size // 2, arrow_size, arrow_size),
+            color=QColor(100, 100, 100, 150),
+            label="▶",
+            draggable=False
+        )
+
+        # 하단 썸네일 슬라이더
+        thumb_size = 100
+        thumb_spacing = 15
+        slider_y = center_y + preview_height + 80
+        total_width = len(frame_files[:5]) * (thumb_size + thumb_spacing) - thumb_spacing
+        start_x = (monitor_width - total_width) // 2
+
+        for idx, frame_file in enumerate(frame_files[:5]):
+            thumb_x = start_x + idx * (thumb_size + thumb_spacing)
+            frame_path = FileHandler.resolve_frame_path(frame_file)
+            border_color = QColor(0, 200, 150) if idx == 0 else QColor(200, 200, 200)
+            self.screen_preview_widget.add_element(
+                f"thumb_{idx}",
+                QRect(thumb_x, slider_y, thumb_size, thumb_size),
+                color=border_color,
+                image_path=frame_path if frame_path and os.path.exists(frame_path) else None,
+                label="" if (frame_path and os.path.exists(frame_path)) else f"{idx+1}",
+                draggable=False
+            )
+
+        # 버튼 영역
+        btn_y = slider_y + thumb_size + 50
+        self.screen_preview_widget.add_element(
+            "buttons",
+            QRect(monitor_width // 4, btn_y, monitor_width // 2, 60),
+            color=QColor(100, 100, 100, 80),
+            label="[다시 촬영]    [선택 완료]",
+            draggable=False
+        )
+
+    def _draw_fullscreen_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
+        """풀스크린 레이아웃 미리보기 - 전체 화면 미리보기 + 인디케이터"""
+        # 전체 화면 미리보기 (여백 포함)
+        margin = 50
+        full_width = monitor_width - margin * 2
+        full_height = int(full_width * preview_height / preview_width)
+        if full_height > monitor_height - 300:
+            full_height = monitor_height - 300
+            full_width = int(full_height * preview_width / preview_height)
+
+        center_x = (monitor_width - full_width) // 2
+        center_y = 100
+
+        self.screen_preview_widget.add_element(
+            "fullscreen_preview",
+            QRect(center_x, center_y, full_width, full_height),
+            color=QColor(255, 152, 0, 60),
+            label=f"합성 미리보기\n(스와이프로 전환)",
+            draggable=False
+        )
+
+        # 페이지 인디케이터
+        indicator_y = center_y + full_height + 40
+        dot_size = 20
+        dot_spacing = 15
+        num_dots = min(len(frame_files), 7)
+        total_dots_width = num_dots * dot_size + (num_dots - 1) * dot_spacing
+        start_x = (monitor_width - total_dots_width) // 2
+
+        for idx in range(num_dots):
+            dot_x = start_x + idx * (dot_size + dot_spacing)
+            dot_color = QColor(0, 200, 150) if idx == 0 else QColor(180, 180, 180)
+            self.screen_preview_widget.add_element(
+                f"dot_{idx}",
+                QRect(dot_x, indicator_y, dot_size, dot_size),
+                color=dot_color,
+                label="",
+                draggable=False
+            )
+
+        # 버튼 영역
+        btn_y = indicator_y + 80
+        self.screen_preview_widget.add_element(
+            "buttons",
+            QRect(monitor_width // 4, btn_y, monitor_width // 2, 60),
+            color=QColor(100, 100, 100, 80),
+            label="[다시 촬영]    [선택 완료]",
+            draggable=False
+        )
+
+    def _draw_grid_overlay_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
+        """그리드 오버레이 레이아웃 미리보기 - 상단 미리보기 + 하단 그리드"""
+        # 상단 미리보기 (큰 영역)
+        margin = 30
+        top_height = int(monitor_height * 0.55)
+        scaled_width = int(top_height * preview_width / preview_height)
+        if scaled_width > monitor_width - margin * 2:
+            scaled_width = monitor_width - margin * 2
+            top_height = int(scaled_width * preview_height / preview_width)
+
+        center_x = (monitor_width - scaled_width) // 2
+        self.screen_preview_widget.add_element(
+            "top_preview",
+            QRect(center_x, margin, scaled_width, top_height),
+            color=QColor(255, 152, 0, 60),
+            label=f"합성 미리보기",
+            draggable=False
+        )
+
+        # 하단 반투명 그리드 영역
+        grid_y = margin + top_height + 20
+        grid_height = monitor_height - grid_y - 100
+        self.screen_preview_widget.add_element(
+            "grid_overlay_bg",
+            QRect(0, grid_y, monitor_width, grid_height),
+            color=QColor(0, 0, 0, 120),
+            label="",
+            draggable=False
+        )
+
+        # 그리드 내 썸네일
+        thumb_size = 120
+        thumb_spacing = 15
+        cols = 5
+        total_width = cols * thumb_size + (cols - 1) * thumb_spacing
+        start_x = (monitor_width - total_width) // 2
+        thumb_y = grid_y + 30
+
+        for idx, frame_file in enumerate(frame_files[:cols]):
+            thumb_x = start_x + idx * (thumb_size + thumb_spacing)
+            frame_path = FileHandler.resolve_frame_path(frame_file)
+            self.screen_preview_widget.add_element(
+                f"grid_thumb_{idx}",
+                QRect(thumb_x, thumb_y, thumb_size, thumb_size),
+                color=QColor(255, 255, 255, 200),
+                image_path=frame_path if frame_path and os.path.exists(frame_path) else None,
+                label="" if (frame_path and os.path.exists(frame_path)) else f"{idx+1}",
+                draggable=False
+            )
+
+        # 버튼 영역
+        btn_y = thumb_y + thumb_size + 30
+        self.screen_preview_widget.add_element(
+            "buttons",
+            QRect(monitor_width // 4, btn_y, monitor_width // 2, 50),
+            color=QColor(100, 100, 100, 80),
+            label="[선택 완료]",
+            draggable=False
+        )
 
     def _update_print_preview(self):
         """인쇄 미리보기 업데이트"""
@@ -883,8 +1206,40 @@ class FrameTab(BaseTab):
 
     # ==================== 테두리 파일 관리 ====================
     def browse_frame_file(self):
-        """테두리 파일 선택"""
-        FileHandler.browse_frame_file(self, self.frame_file_edit)
+        """테두리 파일 선택 - 선택 즉시 목록에 추가"""
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "테두리 이미지 선택",
+            "",
+            "이미지 파일 (*.png *.jpg *.jpeg *.bmp);;모든 파일 (*.*)"
+        )
+
+        if file_path:
+            # 파일명만 추출
+            frame_file = os.path.basename(file_path)
+
+            # 중복 확인
+            for i in range(self.frame_list.count()):
+                if self.frame_list.item(i).text() == frame_file:
+                    QMessageBox.warning(self, "경고", "이미 추가된 테두리입니다.")
+                    return
+
+            # resources/frames 폴더로 복사
+            FileHandler.copy_frame_file(file_path)
+
+            # 목록에 즉시 추가
+            self.frame_list.addItem(frame_file)
+            self.frame_file_edit.setText(frame_file)
+
+            # config 업데이트
+            self.update_frame_config()
+
+            # 모든 미리보기 업데이트
+            self._update_thumbnail_grid()
+            self._update_screen_preview()
+            self._update_print_preview()
 
     def add_frame_to_list(self):
         """테두리를 목록에 추가"""
@@ -908,8 +1263,9 @@ class FrameTab(BaseTab):
         # config 업데이트
         self.update_frame_config()
 
-        # 썸네일 그리드 업데이트
+        # 모든 미리보기 업데이트
         self._update_thumbnail_grid()
+        self._update_screen_preview()
 
     def remove_frame_from_list(self):
         """선택한 테두리를 목록에서 삭제"""
@@ -921,8 +1277,9 @@ class FrameTab(BaseTab):
             # config 업데이트
             self.update_frame_config()
 
-            # 썸네일 그리드 업데이트
+            # 모든 미리보기 업데이트
             self._update_thumbnail_grid()
+            self._update_screen_preview()
         else:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "경고", "삭제할 테두리를 선택해주세요.")
@@ -952,6 +1309,9 @@ class FrameTab(BaseTab):
         if "photo_frame" not in config:
             config["photo_frame"] = {}
 
+        # 레이아웃 스타일 저장
+        config["photo_frame"]["layout_style"] = self.layout_style_combo.currentData()
+
         # 배경화면 저장
         config["photo_frame"]["background"] = self.frame_bg_edit.text()
 
@@ -968,6 +1328,13 @@ class FrameTab(BaseTab):
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
         self.config = config
+
+        # 레이아웃 스타일 업데이트
+        current_style = config.get("photo_frame", {}).get("layout_style", "classic")
+        index = self.layout_style_combo.findData(current_style)
+        if index >= 0:
+            self.layout_style_combo.setCurrentIndex(index)
+        self._update_style_description()
 
         # 배경화면 업데이트
         self.frame_bg_edit.setText(config.get("photo_frame", {}).get("background", ""))
