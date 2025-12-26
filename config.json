@@ -163,7 +163,8 @@
     "height": 600,
     "font": "",
     "background": "",
-    "frame_files": []
+    "frame_files": [],
+    "layout_style": "grid_overlay"
   },
   "card": {
     "orientation": "portrait",

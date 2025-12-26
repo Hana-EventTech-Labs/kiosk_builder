@@ -147,6 +147,47 @@ class FileHandler:
                     return file_path
 
         return None
+
+    @staticmethod
+    def copy_frame_file(source_path):
+        """
+        프레임 파일을 resources/frames 폴더로 복사합니다.
+        이미 해당 폴더에 있으면 복사하지 않습니다.
+
+        Args:
+            source_path: 원본 파일 경로
+
+        Returns:
+            복사된 파일명 (또는 이미 있는 파일명)
+        """
+        if not source_path or not os.path.exists(source_path):
+            return None
+
+        base_path = get_resources_base_path()
+        resources_frames_path = os.path.join(base_path, "resources", "frames")
+
+        # 대상 폴더 생성
+        os.makedirs(resources_frames_path, exist_ok=True)
+
+        file_name = os.path.basename(source_path)
+        target_path = os.path.join(resources_frames_path, file_name)
+
+        # 경로 정규화
+        normalized_source = os.path.normpath(source_path)
+        normalized_target = os.path.normpath(target_path)
+
+        # 이미 같은 폴더에 있으면 복사 안함
+        if normalized_source == normalized_target:
+            return file_name
+
+        # 파일 복사
+        try:
+            shutil.copy2(source_path, target_path)
+            return file_name
+        except Exception as e:
+            print(f"프레임 파일 복사 실패: {e}")
+            return None
+
     @staticmethod
     def browse_image_file(parent, line_edit):
         """이미지 파일 선택 다이얼로그"""

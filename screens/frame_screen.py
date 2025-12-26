@@ -1,7 +1,8 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                               QPushButton, QScrollArea, QGridLayout, QMessageBox)
-from PySide6.QtCore import QTimer, Qt, QSize
-from PySide6.QtGui import QPixmap, QFont, QFontDatabase, QMovie
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                               QPushButton, QScrollArea, QGridLayout, QMessageBox,
+                               QFrame, QSizePolicy, QGraphicsOpacityEffect)
+from PySide6.QtCore import QTimer, Qt, QSize, QPropertyAnimation, QEasingCurve, Property
+from PySide6.QtGui import QPixmap, QFont, QFontDatabase, QMovie, QPainter, QColor
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PIL import Image, ImageQt
@@ -21,15 +22,23 @@ class FrameScreen(QWidget):
         self._background_initialized = False  # 배경 지연 초기화 플래그
         self.captured_photo_path = "resources/captured_image.jpg"  # 촬영된 사진 경로
         self.selected_frame = None
+        self.frame_files = []  # 프레임 파일 목록
+        self.current_frame_index = 0  # 캐러셀용 현재 인덱스
+        self.carousel_buttons = []  # 캐러셀 썸네일 버튼들
+        self.layout_style = config.get("photo_frame", {}).get("layout_style", "classic")
         self.loadCustomFont()
+        self.loadFrameFiles()  # 프레임 파일 미리 로드
         self.setupUI()
 
     def showEvent(self, event):
-        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
+        """화면이 처음 표시될 때 배경 초기화 및 사진 표시"""
         if not self._background_initialized:
             self.setupBackground()
             self._background_initialized = True
+        # 촬영된 사진 표시 (파일 생성 지연 문제 해결)
+        self.showCapturedPhoto()
         super().showEvent(event)
+        event.accept()
 
     def loadCustomFont(self):
         """커스텀 폰트 로드"""
@@ -44,21 +53,591 @@ class FrameScreen(QWidget):
         else:
             self.font_family = "맑은 고딕"  # 폰트 파일이 없을 때 기본 폰트
 
+    def loadFrameFiles(self):
+        """프레임 파일 목록 로드"""
+        frame_files_config = config.get("photo_frame", {}).get("frame_files", [])
+
+        if frame_files_config:
+            for frame_file in frame_files_config:
+                if not frame_file.startswith("resources/"):
+                    frame_path = f"resources/frames/{frame_file}"
+                else:
+                    frame_path = frame_file
+
+                if os.path.exists(frame_path):
+                    self.frame_files.append(frame_path)
+                else:
+                    print(f"프레임 파일을 찾을 수 없습니다: {frame_path}")
+        else:
+            self.frame_files = glob.glob("resources/frames/*.png")
+
     def setupUI(self):
         # 배경은 showEvent에서 초기화 (언어 선택 후)
 
-        # 메인 레이아웃
+        # 레이아웃 스타일에 따라 UI 설정
+        if self.layout_style == "carousel":
+            self.setupCarouselLayout()
+        elif self.layout_style == "fullscreen":
+            self.setupFullscreenLayout()
+        elif self.layout_style == "grid_overlay":
+            self.setupGridOverlayLayout()
+        else:  # classic (기본값)
+            self.setupClassicLayout()
+
+        self.addCloseButton()
+
+    def setupClassicLayout(self):
+        """클래식 레이아웃 (좌우 분할)"""
         main_layout = QHBoxLayout(self)
-        
+
         # 왼쪽: 프레임 선택 영역
         self.setupFrameSelection(main_layout)
-        
+
         # 오른쪽: 미리보기 영역
         self.setupPreview(main_layout)
-        
-        # 하단 버튼들은 미리보기 영역으로 이동
-        # self.setupButtons()
-        self.addCloseButton()
+
+    def setupCarouselLayout(self):
+        """캐러셀 레이아웃 (중앙 미리보기 + 하단 슬라이더)"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(40, 30, 40, 30)
+        main_layout.setSpacing(20)
+
+        # 상단 제목
+        title_label = QLabel("프레임을 선택하세요")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet(f"""
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            font-family: '{config['photo_frame'].get('font') or self.font_family}';
+        """)
+        main_layout.addWidget(title_label)
+
+        # 중앙 영역 (화살표 + 미리보기)
+        center_layout = QHBoxLayout()
+        center_layout.setSpacing(20)
+
+        # 왼쪽 화살표 버튼
+        self.prev_button = QPushButton("◀")
+        self.prev_button.setFixedSize(60, 120)
+        self.prev_button.clicked.connect(self.showPreviousFrame)
+        self.prev_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.3);
+                color: white;
+                font-size: 32px;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+            QPushButton:pressed {
+                background-color: rgba(0, 0, 0, 0.7);
+            }
+        """)
+        center_layout.addWidget(self.prev_button, alignment=Qt.AlignVCenter)
+
+        # 중앙 미리보기 영역
+        preview_container = QWidget()
+        preview_container_layout = QVBoxLayout(preview_container)
+        preview_container_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.preview_label = QLabel()
+        preview_width = config["photo_frame"].get("width", 800)
+        preview_height = config["photo_frame"].get("height", 600)
+        self.preview_label.setFixedSize(preview_width, preview_height)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setStyleSheet("""
+            border: 4px solid #00FFC2;
+            background-color: #f9f9f9;
+            border-radius: 15px;
+        """)
+        self.preview_label.setText("프레임을 선택하면\n미리보기가 나타납니다")
+        preview_container_layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
+
+        center_layout.addWidget(preview_container, stretch=1)
+
+        # 오른쪽 화살표 버튼
+        self.next_button = QPushButton("▶")
+        self.next_button.setFixedSize(60, 120)
+        self.next_button.clicked.connect(self.showNextFrame)
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.3);
+                color: white;
+                font-size: 32px;
+                border: none;
+                border-radius: 10px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.5);
+            }
+            QPushButton:pressed {
+                background-color: rgba(0, 0, 0, 0.7);
+            }
+        """)
+        center_layout.addWidget(self.next_button, alignment=Qt.AlignVCenter)
+
+        main_layout.addLayout(center_layout, stretch=1)
+
+        # 하단 썸네일 슬라이더
+        self.setupCarouselThumbnails(main_layout)
+
+        # 하단 버튼 (다시 촬영, 선택 완료)
+        self.setupCarouselButtons(main_layout)
+
+    def setupCarouselThumbnails(self, parent_layout):
+        """캐러셀 하단 썸네일 슬라이더"""
+        thumbnail_container = QWidget()
+        thumbnail_container.setFixedHeight(120)
+        thumbnail_container.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        """)
+
+        thumbnail_layout = QHBoxLayout(thumbnail_container)
+        thumbnail_layout.setContentsMargins(20, 10, 20, 10)
+        thumbnail_layout.setSpacing(15)
+        thumbnail_layout.setAlignment(Qt.AlignCenter)
+
+        self.carousel_buttons = []
+        for i, frame_path in enumerate(self.frame_files):
+            btn = QPushButton()
+            btn.setFixedSize(80, 80)
+            btn.setCheckable(True)
+
+            pixmap = QPixmap(frame_path)
+            btn.setIcon(pixmap.scaled(70, 70, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            btn.setIconSize(QSize(70, 70))
+
+            btn.clicked.connect(lambda checked, idx=i: self.selectCarouselFrame(idx))
+            btn.setStyleSheet("""
+                QPushButton {
+                    border: 3px solid transparent;
+                    border-radius: 8px;
+                    background-color: white;
+                }
+                QPushButton:hover {
+                    border-color: #00FFC2;
+                }
+                QPushButton:checked {
+                    border-color: #00FFC2;
+                    background-color: #e0fff5;
+                }
+            """)
+
+            thumbnail_layout.addWidget(btn)
+            self.carousel_buttons.append(btn)
+
+        parent_layout.addWidget(thumbnail_container)
+
+    def setupCarouselButtons(self, parent_layout):
+        """캐러셀 하단 액션 버튼"""
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(30)
+        buttons_layout.setAlignment(Qt.AlignCenter)
+
+        # 다시 촬영 버튼
+        self.retake_button = QPushButton("다시 촬영")
+        self.retake_button.setFixedSize(180, 60)
+        self.retake_button.clicked.connect(self.onRetake)
+        self.retake_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+        buttons_layout.addWidget(self.retake_button)
+
+        # 선택 완료 버튼
+        self.confirm_button = QPushButton("선택 완료")
+        self.confirm_button.setFixedSize(180, 60)
+        self.confirm_button.clicked.connect(self.onConfirm)
+        self.confirm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00FFC2;
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #00E6A8;
+            }
+        """)
+        buttons_layout.addWidget(self.confirm_button)
+
+        parent_layout.addLayout(buttons_layout)
+
+    def selectCarouselFrame(self, index):
+        """캐러셀에서 프레임 선택"""
+        if 0 <= index < len(self.frame_files):
+            self.current_frame_index = index
+            self.selected_frame = self.frame_files[index]
+
+            # 버튼 상태 업데이트
+            for i, btn in enumerate(self.carousel_buttons):
+                btn.setChecked(i == index)
+
+            self.updatePreview()
+
+    def showPreviousFrame(self):
+        """이전 프레임 표시"""
+        if self.frame_files:
+            self.current_frame_index = (self.current_frame_index - 1) % len(self.frame_files)
+            self.selectFrameByLayout(self.current_frame_index)
+
+    def showNextFrame(self):
+        """다음 프레임 표시"""
+        if self.frame_files:
+            self.current_frame_index = (self.current_frame_index + 1) % len(self.frame_files)
+            self.selectFrameByLayout(self.current_frame_index)
+
+    def selectFrameByLayout(self, index):
+        """레이아웃에 따른 프레임 선택"""
+        if 0 <= index < len(self.frame_files):
+            self.current_frame_index = index
+            self.selected_frame = self.frame_files[index]
+
+            # 레이아웃별 UI 업데이트
+            if self.layout_style == "carousel":
+                # 캐러셀 버튼 상태 업데이트
+                for i, btn in enumerate(self.carousel_buttons):
+                    btn.setChecked(i == index)
+            elif self.layout_style == "fullscreen":
+                # 페이지 인디케이터 업데이트
+                self.updatePageIndicators()
+            elif self.layout_style == "grid_overlay":
+                # 그리드 버튼 상태 업데이트
+                if hasattr(self, 'grid_buttons'):
+                    for i, btn in enumerate(self.grid_buttons):
+                        btn.setChecked(i == index)
+
+            self.updatePreview()
+
+    def setupFullscreenLayout(self):
+        """풀스크린 갤러리 레이아웃 (전체 화면 미리보기 + 페이지 인디케이터)"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # 상단 제목 바
+        title_bar = QWidget()
+        title_bar.setFixedHeight(80)
+        title_bar.setStyleSheet("background-color: rgba(0, 0, 0, 0.5);")
+        title_layout = QHBoxLayout(title_bar)
+
+        title_label = QLabel("프레임을 선택하세요")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet(f"""
+            font-size: 36px;
+            font-weight: bold;
+            color: white;
+            font-family: '{config['photo_frame'].get('font') or self.font_family}';
+        """)
+        title_layout.addWidget(title_label)
+        main_layout.addWidget(title_bar)
+
+        # 중앙 미리보기 영역 (화면 거의 전체)
+        center_widget = QWidget()
+        center_layout = QHBoxLayout(center_widget)
+        center_layout.setContentsMargins(20, 20, 20, 20)
+
+        # 왼쪽 화살표
+        self.prev_button = QPushButton("◀")
+        self.prev_button.setFixedSize(80, 150)
+        self.prev_button.clicked.connect(self.showPreviousFrame)
+        self.prev_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.4);
+                color: white;
+                font-size: 40px;
+                border: none;
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.6);
+            }
+        """)
+        center_layout.addWidget(self.prev_button, alignment=Qt.AlignVCenter)
+
+        # 중앙 미리보기
+        self.preview_label = QLabel()
+        # 화면 크기에 따른 동적 크기 설정
+        preview_width = min(self.screen_size[0] - 250, 1400)
+        preview_height = min(self.screen_size[1] - 300, 900)
+        self.preview_label.setFixedSize(preview_width, preview_height)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setStyleSheet("""
+            background-color: #1a1a1a;
+            border: 3px solid #00FFC2;
+            border-radius: 20px;
+        """)
+        self.preview_label.setText("프레임을 선택하면\n미리보기가 나타납니다")
+        self.preview_label.setStyleSheet(self.preview_label.styleSheet() + "color: #666; font-size: 24px;")
+        center_layout.addWidget(self.preview_label, stretch=1, alignment=Qt.AlignCenter)
+
+        # 오른쪽 화살표
+        self.next_button = QPushButton("▶")
+        self.next_button.setFixedSize(80, 150)
+        self.next_button.clicked.connect(self.showNextFrame)
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(0, 0, 0, 0.4);
+                color: white;
+                font-size: 40px;
+                border: none;
+                border-radius: 15px;
+            }
+            QPushButton:hover {
+                background-color: rgba(0, 0, 0, 0.6);
+            }
+        """)
+        center_layout.addWidget(self.next_button, alignment=Qt.AlignVCenter)
+
+        main_layout.addWidget(center_widget, stretch=1)
+
+        # 하단 영역 (페이지 인디케이터 + 버튼)
+        bottom_widget = QWidget()
+        bottom_widget.setFixedHeight(140)
+        bottom_widget.setStyleSheet("background-color: rgba(0, 0, 0, 0.5);")
+        bottom_layout = QVBoxLayout(bottom_widget)
+        bottom_layout.setSpacing(15)
+
+        # 페이지 인디케이터
+        self.setupPageIndicators(bottom_layout)
+
+        # 하단 버튼
+        self.setupFullscreenButtons(bottom_layout)
+
+        main_layout.addWidget(bottom_widget)
+
+    def setupPageIndicators(self, parent_layout):
+        """페이지 인디케이터 (점) 설정"""
+        indicator_layout = QHBoxLayout()
+        indicator_layout.setAlignment(Qt.AlignCenter)
+        indicator_layout.setSpacing(12)
+
+        self.page_indicators = []
+        for i in range(len(self.frame_files)):
+            indicator = QLabel("●")
+            indicator.setFixedSize(20, 20)
+            indicator.setAlignment(Qt.AlignCenter)
+            indicator.setStyleSheet("color: #666; font-size: 16px;")
+            indicator_layout.addWidget(indicator)
+            self.page_indicators.append(indicator)
+
+        # 첫 번째 인디케이터 활성화
+        if self.page_indicators:
+            self.page_indicators[0].setStyleSheet("color: #00FFC2; font-size: 20px;")
+
+        parent_layout.addLayout(indicator_layout)
+
+    def setupFullscreenButtons(self, parent_layout):
+        """풀스크린 레이아웃 하단 버튼"""
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setAlignment(Qt.AlignCenter)
+        buttons_layout.setSpacing(40)
+
+        # 다시 촬영 버튼
+        self.retake_button = QPushButton("다시 촬영")
+        self.retake_button.setFixedSize(200, 55)
+        self.retake_button.clicked.connect(self.onRetake)
+        self.retake_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                font-size: 22px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+        buttons_layout.addWidget(self.retake_button)
+
+        # 선택 완료 버튼
+        self.confirm_button = QPushButton("선택 완료")
+        self.confirm_button.setFixedSize(200, 55)
+        self.confirm_button.clicked.connect(self.onConfirm)
+        self.confirm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00FFC2;
+                color: black;
+                font-size: 22px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #00E6A8;
+            }
+        """)
+        buttons_layout.addWidget(self.confirm_button)
+
+        parent_layout.addLayout(buttons_layout)
+
+    def updatePageIndicators(self):
+        """페이지 인디케이터 업데이트"""
+        if hasattr(self, 'page_indicators'):
+            for i, indicator in enumerate(self.page_indicators):
+                if i == self.current_frame_index:
+                    indicator.setStyleSheet("color: #00FFC2; font-size: 20px;")
+                else:
+                    indicator.setStyleSheet("color: #666; font-size: 16px;")
+
+    def setupGridOverlayLayout(self):
+        """그리드 오버레이 레이아웃 (상단 미리보기 + 하단 투명 그리드)"""
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(30, 20, 30, 20)
+        main_layout.setSpacing(20)
+
+        # 상단 제목
+        title_label = QLabel("프레임을 선택하세요")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet(f"""
+            font-size: 32px;
+            font-weight: bold;
+            color: #333;
+            font-family: '{config['photo_frame'].get('font') or self.font_family}';
+        """)
+        main_layout.addWidget(title_label)
+
+        # 상단 미리보기 영역
+        preview_container = QWidget()
+        preview_layout = QVBoxLayout(preview_container)
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.preview_label = QLabel()
+        preview_width = config["photo_frame"].get("width", 800)
+        preview_height = config["photo_frame"].get("height", 600)
+        # 화면 크기에 맞게 조정
+        max_preview_height = int(self.screen_size[1] * 0.55)
+        if preview_height > max_preview_height:
+            scale = max_preview_height / preview_height
+            preview_height = max_preview_height
+            preview_width = int(preview_width * scale)
+
+        self.preview_label.setFixedSize(preview_width, preview_height)
+        self.preview_label.setAlignment(Qt.AlignCenter)
+        self.preview_label.setStyleSheet("""
+            border: 4px solid #00FFC2;
+            background-color: #f9f9f9;
+            border-radius: 15px;
+        """)
+        self.preview_label.setText("프레임을 선택하면\n미리보기가 나타납니다")
+        preview_layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
+
+        main_layout.addWidget(preview_container, stretch=1)
+
+        # 하단 그리드 오버레이 영역
+        self.setupGridOverlayThumbnails(main_layout)
+
+        # 하단 버튼
+        self.setupGridOverlayButtons(main_layout)
+
+    def setupGridOverlayThumbnails(self, parent_layout):
+        """그리드 오버레이 썸네일 영역"""
+        grid_container = QWidget()
+        grid_container.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+        """)
+
+        grid_layout = QHBoxLayout(grid_container)
+        grid_layout.setContentsMargins(20, 15, 20, 15)
+        grid_layout.setSpacing(15)
+        grid_layout.setAlignment(Qt.AlignCenter)
+
+        self.grid_buttons = []
+        for i, frame_path in enumerate(self.frame_files):
+            btn = QPushButton()
+            btn.setFixedSize(100, 100)
+            btn.setCheckable(True)
+
+            pixmap = QPixmap(frame_path)
+            btn.setIcon(pixmap.scaled(90, 90, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            btn.setIconSize(QSize(90, 90))
+
+            btn.clicked.connect(lambda checked, idx=i: self.selectFrameByLayout(idx))
+            btn.setStyleSheet("""
+                QPushButton {
+                    border: 3px solid rgba(255, 255, 255, 0.5);
+                    border-radius: 10px;
+                    background-color: rgba(255, 255, 255, 0.8);
+                }
+                QPushButton:hover {
+                    border-color: #00FFC2;
+                    background-color: white;
+                }
+                QPushButton:checked {
+                    border-color: #00FFC2;
+                    border-width: 4px;
+                    background-color: #e0fff5;
+                }
+            """)
+
+            grid_layout.addWidget(btn)
+            self.grid_buttons.append(btn)
+
+        parent_layout.addWidget(grid_container)
+
+    def setupGridOverlayButtons(self, parent_layout):
+        """그리드 오버레이 하단 버튼"""
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setAlignment(Qt.AlignCenter)
+        buttons_layout.setSpacing(30)
+
+        # 다시 촬영 버튼
+        self.retake_button = QPushButton("다시 촬영")
+        self.retake_button.setFixedSize(180, 55)
+        self.retake_button.clicked.connect(self.onRetake)
+        self.retake_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff6b6b;
+                color: white;
+                font-size: 20px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #ff5252;
+            }
+        """)
+        buttons_layout.addWidget(self.retake_button)
+
+        # 선택 완료 버튼
+        self.confirm_button = QPushButton("선택 완료")
+        self.confirm_button.setFixedSize(180, 55)
+        self.confirm_button.clicked.connect(self.onConfirm)
+        self.confirm_button.setStyleSheet("""
+            QPushButton {
+                background-color: #00FFC2;
+                color: black;
+                font-size: 20px;
+                font-weight: bold;
+                border: none;
+                border-radius: 12px;
+            }
+            QPushButton:hover {
+                background-color: #00E6A8;
+            }
+        """)
+        buttons_layout.addWidget(self.confirm_button)
+
+        parent_layout.addLayout(buttons_layout)
         
     def setupBackground(self):
         background_file = None
@@ -190,31 +769,9 @@ class FrameScreen(QWidget):
         main_layout.addWidget(frame_widget)
     
     def loadFrameImages(self, grid_layout):
-        """프레임 이미지들을 그리드로 로드"""
-        # config에서 frame_files 설정 확인
-        frame_files_config = config.get("photo_frame", {}).get("frame_files", [])
-        
-        if frame_files_config:
-            # config에 설정된 프레임 파일들 사용
-            frame_files = []
-            for frame_file in frame_files_config:
-                # 파일명만 있는 경우 resources/frames/ 경로 추가
-                if not frame_file.startswith("resources/"):
-                    frame_path = f"resources/frames/{frame_file}"
-                else:
-                    frame_path = frame_file
-                
-                # 파일이 실제로 존재하는지 확인
-                if os.path.exists(frame_path):
-                    frame_files.append(frame_path)
-                else:
-                    print(f"프레임 파일을 찾을 수 없습니다: {frame_path}")
-        else:
-            # config에 설정이 없으면 기존 방식으로 폴백
-            frame_files = glob.glob("resources/frames/*.png")
-        
+        """프레임 이미지들을 그리드로 로드 (클래식 레이아웃용)"""
         row, col = 0, 0
-        for frame_path in frame_files:
+        for frame_path in self.frame_files:
             frame_button = self.createFrameButton(frame_path)
             grid_layout.addWidget(frame_button, row, col)
             
@@ -330,12 +887,6 @@ class FrameScreen(QWidget):
         
         main_layout.addWidget(preview_widget)
 
-    def showEvent(self, event):
-        """위젯이 화면에 표시될 때 호출되어, 파일 생성 지연 문제를 해결합니다."""
-        super().showEvent(event)
-        self.showCapturedPhoto()
-        event.accept()
-    
     def selectFrame(self, frame_path):
         """프레임 선택 시 호출"""
         self.selected_frame = frame_path
@@ -376,32 +927,12 @@ class FrameScreen(QWidget):
     def showCapturedPhoto(self):
         """촬영된 사진을 프레임 크기에 맞춰서 미리 표시"""
         if not os.path.exists(self.captured_photo_path):
-            self.preview_label.setText("캡처된 이미지를 찾을 수 없습니다.")
+            if hasattr(self, 'preview_label') and self.preview_label:
+                self.preview_label.setText("캡처된 이미지를 찾을 수 없습니다.")
             return
 
         try:
-            # config에서 frame_files 설정 확인
-            frame_files_config = config.get("photo_frame", {}).get("frame_files", [])
-            
-            if frame_files_config:
-                # config에 설정된 프레임 파일들 사용
-                frame_files = []
-                for frame_file in frame_files_config:
-                    # 파일명만 있는 경우 resources/frames/ 경로 추가
-                    if not frame_file.startswith("resources/"):
-                        frame_path = f"resources/frames/{frame_file}"
-                    else:
-                        frame_path = frame_file
-                    
-                    # 파일이 실제로 존재하는지 확인
-                    if os.path.exists(frame_path):
-                        frame_files.append(frame_path)
-                        break  # 첫 번째 유효한 프레임만 필요
-            else:
-                # config에 설정이 없으면 기존 방식으로 폴백
-                frame_files = glob.glob("resources/frames/*.png")
-            
-            if not frame_files:
+            if not self.frame_files:
                 # 프레임이 없으면 원본 사진을 그대로 표시
                 pixmap = QPixmap(self.captured_photo_path)
                 scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -409,17 +940,17 @@ class FrameScreen(QWidget):
                 return
 
             # 첫 번째 프레임의 크기를 기준으로 사진 리사이즈
-            with Image.open(frame_files[0]) as frame_img:
+            with Image.open(self.frame_files[0]) as frame_img:
                 frame_size = frame_img.size
 
             with Image.open(self.captured_photo_path) as photo_img:
                 # 사진을 프레임 크기에 맞춤
                 resized_photo = photo_img.resize(frame_size, Image.LANCZOS)
-                
+
                 # PIL 이미지를 QPixmap으로 변환
                 qt_image = ImageQt.ImageQt(resized_photo.convert("RGB"))
                 pixmap = QPixmap.fromImage(qt_image)
-                
+
                 # 라벨 크기에 맞춰 최종 표시
                 scaled_pixmap = pixmap.scaled(self.preview_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 self.preview_label.setPixmap(scaled_pixmap)
@@ -433,9 +964,16 @@ class FrameScreen(QWidget):
     
     def onRetake(self):
         """다시 촬영 버튼 클릭 시"""
-        # 카메라 화면으로 돌아가기
-        camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
-        self.stack.setCurrentIndex(camera_index)
+        # 카메라 화면으로 돌아가기 (스택 인덱스 2 = photo_screen)
+        # screen_order에서 카메라(1)의 위치로 current_index도 업데이트
+        camera_stack_index = 2
+        camera_screen_order = 1  # screen_order에서 카메라 화면 값
+
+        # main_window의 current_index를 카메라 화면 위치로 설정
+        if camera_screen_order in config["screen_order"]:
+            self.main_window.current_index = config["screen_order"].index(camera_screen_order)
+
+        self.stack.setCurrentIndex(camera_stack_index)
 
     def onConfirm(self):
         """확인 버튼 클릭 시"""
