@@ -11,8 +11,9 @@ from ui.components.live_preview import LivePreviewWidget
 from ui.components.zoomable_preview import ZoomablePreviewWidget, DEFAULT_PREVIEW_SIZE
 from ui.components.language_preview_tabs import LanguagePreviewTabs
 from ui.components.position_size_input import PositionSizeInput
-from utils.file_handler import FileHandler
+from utils.file_handler import FileHandler, get_resources_base_path
 import os
+import glob
 
 # 프레임 선택 화면 screen_key = "4"
 FRAME_SCREEN_KEY = "4"
@@ -138,6 +139,7 @@ class FrameTab(BaseTab):
 
         # 단일 미리보기 위젯 + 확대/축소
         self.screen_preview_widget = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.screen_preview_widget.position_changed.connect(self._on_screen_element_position_changed)
         self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview_widget)
         preview_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
@@ -309,20 +311,20 @@ class FrameTab(BaseTab):
     # 탭 3: 인쇄 설정
     # ═══════════════════════════════════════════════════════════════
     def _create_print_settings_tab(self):
-        """인쇄 설정 탭 생성 - 좌측(설정) + 우측(인쇄 미리보기)"""
+        """인쇄 설정 탭 생성 - 좌측(위치/크기 설정) + 우측(카드 미리보기)"""
         tab_widget = QWidget()
         tab_main_layout = QHBoxLayout(tab_widget)
         tab_main_layout.setContentsMargins(10, 10, 10, 10)
         tab_main_layout.setSpacing(20)
 
-        # 좌측: 인쇄 합성 설정
+        # 좌측: 인쇄 위치/크기 설정
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(12)
 
-        # 인쇄 합성 설정 그룹
-        print_group = QGroupBox("인쇄 합성 설정")
+        # 프레임 이미지 인쇄 영역 설정 그룹
+        print_group = QGroupBox("프레임 이미지 인쇄 영역")
         print_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -344,7 +346,7 @@ class FrameTab(BaseTab):
         print_layout = QVBoxLayout(print_group)
 
         # 설명 라벨
-        print_desc = QLabel("촬영된 사진과 테두리 이미지가 합성될 때의 크기입니다.\n테두리 이미지와 동일한 크기로 설정하세요.")
+        print_desc = QLabel("프레임이 적용된 이미지가 카드에 인쇄될 위치와 크기입니다.\n우측 미리보기에서 드래그/리사이즈 가능합니다.")
         print_desc.setStyleSheet("""
             color: #E65100;
             font-size: 11px;
@@ -357,42 +359,54 @@ class FrameTab(BaseTab):
         print_desc.setWordWrap(True)
         print_layout.addWidget(print_desc)
 
-        # 'photo_frame' 설정이 없으면 기본값으로 초기화
-        if "photo_frame" not in self.config:
-            self.config["photo_frame"] = {
-                "font_size": 32,
-                "font_color": "green",
-                "width": 800,
-                "height": 600,
-                "font": "",
-                "background": "",
-                "frame_files": []
+        # framed_photo 설정 초기화
+        if "framed_photo" not in self.config:
+            self.config["framed_photo"] = {
+                "filename": "framed_photo.jpg",
+                "x": 143,
+                "y": 314,
+                "width": 350,
+                "height": 400
             }
 
-        # 합성 크기 설정
-        size_label = QLabel("합성 크기:")
-        size_label.setStyleSheet("font-weight: bold; color: #555;")
-        print_layout.addWidget(size_label)
-
-        self.frame_size_input = PositionSizeInput(show_position=False, show_size=True)
-        self.frame_size_input.set_values(
-            width=self.config["photo_frame"].get("width", 800),
-            height=self.config["photo_frame"].get("height", 600)
+        # 위치/크기 입력
+        self.framed_photo_input = PositionSizeInput(show_position=True, show_size=True)
+        self.framed_photo_input.set_values(
+            x=self.config["framed_photo"].get("x", 143),
+            y=self.config["framed_photo"].get("y", 314),
+            width=self.config["framed_photo"].get("width", 350),
+            height=self.config["framed_photo"].get("height", 400)
         )
-        self.frame_size_input.value_changed.connect(self._update_print_preview)
-        print_layout.addWidget(self.frame_size_input)
+        self.framed_photo_input.value_changed.connect(self._on_framed_photo_input_changed)
+        print_layout.addWidget(self.framed_photo_input)
+
+        # 빠른 설정 버튼들
+        quick_btns_layout = QHBoxLayout()
+        quick_btns_layout.setSpacing(8)
+
+        fill_btn = QPushButton("전체 채우기")
+        fill_btn.clicked.connect(self._fill_framed_photo)
+        fill_btn.setStyleSheet("padding: 6px 12px;")
+        quick_btns_layout.addWidget(fill_btn)
+
+        center_btn = QPushButton("중앙 정렬")
+        center_btn.clicked.connect(self._center_framed_photo)
+        center_btn.setStyleSheet("padding: 6px 12px;")
+        quick_btns_layout.addWidget(center_btn)
+
+        print_layout.addLayout(quick_btns_layout)
 
         left_layout.addWidget(print_group)
         left_layout.addStretch()
 
         tab_main_layout.addWidget(left_widget, 1)
 
-        # 우측: 인쇄 미리보기
+        # 우측: 카드 인쇄 미리보기
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        preview_group = QGroupBox("인쇄 미리보기")
+        preview_group = QGroupBox("카드 인쇄 미리보기 (58×90mm)")
         preview_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -414,13 +428,15 @@ class FrameTab(BaseTab):
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setAlignment(Qt.AlignCenter)
 
-        desc = QLabel("사진과 테두리가 합성되어 인쇄될 결과물 미리보기입니다.")
+        desc = QLabel("프레임 이미지를 드래그하여 인쇄 위치를 조정하세요.")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #E65100; font-size: 11px; font-weight: normal; padding: 4px;")
         preview_layout.addWidget(desc)
 
-        # 인쇄 미리보기 위젯
+        # 카드 미리보기 위젯
         self.print_preview_widget = LivePreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
+        self.print_preview_widget.position_changed.connect(self._on_framed_photo_position_changed)
+        self.print_preview_widget.size_changed.connect(self._on_framed_photo_size_changed)
         self._zoomable_print_preview = ZoomablePreviewWidget(self.print_preview_widget)
         preview_layout.addWidget(self._zoomable_print_preview, 0, Qt.AlignCenter)
 
@@ -481,6 +497,7 @@ class FrameTab(BaseTab):
         self.layout_style_combo.setStyleSheet("""
             QComboBox {
                 padding: 6px 10px;
+                padding-right: 30px;
                 border: 1px solid #3498db;
                 border-radius: 4px;
                 background-color: white;
@@ -490,8 +507,24 @@ class FrameTab(BaseTab):
                 border-color: #2980b9;
             }
             QComboBox::drop-down {
-                border: none;
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
                 width: 30px;
+                border-left: 1px solid #3498db;
+                border-top-right-radius: 4px;
+                border-bottom-right-radius: 4px;
+                background-color: #f0f8ff;
+            }
+            QComboBox::down-arrow {
+                width: 12px;
+                height: 12px;
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #3498db;
+            }
+            QComboBox::down-arrow:hover {
+                border-top-color: #2980b9;
             }
         """)
 
@@ -530,6 +563,40 @@ class FrameTab(BaseTab):
         """레이아웃 스타일 변경 시"""
         self._update_style_description()
         self._update_screen_preview()
+
+    def _on_screen_element_position_changed(self, element_id, x, y):
+        """화면 미리보기에서 요소 드래그 시 - 위치 저장 및 미리보기 갱신"""
+        layout_style = self.layout_style_combo.currentData() if hasattr(self, 'layout_style_combo') else "classic"
+
+        # photo_frame 설정 초기화
+        if "photo_frame" not in self.config:
+            self.config["photo_frame"] = {}
+        if "layout_positions" not in self.config["photo_frame"]:
+            self.config["photo_frame"]["layout_positions"] = {}
+        if layout_style not in self.config["photo_frame"]["layout_positions"]:
+            self.config["photo_frame"]["layout_positions"][layout_style] = {}
+
+        pos_config = self.config["photo_frame"]["layout_positions"][layout_style]
+
+        # 요소별 위치 저장
+        if element_id == "thumb_grid":
+            pos_config["selection_x"] = x
+            pos_config["selection_y"] = y
+        elif element_id == "preview_area" or element_id == "main_preview":
+            pos_config["preview_x"] = x
+            pos_config["preview_y"] = y
+        elif element_id == "fullscreen_preview":
+            pos_config["preview_x"] = x
+            pos_config["preview_y"] = y
+        elif element_id == "top_preview":
+            pos_config["preview_x"] = x
+            pos_config["preview_y"] = y
+        elif element_id == "thumb_slider":
+            pos_config["slider_y"] = y
+
+        # 미리보기 다시 그리기 (썸네일 위치 동기화)
+        self._update_screen_preview()
+        self.request_real_time_update()
 
     def _update_style_description(self):
         """선택된 스타일에 대한 설명 업데이트"""
@@ -798,13 +865,31 @@ class FrameTab(BaseTab):
 
     def _draw_classic_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
         """클래식 레이아웃 미리보기 - 좌측 그리드 + 우측 미리보기"""
-        selection_x = 50
-        selection_y = 200
+        # config에서 저장된 위치 가져오기 (없으면 기본값)
+        layout_positions = self.config.get("photo_frame", {}).get("layout_positions", {})
+        classic_pos = layout_positions.get("classic", {})
+
+        selection_x = classic_pos.get("selection_x", 50)
+        selection_y = classic_pos.get("selection_y", 200)
+        preview_x = classic_pos.get("preview_x", 440)
+        preview_y = classic_pos.get("preview_y", (monitor_height - preview_height) // 2)
+
         thumb_size = 150
         thumb_spacing = 20
         cols = 2
 
-        # 각 테두리 이미지를 썸네일로 표시 (최대 6개)
+        # 썸네일 그리드 영역 (드래그 가능한 컨테이너)
+        grid_width = cols * thumb_size + (cols - 1) * thumb_spacing
+        grid_height = 3 * thumb_size + 2 * thumb_spacing
+        self.screen_preview_widget.add_element(
+            "thumb_grid",
+            QRect(selection_x, selection_y, grid_width, grid_height),
+            color=QColor(100, 150, 255, 40),
+            label="썸네일 그리드\n(드래그하여 이동)",
+            draggable=True
+        )
+
+        # 각 테두리 이미지를 썸네일로 표시 (최대 6개) - 그리드 안에 상대 위치
         for idx, frame_file in enumerate(frame_files[:6]):
             row = idx // cols
             col = idx % cols
@@ -830,28 +915,31 @@ class FrameTab(BaseTab):
                 draggable=False
             )
 
-        # 미리보기 영역 (우측)
-        preview_x = selection_x + cols * (thumb_size + thumb_spacing) + 100
-        preview_y = (monitor_height - preview_height) // 2
+        # 미리보기 영역 (드래그 가능)
         self.screen_preview_widget.add_element(
             "preview_area",
             QRect(preview_x, preview_y, preview_width, preview_height),
             color=QColor(255, 152, 0, 60),
-            label=f"합성 미리보기\n({preview_width}x{preview_height})",
-            draggable=False
+            label=f"합성 미리보기\n(드래그하여 이동)",
+            draggable=True
         )
 
     def _draw_carousel_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
         """캐러셀 레이아웃 미리보기 - 중앙 큰 미리보기 + 하단 슬라이더"""
-        # 중앙 큰 미리보기
-        center_x = (monitor_width - preview_width) // 2
-        center_y = monitor_height // 4
+        # config에서 저장된 위치 가져오기
+        layout_positions = self.config.get("photo_frame", {}).get("layout_positions", {})
+        carousel_pos = layout_positions.get("carousel", {})
+
+        center_x = carousel_pos.get("preview_x", (monitor_width - preview_width) // 2)
+        center_y = carousel_pos.get("preview_y", monitor_height // 4)
+
+        # 중앙 큰 미리보기 (드래그 가능)
         self.screen_preview_widget.add_element(
             "main_preview",
             QRect(center_x, center_y, preview_width, preview_height),
             color=QColor(255, 152, 0, 60),
-            label=f"합성 미리보기\n({preview_width}x{preview_height})",
-            draggable=False
+            label=f"합성 미리보기\n(드래그하여 이동)",
+            draggable=True
         )
 
         # 좌우 화살표
@@ -874,9 +962,18 @@ class FrameTab(BaseTab):
         # 하단 썸네일 슬라이더
         thumb_size = 100
         thumb_spacing = 15
-        slider_y = center_y + preview_height + 80
+        slider_y = carousel_pos.get("slider_y", center_y + preview_height + 80)
         total_width = len(frame_files[:5]) * (thumb_size + thumb_spacing) - thumb_spacing
         start_x = (monitor_width - total_width) // 2
+
+        # 슬라이더 영역 컨테이너 (드래그 가능)
+        self.screen_preview_widget.add_element(
+            "thumb_slider",
+            QRect(start_x - 10, slider_y - 10, total_width + 20, thumb_size + 20),
+            color=QColor(100, 150, 255, 40),
+            label="",
+            draggable=True
+        )
 
         for idx, frame_file in enumerate(frame_files[:5]):
             thumb_x = start_x + idx * (thumb_size + thumb_spacing)
@@ -903,6 +1000,10 @@ class FrameTab(BaseTab):
 
     def _draw_fullscreen_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
         """풀스크린 레이아웃 미리보기 - 전체 화면 미리보기 + 인디케이터"""
+        # config에서 저장된 위치 가져오기
+        layout_positions = self.config.get("photo_frame", {}).get("layout_positions", {})
+        fullscreen_pos = layout_positions.get("fullscreen", {})
+
         # 전체 화면 미리보기 (여백 포함)
         margin = 50
         full_width = monitor_width - margin * 2
@@ -911,15 +1012,15 @@ class FrameTab(BaseTab):
             full_height = monitor_height - 300
             full_width = int(full_height * preview_width / preview_height)
 
-        center_x = (monitor_width - full_width) // 2
-        center_y = 100
+        center_x = fullscreen_pos.get("preview_x", (monitor_width - full_width) // 2)
+        center_y = fullscreen_pos.get("preview_y", 100)
 
         self.screen_preview_widget.add_element(
             "fullscreen_preview",
             QRect(center_x, center_y, full_width, full_height),
             color=QColor(255, 152, 0, 60),
-            label=f"합성 미리보기\n(스와이프로 전환)",
-            draggable=False
+            label=f"합성 미리보기\n(드래그하여 이동)",
+            draggable=True
         )
 
         # 페이지 인디케이터
@@ -953,6 +1054,10 @@ class FrameTab(BaseTab):
 
     def _draw_grid_overlay_preview(self, monitor_width, monitor_height, frame_files, preview_width, preview_height):
         """그리드 오버레이 레이아웃 미리보기 - 상단 미리보기 + 하단 그리드"""
+        # config에서 저장된 위치 가져오기
+        layout_positions = self.config.get("photo_frame", {}).get("layout_positions", {})
+        grid_overlay_pos = layout_positions.get("grid_overlay", {})
+
         # 상단 미리보기 (큰 영역)
         margin = 30
         top_height = int(monitor_height * 0.55)
@@ -961,17 +1066,19 @@ class FrameTab(BaseTab):
             scaled_width = monitor_width - margin * 2
             top_height = int(scaled_width * preview_height / preview_width)
 
-        center_x = (monitor_width - scaled_width) // 2
+        center_x = grid_overlay_pos.get("preview_x", (monitor_width - scaled_width) // 2)
+        preview_y = grid_overlay_pos.get("preview_y", margin)
+
         self.screen_preview_widget.add_element(
             "top_preview",
-            QRect(center_x, margin, scaled_width, top_height),
+            QRect(center_x, preview_y, scaled_width, top_height),
             color=QColor(255, 152, 0, 60),
-            label=f"합성 미리보기",
-            draggable=False
+            label=f"합성 미리보기\n(드래그하여 이동)",
+            draggable=True
         )
 
         # 하단 반투명 그리드 영역
-        grid_y = margin + top_height + 20
+        grid_y = preview_y + top_height + 20
         grid_height = monitor_height - grid_y - 100
         self.screen_preview_widget.add_element(
             "grid_overlay_bg",
@@ -1012,47 +1119,110 @@ class FrameTab(BaseTab):
         )
 
     def _update_print_preview(self):
-        """인쇄 미리보기 업데이트"""
+        """카드 인쇄 미리보기 업데이트"""
         if not self.print_preview_widget:
             return
 
         self.print_preview_widget.clear_elements()
 
-        # 합성 크기
-        try:
-            frame_width = self.frame_size_input.get_width()
-            frame_height = self.frame_size_input.get_height()
-        except (AttributeError, KeyError):
-            frame_width, frame_height = 800, 600
+        # 카드 크기 (portrait/landscape)
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw, ch = (636, 1012) if is_portrait else (1012, 636)
 
-        self.print_preview_widget.set_original_size(frame_width, frame_height)
-        self.print_preview_widget.set_background(None, QColor("#f0f0f0"))
+        self.print_preview_widget.set_original_size(cw, ch)
 
-        # 선택된 테두리 이미지가 있으면 표시
+        # 카드 배경 이미지
+        base_card_path = self.config.get("card", {}).get("background", "")
+        if base_card_path:
+            self.print_preview_widget.set_background(base_card_path, QColor("white"))
+        else:
+            self.print_preview_widget.set_background_color(QColor("white"))
+
+        # 카드 테두리 표시
+        self.print_preview_widget.set_card_border(True, QColor("#333333"), 3)
+
+        # framed_photo 영역 가져오기
+        x = self.config.get("framed_photo", {}).get("x", 143)
+        y = self.config.get("framed_photo", {}).get("y", 314)
+        w = self.config.get("framed_photo", {}).get("width", 350)
+        h = self.config.get("framed_photo", {}).get("height", 400)
+
+        # 선택된 프레임 이미지 확인
         selected_item = self.frame_list.currentItem() if hasattr(self, 'frame_list') else None
+        frame_image_path = None
         if selected_item:
             frame_image_name = selected_item.text()
             frame_image_path = FileHandler.resolve_frame_path(frame_image_name)
-            if frame_image_path and os.path.exists(frame_image_path):
-                self.print_preview_widget.add_element(
-                    "frame_overlay",
-                    QRect(0, 0, frame_width, frame_height),
-                    color=QColor("transparent"),
-                    image_path=frame_image_path,
-                    label="",
-                    draggable=False
-                )
+            if not (frame_image_path and os.path.exists(frame_image_path)):
+                frame_image_path = None
 
-        # 중앙에 사진 영역 표시 (실제로는 사진이 들어감)
+        # 프레임 이미지 영역 추가 (드래그/리사이즈 가능)
         self.print_preview_widget.add_element(
-            "photo_area",
-            QRect(50, 50, frame_width - 100, frame_height - 100),
-            color=QColor(200, 200, 200, 100),
-            label="사진 영역",
-            draggable=False
+            "framed_photo",
+            QRect(x, y, w, h),
+            color=QColor("#FF9800") if not frame_image_path else QColor("transparent"),
+            image_path=frame_image_path,
+            label="프레임" if not frame_image_path else "",
+            draggable=True
         )
 
         self.request_real_time_update()
+
+    # ═══════════════════════════════════════════════════════════════
+    # 프레임 인쇄 위치/크기 핸들러
+    # ═══════════════════════════════════════════════════════════════
+    def _on_framed_photo_input_changed(self):
+        """좌측 입력 필드 변경 시"""
+        x, y, w, h = self.framed_photo_input.get_values()
+        if "framed_photo" not in self.config:
+            self.config["framed_photo"] = {}
+        self.config["framed_photo"]["x"] = x
+        self.config["framed_photo"]["y"] = y
+        self.config["framed_photo"]["width"] = w
+        self.config["framed_photo"]["height"] = h
+        self._update_print_preview()
+
+    def _on_framed_photo_position_changed(self, element_id, x, y):
+        """미리보기에서 드래그 시"""
+        if element_id == "framed_photo":
+            if "framed_photo" not in self.config:
+                self.config["framed_photo"] = {}
+            self.config["framed_photo"]["x"] = x
+            self.config["framed_photo"]["y"] = y
+            # 좌측 입력 필드 업데이트
+            if hasattr(self, 'framed_photo_input'):
+                self.framed_photo_input.set_x(x)
+                self.framed_photo_input.set_y(y)
+            self.request_real_time_update()
+
+    def _on_framed_photo_size_changed(self, element_id, w, h):
+        """미리보기에서 리사이즈 시"""
+        if element_id == "framed_photo":
+            if "framed_photo" not in self.config:
+                self.config["framed_photo"] = {}
+            self.config["framed_photo"]["width"] = w
+            self.config["framed_photo"]["height"] = h
+            # 좌측 입력 필드 업데이트
+            if hasattr(self, 'framed_photo_input'):
+                self.framed_photo_input.set_width(w)
+                self.framed_photo_input.set_height(h)
+            self.request_real_time_update()
+
+    def _fill_framed_photo(self):
+        """전체 채우기"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw, ch = (636, 1012) if is_portrait else (1012, 636)
+        self.framed_photo_input.set_values(0, 0, cw, ch)
+        self._on_framed_photo_input_changed()
+
+    def _center_framed_photo(self):
+        """중앙 정렬"""
+        is_portrait = self.config.get("card", {}).get("orientation", "portrait") == "portrait"
+        cw, ch = (636, 1012) if is_portrait else (1012, 636)
+        x, y, w, h = self.framed_photo_input.get_values()
+        self.framed_photo_input.set_x((cw - w) // 2)
+        self.framed_photo_input.set_y((ch - h) // 2)
+        self._on_framed_photo_input_changed()
 
     def _update_thumbnail_grid(self):
         """테두리 썸네일 그리드 업데이트"""
@@ -1296,12 +1466,41 @@ class FrameTab(BaseTab):
         self.config["photo_frame"]["frame_files"] = frame_files
 
     def load_frame_list(self):
-        """config에서 테두리 목록 로드"""
+        """config에서 테두리 목록 로드 + 폴더 자동 스캔"""
         frame_files = self.config.get("photo_frame", {}).get("frame_files", [])
         self.frame_list.clear()
 
+        # config에 등록된 파일 추가
         for frame_file in frame_files:
             self.frame_list.addItem(frame_file)
+
+        # frames 폴더 스캔하여 미등록 파일 자동 추가
+        self._scan_frames_folder(frame_files)
+
+    def _scan_frames_folder(self, existing_files):
+        """frames 폴더를 스캔하여 미등록 파일 자동 추가"""
+        # 기존 파일명 목록 (경로 제외한 파일명만)
+        existing_names = set()
+        for f in existing_files:
+            existing_names.add(os.path.basename(f))
+
+        # frames 폴더 스캔
+        frames_folder = os.path.join(get_resources_base_path(), "resources", "frames")
+        if not os.path.exists(frames_folder):
+            return
+
+        # PNG, JPG 파일 스캔
+        for ext in ["*.png", "*.jpg", "*.jpeg"]:
+            pattern = os.path.join(frames_folder, ext)
+            for filepath in glob.glob(pattern):
+                filename = os.path.basename(filepath)
+                # 이미 등록된 파일이 아니면 추가
+                if filename not in existing_names:
+                    self.frame_list.addItem(filename)
+                    existing_names.add(filename)
+
+        # config 업데이트 (스캔된 파일들도 저장)
+        self.update_frame_config()
 
     # ==================== config 연동 ====================
     def update_config(self, config):
@@ -1321,9 +1520,14 @@ class FrameTab(BaseTab):
             frame_files.append(self.frame_list.item(i).text())
         config["photo_frame"]["frame_files"] = frame_files
 
-        # 합성 크기 저장
-        config["photo_frame"]["width"] = self.frame_size_input.get_width()
-        config["photo_frame"]["height"] = self.frame_size_input.get_height()
+        # framed_photo 인쇄 위치/크기 저장
+        if "framed_photo" not in config:
+            config["framed_photo"] = {"filename": "framed_photo.jpg"}
+        x, y, w, h = self.framed_photo_input.get_values()
+        config["framed_photo"]["x"] = x
+        config["framed_photo"]["y"] = y
+        config["framed_photo"]["width"] = w
+        config["framed_photo"]["height"] = h
 
     def update_ui(self, config):
         """설정에 따라 UI 업데이트"""
@@ -1342,10 +1546,13 @@ class FrameTab(BaseTab):
         # 테두리 목록 업데이트
         self.load_frame_list()
 
-        # 합성 크기 업데이트
-        self.frame_size_input.set_values(
-            width=config.get("photo_frame", {}).get("width", 800),
-            height=config.get("photo_frame", {}).get("height", 600)
+        # framed_photo 인쇄 위치/크기 업데이트
+        framed_photo = config.get("framed_photo", {})
+        self.framed_photo_input.set_values(
+            x=framed_photo.get("x", 143),
+            y=framed_photo.get("y", 314),
+            width=framed_photo.get("width", 350),
+            height=framed_photo.get("height", 400)
         )
 
         # 언어 활성화 상태에 따라 라디오 버튼 업데이트

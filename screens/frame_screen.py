@@ -964,9 +964,16 @@ class FrameScreen(QWidget):
     
     def onRetake(self):
         """다시 촬영 버튼 클릭 시"""
-        # 카메라 화면으로 돌아가기
-        camera_index = 1  # config에서 카메라 화면 인덱스 가져오기
-        self.stack.setCurrentIndex(camera_index)
+        # 카메라 화면으로 돌아가기 (스택 인덱스 2 = photo_screen)
+        # screen_order에서 카메라(1)의 위치로 current_index도 업데이트
+        camera_stack_index = 2
+        camera_screen_order = 1  # screen_order에서 카메라 화면 값
+
+        # main_window의 current_index를 카메라 화면 위치로 설정
+        if camera_screen_order in config["screen_order"]:
+            self.main_window.current_index = config["screen_order"].index(camera_screen_order)
+
+        self.stack.setCurrentIndex(camera_stack_index)
 
     def onConfirm(self):
         """확인 버튼 클릭 시"""
