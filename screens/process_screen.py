@@ -18,15 +18,34 @@ class ProcessScreen(QWidget):
         self.background_widget = None  # 배경 위젯 추적을 위한 변수
         self.media_player = None  # 미디어 플레이어 추적을 위한 변수
         self._background_initialized = False  # 배경 지연 초기화 플래그
+        self._last_language = None  # 마지막으로 로드된 언어 추적
         self.loadCustomFont()
         self.setupUI()
 
     def showEvent(self, event):
-        """화면이 처음 표시될 때 배경 초기화 (언어 선택 후)"""
-        if not self._background_initialized:
+        """화면이 표시될 때 배경 초기화 (언어 변경 시 갱신)"""
+        current_lang = language_manager.current_language
+
+        # 배경이 초기화되지 않았거나 언어가 변경된 경우 배경 갱신
+        if not self._background_initialized or self._last_language != current_lang:
+            self._cleanupBackground()
             self.setupBackground()
             self._background_initialized = True
+            self._last_language = current_lang
         super().showEvent(event)
+
+    def _cleanupBackground(self):
+        """기존 배경 리소스 정리"""
+        if self.media_player:
+            self.media_player.stop()
+            self.media_player.deleteLater()
+            self.media_player = None
+        if hasattr(self, 'audio_output') and self.audio_output:
+            self.audio_output.deleteLater()
+            self.audio_output = None
+        if self.background_widget:
+            self.background_widget.deleteLater()
+            self.background_widget = None
 
     def loadCustomFont(self):
         """커스텀 폰트 로드"""
@@ -95,30 +114,38 @@ class ProcessScreen(QWidget):
         """MP4 비디오 배경 설정"""
         self.background_widget = QVideoWidget(self)
         self.background_widget.resize(*self.screen_size)
-        
+
         self.media_player = QMediaPlayer(self)
         self.audio_output = QAudioOutput(self)
         self.audio_output.setMuted(True)  # 음소거
-        
+
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.setVideoOutput(self.background_widget)
         self.media_player.setSource(f"file:///{os.path.abspath(video_path)}")
-        
+
         # 비디오가 끝나면 다시 재생 (루프)
         self.media_player.mediaStatusChanged.connect(self.onVideoStatusChanged)
         self.media_player.play()
-    
+
+        # 배경을 맨 뒤로 보내고 표시
+        self.background_widget.lower()
+        self.background_widget.show()
+
     def setupGifBackground(self, gif_path):
         """GIF 애니메이션 배경 설정"""
         self.background_widget = QLabel(self)
         self.background_widget.resize(*self.screen_size)
-        
+
         movie = QMovie(gif_path)
         movie.setScaledSize(self.background_widget.size())
         self.background_widget.setMovie(movie)
         self.background_widget.setScaledContents(True)
         movie.start()
-    
+
+        # 배경을 맨 뒤로 보내고 표시
+        self.background_widget.lower()
+        self.background_widget.show()
+
     def setupImageBackground(self, image_path):
         """일반 이미지 배경 설정"""
         self.background_widget = QLabel(self)
@@ -126,7 +153,11 @@ class ProcessScreen(QWidget):
         self.background_widget.setPixmap(pixmap)
         self.background_widget.setScaledContents(True)
         self.background_widget.resize(*self.screen_size)
-    
+
+        # 배경을 맨 뒤로 보내고 표시
+        self.background_widget.lower()
+        self.background_widget.show()
+
     def onVideoStatusChanged(self, status):
         """비디오 상태 변경 시 호출 (루프 재생을 위해)"""
         if status == QMediaPlayer.MediaStatus.EndOfMedia:
