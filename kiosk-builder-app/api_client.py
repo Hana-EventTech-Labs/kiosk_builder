@@ -67,7 +67,13 @@ def register_event_with_resources(
             "expired_at": expired_at
         }
 
+        print(f"[API] 이벤트 등록 요청: {register_url}")
+        print(f"[API] Payload: {register_payload}")
+
         response = requests.post(register_url, json=register_payload, timeout=30)
+        print(f"[API] 응답 상태코드: {response.status_code}")
+        print(f"[API] 응답 내용: {response.text}")
+
         if response.status_code != 200 and response.status_code != 201:
             error_detail = response.json().get("detail", "이벤트 등록 실패")
             return False, {"error": f"이벤트 등록 실패: {error_detail}"}
@@ -75,6 +81,7 @@ def register_event_with_resources(
         result = response.json()
         event_number = result.get("event_number")
         activation_codes = result.get("activation_codes", [])
+        print(f"[API] 등록 성공 - 이벤트 번호: {event_number}, 활성화 코드: {activation_codes}")
 
         if not event_number:
             return False, {"error": "이벤트 번호를 받지 못했습니다."}

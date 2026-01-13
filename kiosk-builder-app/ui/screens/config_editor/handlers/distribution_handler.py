@@ -80,6 +80,13 @@ class DistributionHandler:
             # 6. GitHub에서 파일 다운로드 + 서버 업로드 (온라인 모드)
             from .distribution_progress_dialog import DistributionProgressDialog
 
+            # 온라인 모드 시 basic_tab에서 키오스크 대수와 만료일 가져오기
+            kiosk_count = 0
+            expired_at = None
+            if self.online_mode:
+                kiosk_count = self._get_kiosk_count()
+                expired_at = self._get_expired_at()
+
             dialog = DistributionProgressDialog(
                 parent=self.main_window,
                 github_base_url=self.latest_release_url,
@@ -87,7 +94,8 @@ class DistributionHandler:
                 online_mode=self.online_mode,
                 config=self.main_window.config if self.online_mode else None,
                 event_name=self.app_name if self.online_mode else None,
-                kiosk_count=1 if self.online_mode else 0,  # 기본 1대
+                kiosk_count=kiosk_count,
+                expired_at=expired_at,
                 resources_dir=os.path.join(get_resources_base_path(), 'resources') if self.online_mode else None
             )
 
@@ -533,6 +541,26 @@ Screens without files will use default backgrounds (from background folder).
         # 폴더 경로
         result_message += f"\n📁 배포 폴더 위치:\n{self.target_dir}"
 
+        # 온라인 모드 시 basic_tab에 활성화 코드 결과 표시
+        if self.online_mode:
+            try:
+                basic_tab = self.main_window.tab_manager.tabs['basic']
+                if server_result and server_result.get('success'):
+                    codes_text = f"✅ 등록 완료! (이벤트: {server_result.get('event_number', '')})\n"
+                    codes_text += f"행사명: {server_result.get('event_name', self.app_name)}\n"
+                    codes_text += "-" * 30 + "\n"
+                    for code_info in server_result.get('activation_codes', []):
+                        codes_text += f"키오스크 {code_info['kiosk_id']}: {code_info['code']}\n"
+                    basic_tab.set_activation_result(codes_text)
+                elif server_result:
+                    error_msg = server_result.get('error', '알 수 없는 오류')
+                    basic_tab.set_activation_result(f"❌ 서버 등록 실패\n{error_msg}")
+                else:
+                    basic_tab.set_activation_result("⚠️ 서버 등록이 취소되었거나 결과를 받지 못했습니다.")
+            except Exception as e:
+                import logging
+                logging.error(f"활성화 코드 결과 표시 실패: {e}")
+
         # 결과 표시
         if downloaded_files or copied_folders:
             QMessageBox.information(self.main_window, "배포용 파일 생성 완료", result_message)
@@ -542,3 +570,19 @@ Screens without files will use default backgrounds (from background folder).
                 "배포용 파일 생성 실패",
                 result_message + "\n\n필요한 파일을 다운로드하지 못했습니다."
             )
+
+    def _get_kiosk_count(self):
+        """basic_tab에서 키오스크 대수 가져오기"""
+        try:
+            return self.main_window.tab_manager.tabs['basic'].kiosk_count_spin.value()
+        except Exception:
+            return 1  # 기본값
+
+    def _get_expired_at(self):
+        """basic_tab에서 만료일 가져오기"""
+        try:
+            dt = self.main_window.tab_manager.tabs['basic'].expire_date_edit.dateTime()
+            return dt.toString("yyyy-MM-ddTHH:mm:ss")
+        except Exception:
+            from datetime import datetime, timedelta
+            return (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")

@@ -20,12 +20,13 @@ BUILDER_EXE_NAMES = ["SuperKioskBuilder.exe", "super-kiosk-builder.exe"]  # 우�
 class DistributionWorker(QThread):
     """다운로드 및 업로드 작업을 처리하는 워커 스레드"""
     progress = Signal(str, int, int)  # phase, current, total
+    download_progress = Signal(int, int, str)  # downloaded_bytes, total_bytes, filename
     log_message = Signal(str)
     phase_changed = Signal(str)  # 단계 변경 알림
     all_finished = Signal(dict)  # 전체 완료 시 결과 전달
 
     def __init__(self, github_base_url, target_dir, online_mode=False,
-                 config=None, event_name=None, kiosk_count=1, resources_dir=None):
+                 config=None, event_name=None, kiosk_count=1, expired_at=None, resources_dir=None):
         super().__init__()
         self.github_base_url = github_base_url
         self.target_dir = target_dir
@@ -33,6 +34,7 @@ class DistributionWorker(QThread):
         self.config = config
         self.event_name = event_name
         self.kiosk_count = kiosk_count
+        self.expired_at = expired_at
         self.resources_dir = resources_dir
 
         self.results = {
@@ -76,7 +78,7 @@ class DistributionWorker(QThread):
             description = file_info["description"]
             target_path = os.path.join(self.target_dir, target_name)
 
-            self.log_message.emit(f"\n다운로드 중: {target_name} ({description})")
+            self.log_message.emit(f"\n[{i+1}/{len(files_to_download)}] {target_name} ({description})")
 
             # 여러 파일명 시도
             success = False
@@ -85,8 +87,7 @@ class DistributionWorker(QThread):
             size = 0
 
             for filename in possible_names:
-                self.log_message.emit(f"  시도: {filename}")
-                success, message, size = self._download_file(filename, target_path)
+                success, message, size = self._download_file(filename, target_path, target_name)
                 if success:
                     downloaded_from = filename
                     break
@@ -104,10 +105,10 @@ class DistributionWorker(QThread):
                 self.results['failed_downloads'].append(target_name)
                 self.log_message.emit(f"  ✗ 실패: {last_error}")
 
-            # 전체 진행률
+            # 전체 진행률 (파일 단위)
             self.progress.emit("download", i + 1, len(files_to_download))
 
-    def _download_file(self, filename, target_path):
+    def _download_file(self, filename, target_path, display_name):
         """개별 파일 다운로드"""
         try:
             download_url = f"{self.github_base_url}/{filename}"
@@ -122,7 +123,7 @@ class DistributionWorker(QThread):
             total_size = int(response.headers.get('content-length', 0))
             downloaded_size = 0
             chunk_size = 8192
-            last_logged_percent = -1  # 마지막으로 로그한 퍼센트 (중복 방지)
+            last_emitted_percent = -1
 
             with open(target_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=chunk_size):
@@ -130,14 +131,12 @@ class DistributionWorker(QThread):
                         f.write(chunk)
                         downloaded_size += len(chunk)
 
-                        # 다운로드 진행률 (로그에 표시)
+                        # 바이트 기반 프로그레스바 업데이트 (1% 단위)
                         if total_size > 0:
                             percent = int((downloaded_size / total_size) * 100)
-                            # 20% 단위로 로그하되, 이미 로그한 퍼센트는 건너뛰기
-                            log_percent = (percent // 20) * 20  # 0, 20, 40, 60, 80, 100
-                            if log_percent > last_logged_percent and log_percent > 0:
-                                self.log_message.emit(f"    {log_percent}% ({downloaded_size // (1024*1024)} MB)")
-                                last_logged_percent = log_percent
+                            if percent > last_emitted_percent:
+                                self.download_progress.emit(downloaded_size, total_size, display_name)
+                                last_emitted_percent = percent
 
             if downloaded_size < 10000:  # 10KB 미만이면 실패
                 raise Exception(f"파일이 너무 작습니다 ({downloaded_size} bytes)")
@@ -155,8 +154,10 @@ class DistributionWorker(QThread):
             from api_client import register_event_with_resources
             from datetime import datetime, timedelta
 
-            # 만료일 설정 (30일 후)
-            expired_at = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+            # 만료일: 전달받은 값이 있으면 사용, 없으면 30일 후 기본값
+            expired_at = self.expired_at
+            if not expired_at:
+                expired_at = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
 
             def progress_callback(percent, message):
                 self.log_message.emit(f"  {message}")
@@ -204,7 +205,7 @@ class DistributionProgressDialog(QDialog):
 
     def __init__(self, parent=None, github_base_url="", target_dir="",
                  online_mode=False, config=None, event_name=None,
-                 kiosk_count=1, resources_dir=None):
+                 kiosk_count=1, expired_at=None, resources_dir=None):
         super().__init__(parent)
         self.github_base_url = github_base_url
         self.target_dir = target_dir
@@ -212,6 +213,7 @@ class DistributionProgressDialog(QDialog):
         self.config = config
         self.event_name = event_name
         self.kiosk_count = kiosk_count
+        self.expired_at = expired_at
         self.resources_dir = resources_dir
 
         self.results = {}
@@ -313,9 +315,15 @@ class DistributionProgressDialog(QDialog):
         download_layout.addStretch()
         phase_layout.addLayout(download_layout)
 
+        # 다운로드 상세 정보 라벨
+        self.download_detail_label = QLabel("")
+        self.download_detail_label.setStyleSheet(f"color: {COLORS['text_light']}; font-size: 11px; margin-left: 20px;")
+        phase_layout.addWidget(self.download_detail_label)
+
         self.download_progress = QProgressBar()
-        self.download_progress.setMaximum(2)  # 2개 파일
+        self.download_progress.setMaximum(100)  # 퍼센트 기준
         self.download_progress.setValue(0)
+        self.download_progress.setFormat("%p%")
         phase_layout.addWidget(self.download_progress)
 
         # Phase 2: 서버 업로드 (온라인 모드만)
@@ -366,10 +374,12 @@ class DistributionProgressDialog(QDialog):
             config=self.config,
             event_name=self.event_name,
             kiosk_count=self.kiosk_count,
+            expired_at=self.expired_at,
             resources_dir=self.resources_dir
         )
 
         self.worker.progress.connect(self.on_progress)
+        self.worker.download_progress.connect(self.on_download_progress)
         self.worker.log_message.connect(self.add_log)
         self.worker.phase_changed.connect(self.on_phase_changed)
         self.worker.all_finished.connect(self.on_finished)
@@ -377,11 +387,20 @@ class DistributionProgressDialog(QDialog):
         self.worker.start()
 
     def on_progress(self, phase, current, total):
-        """진행률 업데이트"""
-        if phase == "download":
-            self.download_progress.setValue(current)
-        elif phase == "upload" and self.online_mode:
+        """진행률 업데이트 (파일 단위)"""
+        if phase == "upload" and self.online_mode:
             self.upload_progress.setValue(current)
+
+    def on_download_progress(self, downloaded_bytes, total_bytes, filename):
+        """다운로드 바이트 기반 진행률 업데이트"""
+        if total_bytes > 0:
+            percent = int((downloaded_bytes / total_bytes) * 100)
+            self.download_progress.setValue(percent)
+
+            # 상세 정보 표시 (파일명, 다운로드 용량)
+            downloaded_mb = downloaded_bytes / (1024 * 1024)
+            total_mb = total_bytes / (1024 * 1024)
+            self.download_detail_label.setText(f"{filename}: {downloaded_mb:.1f} / {total_mb:.1f} MB")
 
     def on_phase_changed(self, phase):
         """단계 변경"""
