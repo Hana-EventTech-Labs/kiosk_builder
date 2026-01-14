@@ -774,15 +774,21 @@ class TextPreviewWidget(LivePreviewWidget):
         """텍스트 요소의 미리보기 좌표 경계 사각형 반환"""
         preview_x = int(elem['x'] / self._scale) + self._render_offset.x()
         preview_y = int(elem['y'] / self._scale) + self._render_offset.y()
-        font_size_preview = int(elem['font_size'] / self._scale)
 
-        # 텍스트 폭 대략 계산 (글자당 0.6 * font_size)
-        text_width = int(len(elem['text']) * font_size_preview * 0.6) + 20
-        text_height = font_size_preview + 10
+        # QFontMetrics를 사용하여 정확한 텍스트 크기 계산
+        font = QFont()
+        if elem.get('font_path') and os.path.exists(elem['font_path']):
+            font.setFamily(elem['font_path'])
+        font.setPointSize(int(elem['font_size'] / self._scale))
 
+        metrics = QFontMetrics(font)
+        text_width = metrics.horizontalAdvance(elem['text']) + 10
+        text_height = metrics.height() + 5
+
+        # 좌상단 기준 사각형 (실제 화면 setGeometry와 동일한 기준)
         return QRect(
-            preview_x - 5,
-            preview_y - font_size_preview,
+            preview_x,
+            preview_y,
             text_width,
             text_height
         )
@@ -830,7 +836,16 @@ class TextPreviewWidget(LivePreviewWidget):
             preview_x = int(elem['x'] / self._scale) + self._render_offset.x()
             preview_y = int(elem['y'] / self._scale) + self._render_offset.y()
 
-            painter.drawText(preview_x, preview_y, elem['text'])
+            # QFontMetrics를 사용하여 텍스트 크기 계산
+            metrics = QFontMetrics(font)
+            text_width = metrics.horizontalAdvance(elem['text'])
+            text_height = metrics.height()
+
+            # QLabel.setGeometry와 동일한 동작을 위해 QRect 기반 drawText 사용
+            # 키오스크에서 QLabel의 (x, y)는 위젯 좌상단 위치이므로,
+            # drawText도 QRect의 좌상단에서 시작하도록 함
+            text_rect = QRect(preview_x, preview_y, text_width + 10, text_height + 5)
+            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, elem['text'])
 
             # 선택된 텍스트에 경계선 및 리사이즈 핸들 표시
             if elem['id'] == self._selected_text_id and elem.get('resizable', True):
