@@ -97,6 +97,7 @@ class FrameTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_screen_preview()
         self._update_thumbnail_grid()
+        self._update_print_preview()
 
     # ═══════════════════════════════════════════════════════════════
     # 탭 1: 화면 설정
