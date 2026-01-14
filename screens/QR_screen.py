@@ -577,11 +577,11 @@ class QR_screen(QWidget):
             self.ws = None
             print("웹소켓 닫힘 - 홈 버튼")
         
-        # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
+        # 현재 인덱스를 초기화 (screen_order 처음으로 리셋)
         self.main_window.current_index = 0
-        
-        # 첫 화면으로 이동 (인덱스 0)
-        self.stack.setCurrentIndex(0)
+
+        # 스플래시 화면으로 이동 (인덱스 1, 인덱스 0은 활성화 화면)
+        self.stack.setCurrentIndex(1)
 
     # 화면이 닫힐 때 이벤트 처리 (예: 앱 종료 시)
     def hideEvent(self, event):
