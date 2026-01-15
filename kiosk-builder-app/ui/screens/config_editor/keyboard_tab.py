@@ -796,8 +796,8 @@ class KeyboardTab(BaseTab):
         special_group.addLayout(special_grid)
         settings_layout.addWidget(special_group)
 
-        # 4. 입력 제한 (접이식, 기본 접힘)
-        limit_group = CollapsibleGroupBox("입력 글자 수 제한", collapsed=True)
+        # 4. 입력 제한 (접이식)
+        limit_group = CollapsibleGroupBox("입력 글자 수 제한", collapsed=False)
         limit_grid = QGridLayout()
         limit_grid.setSpacing(8)
 
