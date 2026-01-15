@@ -23,7 +23,14 @@ class ProcessScreen(QWidget):
         self.setupUI()
 
     def showEvent(self, event):
-        """화면이 표시될 때 배경 초기화 (언어 변경 시 갱신)"""
+        """화면이 표시될 때 배경 초기화 및 프린터 스레드 시작"""
+        # 앱이 종료 중이면 무시 (cleanup 중 showEvent 호출 방지)
+        if hasattr(self.main_window, 'is_closing') and self.main_window.is_closing:
+            print("[ProcessScreen] 앱 종료 중 - showEvent 무시")
+            return
+
+        print(f"[ProcessScreen] showEvent 호출됨!")
+
         current_lang = language_manager.current_language
 
         # 배경이 초기화되지 않았거나 언어가 변경된 경우 배경 갱신
@@ -32,6 +39,10 @@ class ProcessScreen(QWidget):
             self.setupBackground()
             self._background_initialized = True
             self._last_language = current_lang
+
+        # 프린터 스레드 시작
+        self._startPrinterThread()
+
         super().showEvent(event)
 
     def _cleanupBackground(self):
@@ -187,13 +198,8 @@ class ProcessScreen(QWidget):
 
         return process_label
         
-    def showEvent(self, event):
-        # 앱이 종료 중이면 무시 (cleanup 중 showEvent 호출 방지)
-        if hasattr(self.main_window, 'is_closing') and self.main_window.is_closing:
-            print("[ProcessScreen] 앱 종료 중 - showEvent 무시")
-            return
-
-        print(f"[ProcessScreen] showEvent 호출됨!")
+    def _startPrinterThread(self):
+        """프린터 스레드 시작"""
         # PrinterThread가 이미 실행 중인지 확인
         if self.printer_thread is None or not self.printer_thread.isRunning():
             # 프린터 스레드 생성
