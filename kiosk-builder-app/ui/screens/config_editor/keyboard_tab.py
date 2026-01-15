@@ -1238,7 +1238,7 @@ class KeyboardTab(BaseTab):
             font_layout.addWidget(output_font_edit, 1)
             browse_btn = QPushButton("찾기")
             browse_btn.setFixedWidth(50)
-            browse_btn.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit))
+            browse_btn.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit, self._update_card_preview))
             font_layout.addWidget(browse_btn)
             item_layout.addRow("폰트:", font_layout)
             fields["output_font"] = output_font_edit
@@ -1352,7 +1352,7 @@ class KeyboardTab(BaseTab):
             font_edit = QLineEdit(item_data.get("font", ""))
             font_layout.addWidget(font_edit, 1)
             browse_btn = QPushButton("찾기...")
-            browse_btn.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit))
+            browse_btn.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit, self._update_card_preview))
             font_layout.addWidget(browse_btn)
             item_layout.addRow("폰트:", font_layout)
             fields["font"] = font_edit

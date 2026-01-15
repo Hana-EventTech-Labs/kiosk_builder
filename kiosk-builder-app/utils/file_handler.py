@@ -413,8 +413,14 @@ class FileHandler:
                 line_edit.setText(display_name)
     
     @staticmethod
-    def browse_font_file(parent, line_edit):
-        """폰트 파일 선택 다이얼로그"""
+    def browse_font_file(parent, line_edit, on_changed=None):
+        """폰트 파일 선택 다이얼로그
+
+        Args:
+            parent: 부모 위젯
+            line_edit: 파일명을 표시할 QLineEdit
+            on_changed: 폰트 변경 시 호출할 콜백 함수
+        """
         base_path = get_resources_base_path()
         resources_font_path = os.path.join(base_path, "resources", "font")
         file_path, _ = QFileDialog.getOpenFileName(
@@ -487,6 +493,10 @@ class FileHandler:
                 # 이미 리소스 폴더 내부에 있는 경우 파일명만 사용
                 file_name = os.path.basename(file_path)
                 line_edit.setText(file_name)
+
+            # 콜백 호출
+            if on_changed:
+                on_changed()
 
     @staticmethod
     def browse_frame_file(parent, line_edit):

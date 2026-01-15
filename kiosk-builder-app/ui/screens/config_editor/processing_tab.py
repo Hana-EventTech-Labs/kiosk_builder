@@ -156,7 +156,7 @@ class ProcessingTab(BaseTab):
 
         # 폰트 파일 선택 버튼 추가
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit))
+        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit, self._update_screen_preview))
         font_layout.addWidget(browse_button)
 
         text_layout.addRow("폰트:", font_layout)

@@ -5,7 +5,7 @@
 """
 from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PySide6.QtCore import Signal, Qt, QPoint, QRect, QSize
-from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont, QFontMetrics, QPainterPath
+from PySide6.QtGui import QMouseEvent, QPainter, QPixmap, QColor, QPen, QBrush, QFont, QFontMetrics, QPainterPath, QFontDatabase
 import os
 
 
@@ -694,6 +694,39 @@ class TextPreviewWidget(LivePreviewWidget):
         self._text_resize_start_size = 0
         self._text_resize_start_pos = QPoint()
 
+        # 폰트 패밀리 캐시 (font_path -> font_family_name)
+        self._font_family_cache = {}
+
+    def _get_font_family(self, font_path: str) -> str:
+        """폰트 파일 경로에서 폰트 패밀리 이름 반환 (캐시 사용)"""
+        if not font_path:
+            return None
+
+        # 파일 이름만 있으면 전체 경로 조합 (키오스크와 동일한 방식)
+        if not os.path.exists(font_path):
+            from utils.file_handler import get_resources_base_path
+            base_path = get_resources_base_path()
+            full_path = os.path.join(base_path, "resources", "font", font_path)
+            if os.path.exists(full_path):
+                font_path = full_path
+            else:
+                return None
+
+        # 캐시 확인
+        if font_path in self._font_family_cache:
+            return self._font_family_cache[font_path]
+
+        # 키오스크와 동일한 방식으로 폰트 로드
+        font_id = QFontDatabase.addApplicationFont(font_path)
+        if font_id != -1:
+            families = QFontDatabase.applicationFontFamilies(font_id)
+            if families:
+                font_family = families[0]
+                self._font_family_cache[font_path] = font_family
+                return font_family
+
+        return None
+
     def add_text(self, element_id: str, text: str, x: int, y: int,
                  font_path: str = None, font_size: int = 24,
                  color: QColor = None, draggable: bool = True,
@@ -777,13 +810,14 @@ class TextPreviewWidget(LivePreviewWidget):
 
         # QFontMetrics를 사용하여 정확한 텍스트 크기 계산
         font = QFont()
-        if elem.get('font_path') and os.path.exists(elem['font_path']):
-            font.setFamily(elem['font_path'])
+        font_family = self._get_font_family(elem.get('font_path'))
+        if font_family:
+            font.setFamily(font_family)
         font.setPointSize(int(elem['font_size'] / self._scale))
 
         metrics = QFontMetrics(font)
-        text_width = metrics.horizontalAdvance(elem['text']) + 10
-        text_height = metrics.height() + 5
+        text_width = metrics.horizontalAdvance(elem['text'])
+        text_height = metrics.height()
 
         # 좌상단 기준 사각형 (실제 화면 setGeometry와 동일한 기준)
         return QRect(
@@ -823,10 +857,11 @@ class TextPreviewWidget(LivePreviewWidget):
         painter.setRenderHint(QPainter.TextAntialiasing)
 
         for elem in self._text_elements:
-            # 폰트 설정
+            # 폰트 설정 (키오스크와 동일한 방식)
             font = QFont()
-            if elem['font_path'] and os.path.exists(elem['font_path']):
-                font.setFamily(elem['font_path'])
+            font_family = self._get_font_family(elem.get('font_path'))
+            if font_family:
+                font.setFamily(font_family)
             font.setPointSize(int(elem['font_size'] / self._scale))
 
             painter.setFont(font)
@@ -844,7 +879,7 @@ class TextPreviewWidget(LivePreviewWidget):
             # QLabel.setGeometry와 동일한 동작을 위해 QRect 기반 drawText 사용
             # 키오스크에서 QLabel의 (x, y)는 위젯 좌상단 위치이므로,
             # drawText도 QRect의 좌상단에서 시작하도록 함
-            text_rect = QRect(preview_x, preview_y, text_width + 10, text_height + 5)
+            text_rect = QRect(preview_x, preview_y, text_width, text_height)
             painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, elem['text'])
 
             # 선택된 텍스트에 경계선 및 리사이즈 핸들 표시
