@@ -666,6 +666,7 @@ class BasicTab(BaseTab):
         fields = self.image_item_fields[0]
         position_size = fields["position_size"]
         position_size.set_values(x=0, y=0, width=card_width, height=card_height)
+        self.update_card_preview()
         self.request_real_time_update()
 
     def _center_image_frame(self):
@@ -686,6 +687,7 @@ class BasicTab(BaseTab):
 
         position_size.set_x(int(center_x))
         position_size.set_y(int(center_y))
+        self.update_card_preview()
         self.request_real_time_update()
 
     def _fit_image_width(self):
@@ -700,6 +702,7 @@ class BasicTab(BaseTab):
         position_size = fields["position_size"]
         position_size.set_x(0)
         position_size.set_width(card_width)
+        self.update_card_preview()
         self.request_real_time_update()
 
     def _fit_image_height(self):
@@ -714,6 +717,7 @@ class BasicTab(BaseTab):
         position_size = fields["position_size"]
         position_size.set_y(0)
         position_size.set_height(card_height)
+        self.update_card_preview()
         self.request_real_time_update()
 
     def _on_image_position_changed(self, x, y):
