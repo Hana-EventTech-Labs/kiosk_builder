@@ -97,6 +97,7 @@ class FrameTab(BaseTab):
         # 초기 미리보기 업데이트
         self._update_screen_preview()
         self._update_thumbnail_grid()
+        self._update_print_preview()
 
     # ═══════════════════════════════════════════════════════════════
     # 탭 1: 화면 설정
@@ -1438,9 +1439,35 @@ class FrameTab(BaseTab):
         self._update_screen_preview()
 
     def remove_frame_from_list(self):
-        """선택한 테두리를 목록에서 삭제"""
+        """선택한 테두리를 목록 및 파일에서 삭제"""
         current_item = self.frame_list.currentItem()
         if current_item:
+            from PySide6.QtWidgets import QMessageBox
+            import os
+
+            frame_filename = current_item.text()
+            frame_path = os.path.join("resources", "frames", frame_filename)
+
+            # 삭제 확인 대화상자
+            reply = QMessageBox.question(
+                self, "테두리 삭제",
+                f"'{frame_filename}' 테두리를 삭제하시겠습니까?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+
+            if reply != QMessageBox.Yes:
+                return
+
+            # 실제 파일 삭제
+            if os.path.exists(frame_path):
+                try:
+                    os.remove(frame_path)
+                except Exception as e:
+                    QMessageBox.warning(self, "오류", f"파일 삭제 실패: {e}")
+                    return
+
+            # 목록에서 삭제
             row = self.frame_list.row(current_item)
             self.frame_list.takeItem(row)
 

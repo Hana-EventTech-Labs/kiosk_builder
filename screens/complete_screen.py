@@ -21,7 +21,7 @@ class CompleteScreen(QWidget):
         self.setupUI()
 
     def showEvent(self, event):
-        """화면이 표시될 때 배경 초기화 (언어 변경 시 갱신)"""
+        """화면이 표시될 때 배경 초기화 및 완료 타이머 시작"""
         current_lang = language_manager.current_language
 
         # 배경이 초기화되지 않았거나 언어가 변경된 경우 배경 갱신
@@ -30,6 +30,10 @@ class CompleteScreen(QWidget):
             self.setupBackground()
             self._background_initialized = True
             self._last_language = current_lang
+
+        # 완료 타이머 시작 (일정 시간 후 다음 화면으로 이동)
+        self._startCompleteTimer()
+
         super().showEvent(event)
 
     def _cleanupBackground(self):
@@ -189,11 +193,11 @@ class CompleteScreen(QWidget):
         self.current_index = 0
         return config["screen_order"][self.current_index]
     
-    def showEvent(self, event):
-        """화면이 표시될 때 2초 후 스플래시 화면으로 이동"""
+    def _startCompleteTimer(self):
+        """완료 타이머 시작 - 일정 시간 후 다음 화면으로 이동"""
         next_index = self.main_window.getNextScreenIndex()
         # print(f"완료 화면에서 다음 인덱스: {next_index}, 타이머: {config['complete']['complete_time']}ms")
-        QTimer.singleShot(config["complete"]["complete_time"], 
+        QTimer.singleShot(config["complete"]["complete_time"],
                         lambda: self.stack.setCurrentIndex(next_index))
 
     def addCloseButton(self):

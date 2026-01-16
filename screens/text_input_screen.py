@@ -44,6 +44,17 @@ class TextInputScreen(QWidget):
             self.setupBackground()
             self._background_initialized = True
             self._last_language = current_lang
+
+        # 키보드 표시 및 입력 필드 초기화
+        if self.keyboard:
+            self.keyboard.show()
+        if self.active_input:
+            self.active_input.setFocus()
+
+        # 이전 텍스트 클리어
+        for input_field in self.text_inputs:
+            input_field.clear()
+
         super().showEvent(event)
 
     def _cleanupBackground(self):
@@ -156,9 +167,14 @@ class TextInputScreen(QWidget):
     def setupBackground(self):
         background_file = None
 
+        # 디버그: 현재 언어 상태 출력
+        print(f"[TextInputScreen] setupBackground 호출 - 현재 언어: {language_manager.current_language}")
+        print(f"[TextInputScreen] 언어 기능 활성화: {language_manager.is_enabled()}")
+
         # 언어 선택 모드가 활성화된 경우 언어별 배경 먼저 확인
         if language_manager.is_enabled():
             lang_path = language_manager.get_background_path(2)  # text input screen = index 2
+            print(f"[TextInputScreen] 언어별 배경 경로: {lang_path}")
             if lang_path:
                 background_file = lang_path
 
@@ -174,6 +190,8 @@ class TextInputScreen(QWidget):
                 if os.path.exists(file_path):
                     background_file = file_path
                     break
+
+        print(f"[TextInputScreen] 최종 배경 파일: {background_file}")
 
         if background_file is None:
             # 모든 파일이 없는 경우 빈 배경 사용
@@ -267,17 +285,6 @@ class TextInputScreen(QWidget):
             }
         """)
         self.close_button.clicked.connect(self.main_window.closeApplication)
-    
-    def showEvent(self, event):
-        # When screen becomes visible, make sure keyboard is shown
-        if self.keyboard:
-            self.keyboard.show()
-        if self.active_input:
-            self.active_input.setFocus()
-            
-        # Clear any previous text
-        for input_field in self.text_inputs:
-            input_field.clear()
     
     def hideEvent(self, event):
         # When screen is hidden, hide the keyboard

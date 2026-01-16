@@ -55,7 +55,7 @@ class QR_screen(QWidget):
         # __init__에서 WebSocket을 시작하면 활성화 화면의 API 요청과 충돌할 수 있음
 
     def showEvent(self, event):
-        """화면이 표시될 때 배경 초기화 (언어 변경 시 갱신)"""
+        """화면이 표시될 때 배경 초기화 및 웹소켓/QR 초기화"""
         current_lang = language_manager.current_language
 
         # 배경이 초기화되지 않았거나 언어가 변경된 경우 배경 갱신
@@ -64,6 +64,39 @@ class QR_screen(QWidget):
             self.setupBackground()
             self._background_initialized = True
             self._last_language = current_lang
+
+        # 웹소켓이 없으면 새로 생성
+        if self.ws is None:
+            # 기존 이벤트 정보 초기화
+            self.event_id = None
+            self.event_name = None
+            self.qr_url = None
+
+            # QR 라벨 초기화
+            self.qr_label.setText("QR 코드 생성 중...")
+            self.qr_label.setPixmap(QPixmap())
+
+            # 미리보기 라벨 초기화
+            self.preview_label.setVisible(False)
+            self.preview_label.setText("아직 업로드된 이미지가 없습니다")
+            self.preview_label.setPixmap(QPixmap())
+
+            # 인쇄 버튼 비활성화
+            self.print_button.setEnabled(False)
+            self.print_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #cccccc;
+                    color: #888888;
+                    font-weight: bold;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 24px;
+                }
+            """)
+
+            # 이벤트 생성 및 QR 코드 표시 시작
+            QTimer.singleShot(100, self.create_event)
+
         super().showEvent(event)
 
     def _cleanupBackground(self):
@@ -544,47 +577,11 @@ class QR_screen(QWidget):
             self.ws = None
             print("웹소켓 닫힘 - 홈 버튼")
         
-        # 현재 인덱스를 초기화 (첫 화면 이전으로 설정)
+        # 현재 인덱스를 초기화 (screen_order 처음으로 리셋)
         self.main_window.current_index = 0
-        
-        # 첫 화면으로 이동 (인덱스 0)
-        self.stack.setCurrentIndex(0)
 
-    def showEvent(self, event):
-        """화면이 다시 표시될 때 호출되는 메서드"""
-        super().showEvent(event)
-        
-        # 웹소켓이 없으면 새로 생성
-        if self.ws is None:
-            # 기존 이벤트 정보 초기화
-            self.event_id = None
-            self.event_name = None
-            self.qr_url = None
-            
-            # QR 라벨 초기화
-            self.qr_label.setText("QR 코드 생성 중...")
-            self.qr_label.setPixmap(QPixmap())
-            
-            # 미리보기 라벨 초기화
-            self.preview_label.setVisible(False)
-            self.preview_label.setText("아직 업로드된 이미지가 없습니다")
-            self.preview_label.setPixmap(QPixmap())
-            
-            # 인쇄 버튼 비활성화
-            self.print_button.setEnabled(False)
-            self.print_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #cccccc;
-                    color: #888888;
-                    font-weight: bold;
-                    border: none;
-                    border-radius: 10px;
-                    font-size: 24px;
-                }
-            """)
-            
-            # 이벤트 생성 및 QR 코드 표시 시작
-            QTimer.singleShot(100, self.create_event)
+        # 스플래시 화면으로 이동 (인덱스 1, 인덱스 0은 활성화 화면)
+        self.stack.setCurrentIndex(1)
 
     # 화면이 닫힐 때 이벤트 처리 (예: 앱 종료 시)
     def hideEvent(self, event):

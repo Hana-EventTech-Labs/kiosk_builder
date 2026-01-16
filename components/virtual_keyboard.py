@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget, QGridLayout, QPushButton, QVBoxLayout, QSizePolicy
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPalette, QColor, QPainter, QBrush, QPen
 from components.hangul_composer import HangulComposer
 from config import config
 
@@ -36,7 +36,7 @@ class VirtualKeyboard(QWidget):
         self.setWindowFlags(
             Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        # WA_TranslucentBackground 제거 - bg_color 스타일시트가 적용되지 않는 문제 해결
         self.initUI()
         self.update_keyboard_labels()
 
@@ -45,14 +45,12 @@ class VirtualKeyboard(QWidget):
     def initUI(self):
         self.layout = QVBoxLayout()
         self.layout.setSpacing(5)
-        self.setStyleSheet(f"""
-        VirtualKeyboard {{
-            background-color: {config["keyboard"]["bg_color"]};
-            border: {config["keyboard"]["border_width"]}px solid {config["keyboard"]["border_color"]};
-            border-radius: {config["keyboard"]["border_radius"]}px;
-            padding: {config["keyboard"]["padding"]}px;
-        }}
-        """)
+
+        # 배경색 설정값 저장 (paintEvent에서 사용)
+        self._bg_color = QColor(config["keyboard"]["bg_color"])
+        self._border_color = QColor(config["keyboard"]["border_color"])
+        self._border_width = config["keyboard"]["border_width"]
+        self._border_radius = config["keyboard"]["border_radius"]
             
         self.keys = [
             ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
@@ -317,3 +315,21 @@ class VirtualKeyboard(QWidget):
         # 색상 코드가 #RRGGBB 형식이라고 가정
         r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         return f'#{max(0, r-30):02X}{max(0, g-30):02X}{max(0, b-30):02X}'
+
+    def paintEvent(self, event):
+        """배경색과 테두리를 직접 그리기"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # 배경 그리기
+        painter.setBrush(QBrush(self._bg_color))
+        painter.setPen(QPen(self._border_color, self._border_width))
+        painter.drawRoundedRect(
+            self._border_width // 2,
+            self._border_width // 2,
+            self.width() - self._border_width,
+            self.height() - self._border_width,
+            self._border_radius,
+            self._border_radius
+        )
+        painter.end()
