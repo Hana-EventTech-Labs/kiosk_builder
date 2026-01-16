@@ -124,9 +124,31 @@ def set_surface_properties(device_handle, orientation="portrait"):
 
     return surface_properties
 
+def get_font_family_name(font_path):
+    """
+    TTF 파일에서 실제 폰트 패밀리 이름을 추출하는 함수
+    예: Chosun.ttf -> "조선100년체"
+    """
+    try:
+        from PySide6.QtGui import QFontDatabase
+
+        font_id = QFontDatabase.addApplicationFont(str(font_path))
+        if font_id != -1:
+            families = QFontDatabase.applicationFontFamilies(font_id)
+            if families:
+                return families[0]
+
+        # 찾지 못한 경우 파일명 반환
+        return Path(font_path).stem
+    except Exception as e:
+        print(f"폰트 이름 추출 실패: {e}")
+        return Path(font_path).stem
+
+
 def load_font(font_path):
     """
     지정된 TTF 폰트를 로드하여 사용 가능하게 만드는 함수
+    반환값: 실제 폰트 패밀리 이름 (예: "조선100년체")
     """
     font_path = Path(font_path).resolve()  # 절대 경로 변환
     font_path_wchar = ctypes.c_wchar_p(str(font_path))  # ctypes를 사용하여 문자열 변환
@@ -140,8 +162,10 @@ def load_font(font_path):
         print(f"❌ 폰트 로드 실패: {font_path}")
         return None
 
-    # print(f"✅ 폰트 로드 성공: {font_path}")
-    return Path(font_path).stem  # 폰트 파일명(확장자 제외)을 반환
+    # TTF 파일에서 실제 폰트 패밀리 이름 추출
+    font_name = get_font_family_name(font_path)
+    # print(f"✅ 폰트 로드 성공: {font_path} -> {font_name}")
+    return font_name
 
 def draw_text(device_handle, page, panel, x, y, font_name, font_size, font_style, text):
     """
