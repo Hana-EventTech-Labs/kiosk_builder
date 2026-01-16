@@ -371,6 +371,13 @@ class ProcessingTab(BaseTab):
         """화면 미리보기 업데이트"""
         from PySide6.QtGui import QColor
 
+        # 모니터 크기
+        try:
+            monitor_width = self.config["screen_size"]["width"]
+            monitor_height = self.config["screen_size"]["height"]
+        except KeyError:
+            monitor_width, monitor_height = 1080, 1920
+
         # 텍스트 정보 수집
         phrase = self.process_fields.get("phrase")
         x_field = self.process_fields.get("x")
@@ -398,6 +405,7 @@ class ProcessingTab(BaseTab):
             else:
                 bg_path = FileHandler.resolve_background_path(PROCESSING_SCREEN_KEY, lang=None)
 
+            self.screen_preview_screen.set_original_size(monitor_width, monitor_height)
             self.screen_preview_screen.set_background(bg_path, QColor("#ffffff"))
             self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
             self.screen_preview_screen.clear_texts()
@@ -419,6 +427,7 @@ class ProcessingTab(BaseTab):
         # 텍스트 설정 탭의 미리보기 위젯 업데이트
         if self.screen_preview_text:
             bg_path = FileHandler.resolve_background_path(PROCESSING_SCREEN_KEY)
+            self.screen_preview_text.set_original_size(monitor_width, monitor_height)
             self.screen_preview_text.set_background(bg_path)
             self.screen_preview_text.clear_texts()
 
