@@ -137,7 +137,18 @@ class KioskApp(QMainWindow):
             import importlib
             import config as config_module
             importlib.reload(config_module)
-            from config import config
+
+            # 전역 config 변수 업데이트
+            global config
+            from config import config as new_config
+            config = new_config
+
+            print(f"설정 로드됨: {config.get('app_name', 'Unknown')}")
+
+            # 이미 화면이 생성되어 있으면 스킵
+            if self.splash_screen is not None:
+                print("화면이 이미 생성되어 있음 - 스킵")
+                return True
 
             # 모든 화면 생성
             self.splash_screen = SplashScreen(self.stack, self.screen_size, self)
@@ -157,11 +168,13 @@ class KioskApp(QMainWindow):
             self.stack.addWidget(self.process_screen)     # 인덱스 6
             self.stack.addWidget(self.complete_screen)    # 인덱스 7
 
-            print("모든 화면 생성 완료")
+            print(f"모든 화면 생성 완료 (스택 위젯 수: {self.stack.count()})")
+            return True
         except Exception as e:
             print(f"화면 생성 오류: {e}")
             import traceback
             traceback.print_exc()
+            return False
 
     def rebuildSplashScreen(self):
         """스플래시 화면 재생성 (활성화 후 config 반영) - 하위 호환성"""

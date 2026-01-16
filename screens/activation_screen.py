@@ -537,12 +537,24 @@ class ActivationScreen(QWidget):
 
     def goToNextScreen(self):
         """다음 화면 (스플래쉬)으로 이동"""
-        # 활성화 후 스플래시 화면 재생성 (새 config 반영)
-        if hasattr(self.main_window, 'rebuildSplashScreen'):
-            self.main_window.rebuildSplashScreen()
+        try:
+            # 활성화 후 모든 화면 생성 (새 config 반영)
+            if hasattr(self.main_window, 'buildAllScreens'):
+                self.main_window.buildAllScreens()
 
-        # 인덱스 1은 스플래쉬 화면
-        self.stack.setCurrentIndex(1)
+            # 스플래시 화면이 생성되었는지 확인
+            if self.main_window.splash_screen is not None:
+                # 인덱스 1은 스플래쉬 화면
+                self.stack.setCurrentIndex(1)
+                print("스플래시 화면으로 전환 완료")
+            else:
+                print("스플래시 화면 생성 실패 - 앱 재시작 필요")
+                self.status_label.setText("✓ 활성화 완료! 앱을 재시작해주세요.")
+        except Exception as e:
+            print(f"화면 전환 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            self.status_label.setText("✓ 활성화 완료! 앱을 재시작해주세요.")
 
     def cleanup(self):
         """리소스 정리"""
