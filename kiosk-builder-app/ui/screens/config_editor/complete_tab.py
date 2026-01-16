@@ -229,6 +229,7 @@ class CompleteTab(BaseTab):
         self.screen_preview_screen = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
         self.screen_preview_screen.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview_screen.text_size_changed.connect(self._on_text_size_changed)
         self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview_screen)
         preview_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
@@ -270,7 +271,7 @@ class CompleteTab(BaseTab):
         self.complete_fields["font"] = font_edit
 
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit))
+        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit, self._update_screen_preview))
         font_layout.addWidget(browse_button)
 
         text_layout.addRow("폰트:", font_layout)
@@ -336,6 +337,7 @@ class CompleteTab(BaseTab):
 
         self.screen_preview_text = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_text.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview_text.text_size_changed.connect(self._on_text_size_changed)
         self._zoomable_text_preview = ZoomablePreviewWidget(self.screen_preview_text)
         preview_layout.addWidget(self._zoomable_text_preview, 0, Qt.AlignCenter)
 
@@ -509,6 +511,15 @@ class CompleteTab(BaseTab):
             self.complete_fields['x'].blockSignals(False)
             self.complete_fields['y'].blockSignals(False)
 
+            self.request_real_time_update()
+
+    def _on_text_size_changed(self, element_id: str, new_size: int):
+        """드래그로 텍스트 크기 변경 시 호출"""
+        if element_id == "complete_text":
+            self.complete_fields['font_size'].blockSignals(True)
+            self.complete_fields['font_size'].setValue(new_size)
+            self.complete_fields['font_size'].blockSignals(False)
+            self._update_screen_preview()
             self.request_real_time_update()
 
     def update_ui(self, config):

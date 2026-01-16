@@ -796,8 +796,8 @@ class KeyboardTab(BaseTab):
         special_group.addLayout(special_grid)
         settings_layout.addWidget(special_group)
 
-        # 4. 입력 제한 (접이식, 기본 접힘)
-        limit_group = CollapsibleGroupBox("입력 글자 수 제한", collapsed=True)
+        # 4. 입력 제한 (접이식)
+        limit_group = CollapsibleGroupBox("입력 글자 수 제한", collapsed=False)
         limit_grid = QGridLayout()
         limit_grid.setSpacing(8)
 
@@ -1238,7 +1238,7 @@ class KeyboardTab(BaseTab):
             font_layout.addWidget(output_font_edit, 1)
             browse_btn = QPushButton("찾기")
             browse_btn.setFixedWidth(50)
-            browse_btn.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit))
+            browse_btn.clicked.connect(lambda checked, edit=output_font_edit: FileHandler.browse_font_file(self, edit, self._update_card_preview))
             font_layout.addWidget(browse_btn)
             item_layout.addRow("폰트:", font_layout)
             fields["output_font"] = output_font_edit
@@ -1352,7 +1352,7 @@ class KeyboardTab(BaseTab):
             font_edit = QLineEdit(item_data.get("font", ""))
             font_layout.addWidget(font_edit, 1)
             browse_btn = QPushButton("찾기...")
-            browse_btn.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit))
+            browse_btn.clicked.connect(lambda checked, edit=font_edit: FileHandler.browse_font_file(self, edit, self._update_card_preview))
             font_layout.addWidget(browse_btn)
             item_layout.addRow("폰트:", font_layout)
             fields["font"] = font_edit
@@ -1514,22 +1514,23 @@ class KeyboardTab(BaseTab):
         # 카드 테두리 표시 (인쇄 영역 경계)
         self.card_preview.set_card_border(True, QColor("#333333"), 3)
 
-        # 사용자 입력 텍스트 인쇄 위치 (실제 텍스트로 렌더링)
+        # 사용자 입력 텍스트 인쇄 위치 (바운딩 박스로 표시)
         input_colors = [QColor("#E53935"), QColor("#1E88E5"), QColor("#7B1FA2"),
                         QColor("#FB8C00"), QColor("#5D4037")]
         for i, fields in enumerate(self.print_input_item_fields):
             if "print_pos" in fields:
                 pos = fields["print_pos"]
                 x, y = pos.get_x(), pos.get_y()
+                w, h = pos.get_width(), pos.get_height()
 
                 # 표시할 텍스트 (placeholder 또는 label 사용)
-                display_text = f"(입력{i+1})"
+                display_text = f"입력{i+1}"
                 if i < len(self.text_input_item_fields):
                     screen_fields = self.text_input_item_fields[i]
                     if "placeholder" in screen_fields and screen_fields["placeholder"].text():
                         display_text = screen_fields["placeholder"].text()
                     elif "label" in screen_fields and screen_fields["label"].text():
-                        display_text = f"({screen_fields['label'].text()})"
+                        display_text = screen_fields["label"].text()
 
                 # 폰트 크기
                 font_size = fields.get("output_font_size")
@@ -1539,54 +1540,39 @@ class KeyboardTab(BaseTab):
                 font_color = fields.get("output_font_color")
                 color_val = QColor(font_color.color) if font_color else input_colors[i % len(input_colors)]
 
-                # 폰트 경로
-                font_path = fields.get("output_font")
-                font_path_val = font_path.text() if font_path else ""
-
-                self.card_preview.add_text(
+                self.card_preview.add_element(
                     f"print_input_{i}",
-                    display_text,
-                    x, y,
-                    font_path=font_path_val,
-                    font_size=font_size_val,
+                    QRect(x, y, w, h),
                     color=color_val,
                     draggable=True,
-                    resizable=True
+                    resizable=True,
+                    label=display_text
                 )
 
-        # 고정 텍스트 (실제 텍스트로 렌더링)
+        # 고정 텍스트 (바운딩 박스로 표시)
         fixed_colors = [QColor("#43A047"), QColor("#00897B"), QColor("#00ACC1"),
                         QColor("#D81B60"), QColor("#757575")]
         for i, fields in enumerate(self.text_item_fields):
             if "pos" in fields:
                 pos = fields["pos"]
                 x, y = pos.get_x(), pos.get_y()
+                w, h = pos.get_width(), pos.get_height()
 
                 # 표시할 텍스트
                 content = fields.get("content")
                 display_text = content.text() if content and content.text() else f"텍스트{i+1}"
 
-                # 폰트 크기
-                font_size = fields.get("font_size")
-                font_size_val = font_size.value() if font_size else 16
-
                 # 폰트 색상
                 font_color = fields.get("font_color")
                 color_val = QColor(font_color.color) if font_color else fixed_colors[i % len(fixed_colors)]
 
-                # 폰트 경로
-                font_path = fields.get("font")
-                font_path_val = font_path.text() if font_path else ""
-
-                self.card_preview.add_text(
+                self.card_preview.add_element(
                     f"fixed_text_{i}",
-                    display_text,
-                    x, y,
-                    font_path=font_path_val,
-                    font_size=font_size_val,
+                    QRect(x, y, w, h),
                     color=color_val,
                     draggable=True,
-                    resizable=True
+                    resizable=True,
+                    label=display_text
                 )
 
         self.request_real_time_update()

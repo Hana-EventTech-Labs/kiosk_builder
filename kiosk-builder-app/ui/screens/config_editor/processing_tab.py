@@ -112,6 +112,7 @@ class ProcessingTab(BaseTab):
         self.screen_preview_screen = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_screen.set_card_border(True, QColor("#333333"), 2)
         self.screen_preview_screen.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview_screen.text_size_changed.connect(self._on_text_size_changed)
         self._zoomable_screen_preview = ZoomablePreviewWidget(self.screen_preview_screen)
         preview_layout.addWidget(self._zoomable_screen_preview, 0, Qt.AlignCenter)
 
@@ -156,7 +157,7 @@ class ProcessingTab(BaseTab):
 
         # 폰트 파일 선택 버튼 추가
         browse_button = QPushButton("찾기...")
-        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit))
+        browse_button.clicked.connect(lambda checked: FileHandler.browse_font_file(self, font_edit, self._update_screen_preview))
         font_layout.addWidget(browse_button)
 
         text_layout.addRow("폰트:", font_layout)
@@ -218,6 +219,7 @@ class ProcessingTab(BaseTab):
         self.screen_preview_text = TextPreviewWidget(preview_size=DEFAULT_PREVIEW_SIZE)
         self.screen_preview_text.set_card_border(True, QColor("#333333"), 2)  # 검은 테두리 추가
         self.screen_preview_text.position_changed.connect(self._on_text_position_changed)
+        self.screen_preview_text.text_size_changed.connect(self._on_text_size_changed)
         self._zoomable_text_preview = ZoomablePreviewWidget(self.screen_preview_text)
         preview_layout.addWidget(self._zoomable_text_preview, 0, Qt.AlignCenter)
 
@@ -420,7 +422,7 @@ class ProcessingTab(BaseTab):
                     font_size=font_size,
                     color=QColor(font_color_str),
                     draggable=True,
-                    resizable=False
+                    resizable=True
                 )
             self.screen_preview_screen.update()
 
@@ -441,7 +443,7 @@ class ProcessingTab(BaseTab):
                     font_size=font_size,
                     color=QColor(font_color_str),
                     draggable=True,
-                    resizable=False
+                    resizable=True
                 )
             self.screen_preview_text.update()
 
@@ -467,6 +469,17 @@ class ProcessingTab(BaseTab):
             # 다른 미리보기 위젯도 동기화
             self._update_screen_preview()
             self.request_real_time_update()
+
+    def _on_text_size_changed(self, element_id: str, new_size: int):
+        """드래그로 텍스트 크기 변경 시 호출"""
+        if element_id == "process_text":
+            font_size_field = self.process_fields.get("font_size")
+            if font_size_field and hasattr(font_size_field, 'setValue'):
+                font_size_field.blockSignals(True)
+                font_size_field.setValue(new_size)
+                font_size_field.blockSignals(False)
+                self._update_screen_preview()
+                self.request_real_time_update()
 
     def _browse_and_update_background(self):
         """배경화면 파일 선택 및 업데이트"""

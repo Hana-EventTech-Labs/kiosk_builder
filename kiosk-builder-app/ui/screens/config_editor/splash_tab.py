@@ -230,7 +230,7 @@ class SplashTab(BaseTab):
         font_layout.addWidget(font_edit, 1)
         self.splash_fields["font"] = font_edit
         browse_btn = QPushButton("찾기...")
-        browse_btn.clicked.connect(lambda: FileHandler.browse_font_file(self, font_edit))
+        browse_btn.clicked.connect(lambda: FileHandler.browse_font_file(self, font_edit, self._update_screen_preview))
         font_layout.addWidget(browse_btn)
         text_layout.addRow("폰트:", font_layout)
 

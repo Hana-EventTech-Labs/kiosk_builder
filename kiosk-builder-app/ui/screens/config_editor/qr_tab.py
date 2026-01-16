@@ -493,7 +493,7 @@ class QRTab(BaseTab):
             monitor_width, monitor_height = 1080, 1920
 
         self.qr_position_input.set_values(x=0, y=0, width=monitor_width, height=monitor_height)
-        self.request_real_time_update()
+        self._update_qr_preview()
 
     def _center_qr_frame(self):
         """QR 코드를 모니터의 중앙에 정렬합니다."""
@@ -511,7 +511,7 @@ class QRTab(BaseTab):
 
         self.qr_position_input.set_x(center_x)
         self.qr_position_input.set_y(center_y)
-        self.request_real_time_update()
+        self._update_qr_preview()
 
     def _fit_qr_width(self):
         """QR 코드 넓이를 모니터 넓이에 맞춥니다 (높이 유지)."""
@@ -522,7 +522,7 @@ class QRTab(BaseTab):
 
         self.qr_position_input.set_x(0)
         self.qr_position_input.set_width(monitor_width)
-        self.request_real_time_update()
+        self._update_qr_preview()
 
     def _fit_qr_height(self):
         """QR 코드 높이를 모니터 높이에 맞춥니다 (넓이 유지)."""
@@ -533,7 +533,7 @@ class QRTab(BaseTab):
 
         self.qr_position_input.set_y(0)
         self.qr_position_input.set_height(monitor_height)
-        self.request_real_time_update()
+        self._update_qr_preview()
 
     def _fill_image_frame(self):
         """업로드된 이미지를 카드 크기에 맞게 채웁니다."""
@@ -656,7 +656,8 @@ class QRTab(BaseTab):
             qr_rect,
             color=QColor("cyan"),
             label="QR 코드",
-            draggable=True
+            draggable=True,
+            resizable=True
         )
 
         self.request_real_time_update()

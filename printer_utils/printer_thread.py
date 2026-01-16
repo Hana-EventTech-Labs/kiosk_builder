@@ -216,16 +216,20 @@ class PrinterThread(QThread):
                 # 텍스트 그리기 (여러 개)
                 for text_info in self.texts:
                     # 폰트 로드 (중복 로드 방지)
-                    font_path = f"resources/font/{text_info['font_name']}"
-                    if font_path not in loaded_fonts:
-                        font_name = load_font(font_path)
-                        if font_name is None:
-                            # self.error.emit(f"폰트 로드 실패: {text_info['font_name']}")
-                            font_name = "맑은 고딕"
-                            # return
-                        loaded_fonts[font_path] = font_name
+                    font_name_config = text_info['font_name']
+
+                    # 폰트명이 비어있으면 기본 폰트 사용
+                    if not font_name_config:
+                        font_name = "맑은 고딕"
                     else:
-                        font_name = loaded_fonts[font_path]
+                        font_path = f"resources/font/{font_name_config}"
+                        if font_path not in loaded_fonts:
+                            font_name = load_font(font_path)
+                            if font_name is None:
+                                font_name = "맑은 고딕"
+                            loaded_fonts[font_path] = font_name
+                        else:
+                            font_name = loaded_fonts[font_path]
 
                     # 색상 변환 (문자열 -> 16진수 정수)
                     if isinstance(text_info["font_color"], str):
