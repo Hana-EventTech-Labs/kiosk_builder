@@ -41,8 +41,28 @@ class FrameScreen(QWidget):
             self.setupBackground()
             self._background_initialized = True
             self._last_language = current_lang
-        # 촬영된 사진 표시 (파일 생성 지연 문제 해결)
+        # 프레임 선택 상태 초기화 (항상 첫 번째부터 시작)
+        self.current_frame_index = -1  # 다음 버튼 누르면 0번 프레임부터
+        self.selected_frame = None
+
+        # 촬영된 사진 표시 (프레임 미적용 상태)
         self.showCapturedPhoto()
+
+        # 페이지 인디케이터 초기화 (모두 비활성화)
+        if hasattr(self, 'page_indicators'):
+            for indicator in self.page_indicators:
+                indicator.setStyleSheet("color: #666; font-size: 16px;")
+
+        # 캐러셀 버튼 초기화 (모두 체크 해제)
+        if hasattr(self, 'carousel_buttons'):
+            for btn in self.carousel_buttons:
+                btn.setChecked(False)
+
+        # 그리드 버튼 초기화 (모두 체크 해제)
+        if hasattr(self, 'grid_buttons'):
+            for btn in self.grid_buttons:
+                btn.setChecked(False)
+
         super().showEvent(event)
         event.accept()
 
