@@ -154,15 +154,27 @@ class DistributionHandler:
         # 설정 업데이트
         self.main_window.tab_manager.update_config_from_tabs(self.main_window.config)
 
-        # 대상 디렉토리 설정
+        # 대상 디렉토리 설정 - 사용자가 폴더 선택
         app_folder_name = self.app_name.replace(" ", "_").replace(".", "_")
 
+        # 기본 경로 설정
         if getattr(sys, 'frozen', False):
-            parent_dir = os.path.dirname(sys.executable)
+            default_dir = os.path.dirname(sys.executable)
         else:
-            parent_dir = os.getcwd()
+            default_dir = os.getcwd()
 
-        self.target_dir = os.path.join(parent_dir, app_folder_name)
+        # 폴더 선택 다이얼로그
+        selected_dir = QFileDialog.getExistingDirectory(
+            self.main_window,
+            "배포 폴더 저장 위치 선택",
+            default_dir,
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+
+        if not selected_dir:
+            return False  # 사용자가 취소
+
+        self.target_dir = os.path.join(selected_dir, app_folder_name)
 
         # 기존 폴더 확인
         return self._check_existing_folder()
