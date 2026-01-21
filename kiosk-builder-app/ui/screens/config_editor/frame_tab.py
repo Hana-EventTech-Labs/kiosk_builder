@@ -34,7 +34,7 @@ class FrameTab(BaseTab):
         # 각 탭의 미리보기 위젯
         self.screen_preview_widget = None
         self.print_preview_widget = None
-        # 테두리 썸네일 그리드
+        # 프레임 썸네일 그리드
         self.thumbnail_grid = None
         self.thumbnail_widgets = []
         # 언어별 배경화면 필드
@@ -49,7 +49,7 @@ class FrameTab(BaseTab):
         scroll_content_layout = self.create_tab_with_scroll()
 
         # ═══════════════════════════════════════════════════════════════
-        # 서브 탭 위젯 (3개 탭: 화면 설정, 테두리 이미지, 인쇄 설정)
+        # 서브 탭 위젯 (3개 탭: 화면 설정, 프레임 이미지, 인쇄 설정)
         # ═══════════════════════════════════════════════════════════════
         self.sub_tabs = QTabWidget()
         self.sub_tabs.setStyleSheet("""
@@ -79,7 +79,7 @@ class FrameTab(BaseTab):
         # 탭 1: 화면 설정 (배경)
         self._create_screen_settings_tab()
 
-        # 탭 2: 테두리 이미지
+        # 탭 2: 프레임 이미지
         self._create_frame_image_tab()
 
         # 탭 3: 인쇄 설정
@@ -152,23 +152,23 @@ class FrameTab(BaseTab):
         self.sub_tabs.addTab(tab_widget, "화면 설정")
 
     # ═══════════════════════════════════════════════════════════════
-    # 탭 2: 테두리 이미지
+    # 탭 2: 프레임 이미지
     # ═══════════════════════════════════════════════════════════════
     def _create_frame_image_tab(self):
-        """테두리 이미지 탭 생성 - 좌측(관리) + 우측(썸네일 그리드)"""
+        """프레임 이미지 탭 생성 - 좌측(관리) + 우측(썸네일 그리드)"""
         tab_widget = QWidget()
         tab_main_layout = QHBoxLayout(tab_widget)
         tab_main_layout.setContentsMargins(10, 10, 10, 10)
         tab_main_layout.setSpacing(20)
 
-        # 좌측: 테두리 이미지 관리
+        # 좌측: 프레임 이미지 관리
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(12)
 
-        # 테두리 이미지 관리 그룹
-        frame_manage_group = QGroupBox("테두리 이미지 관리")
+        # 프레임 이미지 관리 그룹
+        frame_manage_group = QGroupBox("프레임 이미지 관리")
         frame_manage_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -190,7 +190,7 @@ class FrameTab(BaseTab):
         frame_manage_layout = QVBoxLayout(frame_manage_group)
 
         # 설명 라벨
-        frame_desc = QLabel("사용자가 선택할 수 있는 테두리 이미지를 추가하세요.\n사진 위에 합성되는 PNG 이미지 파일입니다.")
+        frame_desc = QLabel("사용자가 선택할 수 있는 프레임 이미지를 추가하세요.\n사진 위에 합성되는 PNG 이미지 파일입니다.")
         frame_desc.setStyleSheet("""
             color: #7B1FA2;
             font-size: 11px;
@@ -206,7 +206,7 @@ class FrameTab(BaseTab):
         # 파일 추가 레이아웃
         add_layout = QHBoxLayout()
         self.frame_file_edit = QLineEdit()
-        self.frame_file_edit.setPlaceholderText("테두리 이미지 파일을 선택하세요...")
+        self.frame_file_edit.setPlaceholderText("프레임 이미지 파일을 선택하세요...")
         add_layout.addWidget(self.frame_file_edit, 1)
 
         browse_btn = QPushButton("찾기...")
@@ -232,7 +232,7 @@ class FrameTab(BaseTab):
 
         frame_manage_layout.addLayout(add_layout)
 
-        # 테두리 목록
+        # 프레임 목록
         self.frame_list = QListWidget()
         self.frame_list.setMaximumHeight(200)
         self.frame_list.currentItemChanged.connect(self._on_frame_selection_changed)
@@ -258,12 +258,12 @@ class FrameTab(BaseTab):
 
         tab_main_layout.addWidget(left_widget, 1)
 
-        # 우측: 등록된 테두리 미리보기 (썸네일 그리드)
+        # 우측: 등록된 프레임 미리보기 (썸네일 그리드)
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        preview_group = QGroupBox("등록된 테두리 미리보기")
+        preview_group = QGroupBox("등록된 프레임 미리보기")
         preview_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
@@ -284,7 +284,7 @@ class FrameTab(BaseTab):
         """)
         preview_layout = QVBoxLayout(preview_group)
 
-        desc = QLabel("등록된 테두리 이미지들입니다. 클릭하면 확대 미리보기를 볼 수 있습니다.")
+        desc = QLabel("등록된 프레임 이미지들입니다. 클릭하면 확대 미리보기를 볼 수 있습니다.")
         desc.setAlignment(Qt.AlignCenter)
         desc.setStyleSheet("color: #7B1FA2; font-size: 11px; padding: 4px; font-weight: normal;")
         preview_layout.addWidget(desc)
@@ -306,7 +306,7 @@ class FrameTab(BaseTab):
 
         tab_main_layout.addWidget(right_widget, 1)
 
-        self.sub_tabs.addTab(tab_widget, "테두리 이미지")
+        self.sub_tabs.addTab(tab_widget, "프레임 이미지")
 
     # ═══════════════════════════════════════════════════════════════
     # 탭 3: 인쇄 설정
@@ -475,7 +475,7 @@ class FrameTab(BaseTab):
         layout_form.setSpacing(10)
 
         # 설명
-        desc_label = QLabel("키오스크에서 테두리 선택 화면의 레이아웃 스타일을 선택합니다.")
+        desc_label = QLabel("키오스크에서 프레임 선택 화면의 레이아웃 스타일을 선택합니다.")
         desc_label.setStyleSheet("""
             color: #2980b9;
             font-size: 11px;
@@ -603,10 +603,10 @@ class FrameTab(BaseTab):
         """선택된 스타일에 대한 설명 업데이트"""
         style_key = self.layout_style_combo.currentData()
         descriptions = {
-            "classic": "📐 기본 레이아웃입니다. 좌측에 테두리 썸네일 그리드, 우측에 합성 미리보기가 표시됩니다.",
-            "carousel": "🎠 중앙에 큰 미리보기, 하단에 테두리 썸네일 슬라이더가 표시됩니다. 좌우 버튼 또는 스와이프로 선택합니다.",
-            "fullscreen": "🖼️ 화면 전체에 합성 미리보기가 표시됩니다. 스와이프로 테두리를 전환하며, 하단에 페이지 인디케이터가 표시됩니다.",
-            "grid_overlay": "📱 상단에 큰 미리보기, 하단에 반투명 그리드로 테두리 썸네일이 표시됩니다."
+            "classic": "📐 기본 레이아웃입니다. 좌측에 프레임 썸네일 그리드, 우측에 합성 미리보기가 표시됩니다.",
+            "carousel": "🎠 중앙에 큰 미리보기, 하단에 프레임 썸네일 슬라이더가 표시됩니다. 좌우 버튼 또는 스와이프로 선택합니다.",
+            "fullscreen": "🖼️ 화면 전체에 합성 미리보기가 표시됩니다. 스와이프로 프레임을 전환하며, 하단에 페이지 인디케이터가 표시됩니다.",
+            "grid_overlay": "📱 상단에 큰 미리보기, 하단에 반투명 그리드로 프레임 썸네일이 표시됩니다."
         }
         self.style_description_label.setText(descriptions.get(style_key, ""))
 
@@ -845,12 +845,12 @@ class FrameTab(BaseTab):
         preview_height = self.config.get("photo_frame", {}).get("height", 600)
 
         if not frame_files:
-            # 테두리가 없을 때 안내 메시지
+            # 프레임이 없을 때 안내 메시지
             self.screen_preview_widget.add_element(
                 "no_frames",
                 QRect(monitor_width // 4, monitor_height // 2 - 50, monitor_width // 2, 100),
                 color=QColor(200, 200, 200, 100),
-                label="테두리 이미지를\n추가하세요",
+                label="프레임 이미지를\n추가하세요",
                 draggable=False
             )
         elif layout_style == "carousel":
@@ -890,7 +890,7 @@ class FrameTab(BaseTab):
             draggable=True
         )
 
-        # 각 테두리 이미지를 썸네일로 표시 (최대 6개) - 그리드 안에 상대 위치
+        # 각 프레임 이미지를 썸네일로 표시 (최대 6개) - 그리드 안에 상대 위치
         for idx, frame_file in enumerate(frame_files[:6]):
             row = idx // cols
             col = idx % cols
@@ -1139,7 +1139,7 @@ class FrameTab(BaseTab):
         else:
             self.print_preview_widget.set_background_color(QColor("white"))
 
-        # 카드 테두리 표시
+        # 카드 프레임 표시
         self.print_preview_widget.set_card_border(True, QColor("#333333"), 3)
 
         # framed_photo 영역 가져오기
@@ -1226,7 +1226,7 @@ class FrameTab(BaseTab):
         self._on_framed_photo_input_changed()
 
     def _update_thumbnail_grid(self):
-        """테두리 썸네일 그리드 업데이트"""
+        """프레임 썸네일 그리드 업데이트"""
         if not self.thumbnail_grid:
             return
 
@@ -1235,12 +1235,12 @@ class FrameTab(BaseTab):
             widget.deleteLater()
         self.thumbnail_widgets.clear()
 
-        # 테두리 파일 목록 가져오기
+        # 프레임 파일 목록 가져오기
         frame_files = self.config.get("photo_frame", {}).get("frame_files", [])
 
         if not frame_files:
-            # 등록된 테두리 없음 메시지
-            empty_label = QLabel("등록된 테두리 이미지가 없습니다.\n좌측에서 테두리 이미지를 추가하세요.")
+            # 등록된 프레임 없음 메시지
+            empty_label = QLabel("등록된 프레임 이미지가 없습니다.\n좌측에서 프레임 이미지를 추가하세요.")
             empty_label.setAlignment(Qt.AlignCenter)
             empty_label.setStyleSheet("color: #999; font-size: 12px; padding: 20px;")
             self.thumbnail_grid.addWidget(empty_label, 0, 0)
@@ -1302,9 +1302,9 @@ class FrameTab(BaseTab):
         return widget
 
     def _show_frame_preview_dialog(self, frame_file):
-        """테두리 이미지 확대 미리보기 다이얼로그"""
+        """프레임 이미지 확대 미리보기 다이얼로그"""
         dialog = QDialog(self)
-        dialog.setWindowTitle(f"테두리 미리보기 - {frame_file}")
+        dialog.setWindowTitle(f"프레임 미리보기 - {frame_file}")
         dialog.setMinimumSize(500, 500)
         layout = QVBoxLayout(dialog)
 
@@ -1372,17 +1372,17 @@ class FrameTab(BaseTab):
             self._current_lang_preview = None
 
     def _on_frame_selection_changed(self, current, previous):
-        """테두리 목록 선택 변경 시 인쇄 미리보기 업데이트"""
+        """프레임 목록 선택 변경 시 인쇄 미리보기 업데이트"""
         self._update_print_preview()
 
-    # ==================== 테두리 파일 관리 ====================
+    # ==================== 프레임 파일 관리 ====================
     def browse_frame_file(self):
-        """테두리 파일 선택 - 선택 즉시 목록에 추가"""
+        """프레임 파일 선택 - 선택 즉시 목록에 추가"""
         from PySide6.QtWidgets import QFileDialog, QMessageBox
 
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "테두리 이미지 선택",
+            "프레임 이미지 선택",
             "",
             "이미지 파일 (*.png *.jpg *.jpeg *.bmp);;모든 파일 (*.*)"
         )
@@ -1394,7 +1394,7 @@ class FrameTab(BaseTab):
             # 중복 확인
             for i in range(self.frame_list.count()):
                 if self.frame_list.item(i).text() == frame_file:
-                    QMessageBox.warning(self, "경고", "이미 추가된 테두리입니다.")
+                    QMessageBox.warning(self, "경고", "이미 추가된 프레임입니다.")
                     return
 
             # resources/frames 폴더로 복사
@@ -1413,18 +1413,18 @@ class FrameTab(BaseTab):
             self._update_print_preview()
 
     def add_frame_to_list(self):
-        """테두리를 목록에 추가"""
+        """프레임을 목록에 추가"""
         frame_file = self.frame_file_edit.text().strip()
         if not frame_file:
             from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "경고", "테두리 이미지 파일을 선택해주세요.")
+            QMessageBox.warning(self, "경고", "프레임 이미지 파일을 선택해주세요.")
             return
 
         # 중복 확인
         for i in range(self.frame_list.count()):
             if self.frame_list.item(i).text() == frame_file:
                 from PySide6.QtWidgets import QMessageBox
-                QMessageBox.warning(self, "경고", "이미 추가된 테두리입니다.")
+                QMessageBox.warning(self, "경고", "이미 추가된 프레임입니다.")
                 return
 
         # 목록에 추가
@@ -1439,7 +1439,7 @@ class FrameTab(BaseTab):
         self._update_screen_preview()
 
     def remove_frame_from_list(self):
-        """선택한 테두리를 목록 및 파일에서 삭제"""
+        """선택한 프레임을 목록 및 파일에서 삭제"""
         current_item = self.frame_list.currentItem()
         if current_item:
             from PySide6.QtWidgets import QMessageBox
@@ -1450,8 +1450,8 @@ class FrameTab(BaseTab):
 
             # 삭제 확인 대화상자
             reply = QMessageBox.question(
-                self, "테두리 삭제",
-                f"'{frame_filename}' 테두리를 삭제하시겠습니까?",
+                self, "프레임 삭제",
+                f"'{frame_filename}' 프레임을 삭제하시겠습니까?",
                 QMessageBox.Yes | QMessageBox.No,
                 QMessageBox.No
             )
@@ -1479,10 +1479,10 @@ class FrameTab(BaseTab):
             self._update_screen_preview()
         else:
             from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "경고", "삭제할 테두리를 선택해주세요.")
+            QMessageBox.warning(self, "경고", "삭제할 프레임을 선택해주세요.")
 
     def update_frame_config(self):
-        """테두리 목록을 config에 반영"""
+        """프레임 목록을 config에 반영"""
         frame_files = []
         for i in range(self.frame_list.count()):
             frame_files.append(self.frame_list.item(i).text())
@@ -1493,7 +1493,7 @@ class FrameTab(BaseTab):
         self.config["photo_frame"]["frame_files"] = frame_files
 
     def load_frame_list(self):
-        """config에서 테두리 목록 로드 + 폴더 자동 스캔"""
+        """config에서 프레임 목록 로드 + 폴더 자동 스캔"""
         frame_files = self.config.get("photo_frame", {}).get("frame_files", [])
         self.frame_list.clear()
 
@@ -1541,7 +1541,7 @@ class FrameTab(BaseTab):
         # 배경화면 저장
         config["photo_frame"]["background"] = self.frame_bg_edit.text()
 
-        # 테두리 목록 저장
+        # 프레임 목록 저장
         frame_files = []
         for i in range(self.frame_list.count()):
             frame_files.append(self.frame_list.item(i).text())
@@ -1570,7 +1570,7 @@ class FrameTab(BaseTab):
         # 배경화면 업데이트
         self.frame_bg_edit.setText(config.get("photo_frame", {}).get("background", ""))
 
-        # 테두리 목록 업데이트
+        # 프레임 목록 업데이트
         self.load_frame_list()
 
         # framed_photo 인쇄 위치/크기 업데이트
