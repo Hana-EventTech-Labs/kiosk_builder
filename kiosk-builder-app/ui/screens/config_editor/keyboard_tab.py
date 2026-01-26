@@ -1585,6 +1585,7 @@ class KeyboardTab(BaseTab):
             self.keyboard_position_input.set_x(x)
             self.keyboard_position_input.set_y(y)
             self.keyboard_position_input.block_all_signals(False)
+            self._update_keyboard_pos_preview()  # 키보드 위치 탭 미리보기도 업데이트
         elif element_id.startswith("input_"):
             idx = int(element_id.split("_")[1])
             if idx < len(self.text_input_item_fields) and "screen_pos" in self.text_input_item_fields[idx]:
@@ -1601,6 +1602,7 @@ class KeyboardTab(BaseTab):
             self.keyboard_position_input.block_all_signals(True)
             self.keyboard_position_input.set_values(x=x, y=y, width=width, height=height)
             self.keyboard_position_input.block_all_signals(False)
+            self._update_keyboard_pos_preview()  # 키보드 위치 탭 미리보기도 업데이트
         elif element_id.startswith("input_"):
             idx = int(element_id.split("_")[1])
             if idx < len(self.text_input_item_fields) and "screen_pos" in self.text_input_item_fields[idx]:
