@@ -348,6 +348,9 @@ class SplashTab(BaseTab):
 
         parent_layout.addWidget(self.lang_tab_widget)
 
+        # 언어 버튼 탭 변경 시 미리보기 업데이트
+        self.lang_tab_widget.currentChanged.connect(self._update_screen_preview)
+
         # 활성화 상태에 따라 탭 위젯 표시/숨김
         self.lang_tab_widget.setVisible(self.lang_enabled_checkbox.isChecked())
 
