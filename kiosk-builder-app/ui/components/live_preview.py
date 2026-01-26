@@ -45,9 +45,10 @@ def render_button_element(painter: QPainter, preview_rect: QRect, data: dict):
                         border_radius, border_radius)
     painter.fillPath(path, QBrush(bg_color))
 
-    # 테두리 그리기
+    # 테두리 그리기 (내부 채우기 없이 테두리만)
     if border_width > 0:
         painter.setPen(QPen(border_color, border_width))
+        painter.setBrush(Qt.NoBrush)
         painter.drawPath(path)
 
     # 중앙 정렬 텍스트

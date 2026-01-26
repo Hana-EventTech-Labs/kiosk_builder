@@ -348,6 +348,9 @@ class SplashTab(BaseTab):
 
         parent_layout.addWidget(self.lang_tab_widget)
 
+        # 언어 버튼 탭 변경 시 미리보기 업데이트
+        self.lang_tab_widget.currentChanged.connect(self._update_screen_preview)
+
         # 활성화 상태에 따라 탭 위젯 표시/숨김
         self.lang_tab_widget.setVisible(self.lang_enabled_checkbox.isChecked())
 
@@ -414,15 +417,11 @@ class SplashTab(BaseTab):
 
     def _add_lang_buttons_to_preview_widget(self, preview_widget):
         """언어 선택 버튼을 특정 미리보기 위젯에 추가 (실제 버튼 스타일)"""
-        # 시그널 연결 (한 번만)
-        try:
-            preview_widget.position_changed.disconnect(self._on_lang_button_position_changed)
-            preview_widget.size_changed.disconnect(self._on_lang_button_size_changed)
-        except (RuntimeError, TypeError):
-            pass
-
-        preview_widget.position_changed.connect(self._on_lang_button_position_changed)
-        preview_widget.size_changed.connect(self._on_lang_button_size_changed)
+        # 시그널 연결 (UniqueConnection으로 중복 연결 방지)
+        preview_widget.position_changed.connect(
+            self._on_lang_button_position_changed, Qt.UniqueConnection)
+        preview_widget.size_changed.connect(
+            self._on_lang_button_size_changed, Qt.UniqueConnection)
 
         # 미리보기 스케일 가져오기
         scale = getattr(preview_widget, '_scale', 1.0)
