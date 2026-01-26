@@ -841,7 +841,7 @@ class FloatingCardPreviewDialog(QDialog):
     def _get_font(self, font_path: str, font_size: int) -> QFont:
         """폰트 로드 - 경로가 있으면 로드, 없으면 기본 폰트"""
         font = QFont()
-        font.setPointSize(font_size)
+        font.setPointSize(max(1, font_size))
 
         if font_path and os.path.exists(font_path):
             font_id = QFontDatabase.addApplicationFont(font_path)
