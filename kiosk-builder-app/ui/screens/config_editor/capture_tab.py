@@ -537,6 +537,7 @@ class CaptureTab(BaseTab):
         self.camera_resolution_combo.setFixedWidth(150)
         resolutions = [
             (1920, 1080, "1920×1080 (FHD)"),
+            (2592, 1944, "2592×1944 (NUTZ)"),
             (1280, 720, "1280×720 (HD)"),
             (640, 480, "640×480 (VGA)"),
             (3840, 2160, "3840×2160 (4K)"),
