@@ -813,7 +813,7 @@ class TextPreviewWidget(LivePreviewWidget):
         font_family = self._get_font_family(elem.get('font_path'))
         if font_family:
             font.setFamily(font_family)
-        font.setPointSize(int(elem['font_size'] / self._scale))
+        font.setPointSize(max(1, int(elem['font_size'] / self._scale)))
 
         metrics = QFontMetrics(font)
         text_width = metrics.horizontalAdvance(elem['text'])
@@ -862,7 +862,7 @@ class TextPreviewWidget(LivePreviewWidget):
             font_family = self._get_font_family(elem.get('font_path'))
             if font_family:
                 font.setFamily(font_family)
-            font.setPointSize(int(elem['font_size'] / self._scale))
+            font.setPointSize(max(1, int(elem['font_size'] / self._scale)))
 
             painter.setFont(font)
             painter.setPen(QPen(elem['color']))
